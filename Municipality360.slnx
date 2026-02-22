@@ -3,4 +3,5 @@
   <Project Path="Municipality360.Application/Municipality360.Application.csproj" />
   <Project Path="Municipality360.Domain/Municipality360.Domain.csproj" />
   <Project Path="Municipality360.Infrastructure/Municipality360.Infrastructure.csproj" />
+  <Project Path="Municipality360.Web/Municipality360.Web.csproj" Id="a3168c47-3b36-4d02-b811-3b8639b6586e" />
 </Solution>
