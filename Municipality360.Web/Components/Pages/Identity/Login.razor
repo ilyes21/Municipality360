@@ -1,0 +1,64 @@
+@page "/login"
+@* @layout EmptyLayout *@
+
+<PageTitle>Connexion - Municipality360</PageTitle>
+
+<div class="min-vh-100 d-flex align-items-center justify-content-center bg-light">
+    <div class="card shadow-sm" style="width: 420px;">
+        <div class="card-body p-4">
+            <div class="text-center mb-4">
+                <h4 class="fw-bold text-warning"><i class="bi bi-building me-2"></i>Municipality360</h4>
+                <p class="text-muted">Connectez-vous a votre compte</p>
+            </div>
+
+            @if (!string.IsNullOrEmpty(ErrorMessage))
+            {
+                <div class="alert alert-danger alert-dismissible">
+                    <i class="bi bi-exclamation-triangle me-2"></i>@ErrorMessage
+                </div>
+            }
+
+            <div class="mb-3">
+                <label class="form-label">Email</label>
+                <input type="email" class="form-control" @bind="Email" placeholder="admin@municipality360.dz" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Mot de passe</label>
+                <input type="password" class="form-control" @bind="Password" @onkeypress="OnKeyPress" />
+            </div>
+            <button class="btn btn-warning w-100 fw-bold" @onclick="Logine" disabled="@IsLoading">
+                @if (IsLoading)
+                { <span class="spinner-border spinner-border-sm me-2"></span> }
+                <i class="bi bi-box-arrow-in-right me-2"></i> Connexion
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Inject] private IAuthApiService AuthService { get; set; } = null!;
+    [Inject] private NavigationManager NavManager { get; set; } = null!;
+
+    private string Email = "admin@municipality360.dz";
+    private string Password = "";
+    private string ErrorMessage = "";
+    private bool IsLoading = false;
+
+    private async Task Logine()
+    {
+        IsLoading = true;
+        ErrorMessage = "";
+        var result = await AuthService.LoginAsync(new() { Email = Email, Password = Password });
+        IsLoading = false;
+
+        if (result?.Succeeded == true)
+            NavManager.NavigateTo("/");
+        else
+            ErrorMessage = result?.Errors.FirstOrDefault() ?? "Connexion echouee";
+    }
+
+    private async Task OnKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await Logine();
+    }
+}

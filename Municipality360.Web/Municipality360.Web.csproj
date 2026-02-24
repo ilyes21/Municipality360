@@ -16,4 +16,8 @@
     <ProjectReference Include="..\Municipality360.Application\Municipality360.Application.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Components\Pages\Structure\" />
+  </ItemGroup>
+
 </Project>
