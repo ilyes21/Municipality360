@@ -32,9 +32,9 @@ builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo
     {
-        Title = "Municipality360 API",
+        Title = "Municipality ELAIN.360 API",
         Version = "v1",
-        Description = "API pour le systeme de gestion municipale Municipality360"
+        Description = "API pour le systeme de gestion municipale Municipality ELAIN.360"
     });
 
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -78,13 +78,13 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Municipality360 API v1");
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Municipality ELAIN.360 API v1");
         c.RoutePrefix = string.Empty; // Swagger at root
     });
 }
 
 app.UseHttpsRedirection();
-app.UseCors("Municipality360Policy");
+app.UseCors("Municipality.ELAIN.360Policy");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
