@@ -165,3 +165,26 @@ public class EmployeApiService : IEmployeApiService
 
     public async Task<bool> DeleteAsync(int id) => await _api.DeleteAsync($"api/employes/{id}");
 }
+
+// ======================== USERS (Admin Management) ========================
+public interface IUserApiService
+{
+    Task<Result<IEnumerable<UserDto>>?> GetAllAsync();
+    Task<Result<AuthResponseDto>?> RegisterAsync(RegisterDto dto);
+    Task<bool> DeleteAsync(string userId);
+}
+
+public class UserApiService : IUserApiService
+{
+    private readonly ApiService _api;
+    public UserApiService(ApiService api) => _api = api;
+
+    public async Task<Result<IEnumerable<UserDto>>?> GetAllAsync() =>
+        await _api.GetAsync<Result<IEnumerable<UserDto>>>("api/auth/users");
+
+    public async Task<Result<AuthResponseDto>?> RegisterAsync(RegisterDto dto) =>
+        await _api.PostAsync<RegisterDto, Result<AuthResponseDto>>("api/auth/register", dto);
+
+    public async Task<bool> DeleteAsync(string userId) =>
+        await _api.DeleteAsync($"api/auth/users/{userId}");
+}

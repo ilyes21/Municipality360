@@ -1,5 +1,5 @@
 ﻿<!DOCTYPE html>
-<html lang="fr">
+<html lang="ar" dir="rtl">
 
 <head>
     <meta charset="utf-8" />
@@ -10,16 +10,157 @@
     <link rel="stylesheet" href="@Assets["app.css"]" />
     <link rel="stylesheet" href="@Assets["css/app.css"]" />
     <link rel="stylesheet" href="@Assets["Municipality360.Web.styles.css"]" />
-    <link rel="stylesheet" href="@Assets["https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css"]" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&family=Cinzel:wght@600;700&display=swap" rel="stylesheet" />
     <ImportMap />
     <link rel="icon" type="image/png" href="favicon.png" />
     <HeadOutlet @rendermode="new InteractiveServerRenderMode(prerender: false)" />
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Tajawal', sans-serif;
+            height: 100%;
+        }
+
+        #app-loading {
+            position: fixed;
+            inset: 0;
+            background: #0a0e1a;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+
+            #app-loading.hidden {
+                opacity: 0;
+                visibility: hidden;
+            }
+
+        .loading-emblem {
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #1e3a5f, #2d6a9f);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 0 8px rgba(0,140,200,0.15), 0 0 40px rgba(0,140,200,0.25);
+            margin-bottom: 1.5rem;
+            animation: loading-pulse 1.5s ease-in-out infinite;
+        }
+        
+
+        .loading-emblem i {
+            font-size: 2.5rem;
+            color: #7dd3fc;
+        }
+
+        .loading-title {
+            font-family: 'Tajawal',sans-serif;
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: #e0f2fe;
+            margin-bottom: 0.3rem;
+        }
+
+        .loading-subtitle {
+            font-size: 0.8rem;
+            color: #475569;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin-bottom: 2rem;
+        }
+
+        .loading-bar-track {
+            width: 200px;
+            height: 3px;
+            background: rgba(255,255,255,0.07);
+            border-radius: 99px;
+            overflow: hidden;
+        }
+
+        .loading-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg,#0369a1,#38bdf8);
+            border-radius: 99px;
+            animation: loading-bar 1.8s ease-in-out infinite;
+        }
+        
+
+        #blazor-error-ui {
+            color-scheme: light only;
+            background: #fef3cd;
+            border-top: 2px solid #ffc107;
+            bottom: 0;
+            box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+            box-sizing: border-box;
+            display: none;
+            left: 0;
+            padding: 0.75rem 1.5rem;
+            position: fixed;
+            width: 100%;
+            z-index: 1000;
+            font-family: 'Tajawal',sans-serif;
+            font-size: 0.9rem;
+            color: #664d03;
+        }
+
+            #blazor-error-ui .dismiss {
+                cursor: pointer;
+                position: absolute;
+                left: 0.75rem;
+                top: 0.5rem;
+                font-size: 1.2rem;
+                background: none;
+                border: none;
+                color: #664d03;
+            }
+    </style>
 </head>
 
 <body>
+    <div id="app-loading">
+        <div class="loading-emblem">
+            <i class="bi bi-building-fill"></i>
+        </div>
+        <div class="loading-title">بلدية العين 360</div>
+        <div class="loading-subtitle">Municipality ELAIN 360</div>
+        <div class="loading-bar-track">
+            <div class="loading-bar-fill"></div>
+        </div>
+    </div>
+
     <Routes @rendermode="new InteractiveServerRenderMode(prerender: false)" />
-    <script src="@Assets["https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"]"></script>
+
+    <div id="blazor-error-ui">
+        حدث خطأ غير متوقع.
+        <a href="" class="reload">إعادة تحميل الصفحة</a>
+        <button class="dismiss">✕</button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="_framework/blazor.web.js"></script>
+    <script>
+        Blazor.addEventListener('enhancedload', function () { hideLoader(); });
+        setTimeout(hideLoader, 2000);
+        function hideLoader() {
+            var el = document.getElementById('app-loading');
+            if (el) {
+                el.classList.add('hidden');
+                setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 600);
+            }
+        }
+    </script>
 </body>
 
 </html>

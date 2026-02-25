@@ -1,60 +1,863 @@
 @page "/login"
-@* @layout EmptyLayout *@
+@using Microsoft.AspNetCore.Authorization
+@layout Layout.EmptyLayout
+@attribute [AllowAnonymous]
 
-<PageTitle>Connexion - Municipality360</PageTitle>
+<PageTitle>تسجيل الدخول - Municipality EL AIN 360</PageTitle>
 
-<div class="min-vh-100 d-flex align-items-center justify-content-center bg-light">
-    <div class="card shadow-sm" style="width: 420px;">
-        <div class="card-body p-4">
-            <div class="text-center mb-4">
-                <h4 class="fw-bold text-warning"><i class="bi bi-building me-2"></i>Municipality360</h4>
-                <p class="text-muted">Connectez-vous a votre compte</p>
+<style>
+    @@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&family=Cinzel:wght@600;700&display=swap');
+
+    *, *::before, *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    .login-root {
+        min-height: 100vh;
+        display: flex;
+        font-family: 'Tajawal', sans-serif;
+        background: #0a0e1a;
+        overflow: hidden;
+        position: relative;
+    }
+
+    /* ===== LEFT PANEL - Brand ===== */
+    .brand-panel {
+        flex: 1;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        background: linear-gradient(145deg, #0d1b2a 0%, #1a2a4a 40%, #0d2137 100%);
+    }
+
+        .brand-panel::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse 80% 60% at 30% 20%, rgba(0, 120, 200, 0.18) 0%, transparent 70%), radial-gradient(ellipse 60% 80% at 70% 80%, rgba(0, 180, 150, 0.12) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        /* Geometric grid lines */
+        .brand-panel::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            pointer-events: none;
+        }
+
+    .brand-content {
+        position: relative;
+        z-index: 2;
+        text-align: center;
+        padding: 2rem;
+    }
+
+    /* Municipality emblem */
+    .municipality-emblem {
+        width: 140px;
+        height: 140px;
+        margin: 0 auto 2rem;
+        position: relative;
+        animation: emblem-float 4s ease-in-out infinite;
+    }
+
+    @@keyframes emblem-float {
+        0%, 100% {
+            transform: translateY(0px);
+        }
+
+        50% {
+            transform: translateY(-12px);
+        }
+    }
+
+    .emblem-outer {
+        width: 140px;
+        height: 140px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #1e3a5f, #2d6a9f);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 0 0 4px rgba(0, 140, 200, 0.3), 0 0 0 8px rgba(0, 140, 200, 0.15), 0 0 40px rgba(0, 140, 200, 0.25), 0 20px 60px rgba(0, 0, 0, 0.5);
+        position: relative;
+    }
+
+        .emblem-outer::before {
+            content: '';
+            position: absolute;
+            inset: 8px;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.15);
+        }
+
+    .emblem-inner-icon {
+        font-size: 3.5rem;
+        color: #7dd3fc;
+        filter: drop-shadow(0 0 12px rgba(125, 211, 252, 0.6));
+    }
+
+    /* Star decoration around emblem */
+    .emblem-stars {
+        position: absolute;
+        inset: -20px;
+        pointer-events: none;
+    }
+
+    .star {
+        position: absolute;
+        width: 6px;
+        height: 6px;
+        background: #fbbf24;
+        clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+        animation: star-pulse 2.5s ease-in-out infinite;
+    }
+
+        .star:nth-child(1) {
+            top: 50%;
+            left: -5px;
+            transform: translateY(-50%);
+            animation-delay: 0s;
+        }
+
+        .star:nth-child(2) {
+            top: -5px;
+            left: 50%;
+            transform: translateX(-50%);
+            animation-delay: 0.4s;
+        }
+
+        .star:nth-child(3) {
+            bottom: -5px;
+            left: 50%;
+            transform: translateX(-50%);
+            animation-delay: 0.8s;
+        }
+
+        .star:nth-child(4) {
+            top: 15%;
+            right: -5px;
+            animation-delay: 1.2s;
+        }
+
+        .star:nth-child(5) {
+            bottom: 15%;
+            right: -5px;
+            animation-delay: 1.6s;
+        }
+
+    @@keyframes star-pulse {
+        0%, 100% {
+            opacity: 0.5;
+            transform: scale(1) translateY(-50%);
+        }
+
+        50% {
+            opacity: 1;
+            transform: scale(1.3) translateY(-50%);
+        }
+    }
+
+    .star:nth-child(2) {
+        animation: star-pulse2 2.5s ease-in-out infinite 0.4s;
+    }
+
+    .star:nth-child(3) {
+        animation: star-pulse3 2.5s ease-in-out infinite 0.8s;
+    }
+
+    .star:nth-child(4) {
+        animation: star-pulse4 2.5s ease-in-out infinite 1.2s;
+    }
+
+    .star:nth-child(5) {
+        animation: star-pulse5 2.5s ease-in-out infinite 1.6s;
+    }
+
+    @@keyframes star-pulse2 {
+        0%, 100% {
+            opacity: .5;
+            transform: scale(1) translateX(-50%)
+        }
+
+        50% {
+            opacity: 1;
+            transform: scale(1.3) translateX(-50%)
+        }
+    }
+
+    @@keyframes star-pulse3 {
+        0%, 100% {
+            opacity: .5;
+            transform: scale(1) translateX(-50%)
+        }
+
+        50% {
+            opacity: 1;
+            transform: scale(1.3) translateX(-50%)
+        }
+    }
+
+    @@keyframes star-pulse4 {
+        0%, 100% {
+            opacity: .5
+        }
+
+        50% {
+            opacity: 1;
+            transform: scale(1.3)
+        }
+    }
+
+    @@keyframes star-pulse5 {
+        0%, 100% {
+            opacity: .5
+        }
+
+        50% {
+            opacity: 1;
+            transform: scale(1.3)
+        }
+    }
+
+    .brand-title-ar {
+        font-family: 'Tajawal', sans-serif;
+        font-size: 2.2rem;
+        font-weight: 800;
+        color: #e0f2fe;
+        letter-spacing: 0.02em;
+        line-height: 1.2;
+        text-shadow: 0 0 30px rgba(125, 211, 252, 0.4);
+        margin-bottom: 0.3rem;
+    }
+
+    .brand-title-en {
+        font-family: 'Cinzel', serif;
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #7dd3fc;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        margin-bottom: 1rem;
+    }
+
+    .brand-divider {
+        width: 80px;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, #38bdf8, transparent);
+        margin: 1rem auto;
+    }
+
+    .brand-subtitle {
+        font-size: 0.95rem;
+        color: #94a3b8;
+        line-height: 1.7;
+        max-width: 340px;
+        font-weight: 400;
+    }
+
+    /* Stats row */
+    .brand-stats {
+        display: flex;
+        gap: 2rem;
+        margin-top: 2.5rem;
+        justify-content: center;
+    }
+
+    .stat-item {
+        text-align: center;
+    }
+
+    .stat-number {
+        font-family: 'Cinzel', serif;
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: #38bdf8;
+        display: block;
+    }
+
+    .stat-label {
+        font-size: 0.75rem;
+        color: #64748b;
+        font-weight: 500;
+        letter-spacing: 0.05em;
+    }
+
+    /* Decorative bottom wave */
+    .brand-footer {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 1.5rem 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        z-index: 2;
+    }
+
+    .alg-flag {
+        display: flex;
+        gap: 3px;
+    }
+
+    .flag-band {
+        width: 14px;
+        height: 14px;
+        border-radius: 2px;
+    }
+
+    .brand-footer-text {
+        font-size: 0.75rem;
+        color: #475569;
+        letter-spacing: 0.03em;
+    }
+
+    /* Animated particles */
+    .particles {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 1;
+        overflow: hidden;
+    }
+
+    .particle {
+        position: absolute;
+        border-radius: 50%;
+        opacity: 0;
+        animation: particle-rise linear infinite;
+    }
+
+    @@keyframes particle-rise {
+        0% {
+            opacity: 0;
+            transform: translateY(100vh) scale(0);
+        }
+
+        10% {
+            opacity: 0.6;
+        }
+
+        90% {
+            opacity: 0.2;
+        }
+
+        100% {
+            opacity: 0;
+            transform: translateY(-10vh) scale(1.5);
+        }
+    }
+
+    /* ===== RIGHT PANEL - Login Form ===== */
+    .form-panel {
+        width: 480px;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f8fafc;
+        position: relative;
+        padding: 2rem;
+        box-shadow: -20px 0 60px rgba(0,0,0,0.3);
+    }
+
+        .form-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(180deg, #0ea5e9, #0369a1, #0ea5e9);
+        }
+
+    .login-card {
+        width: 100%;
+        max-width: 380px;
+        animation: card-appear 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+
+    @@keyframes card-appear {
+        from {
+            opacity: 0;
+            transform: translateY(30px) scale(0.96);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+
+    .card-header-section {
+        text-align: center;
+        margin-bottom: 2.5rem;
+    }
+
+    .form-logo {
+        width: 64px;
+        height: 64px;
+        background: linear-gradient(135deg, #0369a1, #0ea5e9);
+        border-radius: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1.2rem;
+        box-shadow: 0 8px 24px rgba(14, 165, 233, 0.35);
+        transform: rotate(-3deg);
+    }
+
+        .form-logo i {
+            font-size: 1.8rem;
+            color: white;
+        }
+
+    .card-title {
+        font-size: 1.6rem;
+        font-weight: 800;
+        color: #0f172a;
+        font-family: 'Tajawal', sans-serif;
+        margin-bottom: 0.3rem;
+    }
+
+    .card-subtitle {
+        font-size: 0.88rem;
+        color: #94a3b8;
+        font-weight: 400;
+    }
+
+    /* Form fields */
+    .field-group {
+        margin-bottom: 1.4rem;
+    }
+
+    .field-label {
+        display: block;
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 0.5rem;
+        letter-spacing: 0.03em;
+    }
+
+    .field-wrap {
+        position: relative;
+    }
+
+    .field-icon {
+        position: absolute;
+        right: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #94a3b8;
+        font-size: 1rem;
+        pointer-events: none;
+        transition: color 0.2s;
+    }
+
+    .field-input {
+        width: 100%;
+        height: 48px;
+        padding: 0 44px 0 16px;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 12px;
+        font-size: 0.92rem;
+        font-family: 'Tajawal', sans-serif;
+        color: #0f172a;
+        background: #fff;
+        transition: all 0.2s;
+        outline: none;
+        direction: ltr;
+        text-align: left;
+    }
+
+        .field-input:focus {
+            border-color: #0ea5e9;
+            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.12);
+        }
+
+            .field-input:focus + .field-icon {
+                color: #0ea5e9;
+            }
+
+        .field-input::placeholder {
+            color: #cbd5e1;
+            font-size: 0.85rem;
+        }
+
+    /* Password toggle */
+    .toggle-password {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #94a3b8;
+        cursor: pointer;
+        font-size: 1rem;
+        transition: color 0.2s;
+        background: none;
+        border: none;
+        padding: 0;
+        display: flex;
+        align-items: center;
+    }
+
+        .toggle-password:hover {
+            color: #0ea5e9;
+        }
+
+    .field-input.has-toggle {
+        padding-left: 44px;
+    }
+
+    /* Error */
+    .error-box {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        margin-bottom: 1.2rem;
+        font-size: 0.85rem;
+        color: #dc2626;
+        animation: shake 0.4s ease;
+    }
+
+    @@keyframes shake {
+        0%, 100% {
+            transform: translateX(0);
+        }
+
+        20%, 60% {
+            transform: translateX(-6px);
+        }
+
+        40%, 80% {
+            transform: translateX(6px);
+        }
+    }
+
+    /* Submit button */
+    .btn-login {
+        width: 100%;
+        height: 52px;
+        background: linear-gradient(135deg, #0369a1 0%, #0ea5e9 100%);
+        border: none;
+        border-radius: 12px;
+        color: white;
+        font-family: 'Tajawal', sans-serif;
+        font-size: 1rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s;
+        box-shadow: 0 4px 20px rgba(14, 165, 233, 0.4);
+        margin-top: 0.5rem;
+    }
+
+        .btn-login::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .btn-login:hover::before {
+            opacity: 1;
+        }
+
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(14, 165, 233, 0.5);
+        }
+
+        .btn-login:active {
+            transform: translateY(0);
+        }
+
+        .btn-login:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .btn-login span, .btn-login i {
+            position: relative;
+            z-index: 1;
+        }
+
+    .login-separator {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin: 1.8rem 0;
+    }
+
+    .sep-line {
+        flex: 1;
+        height: 1px;
+        background: #e2e8f0;
+    }
+
+    .sep-text {
+        font-size: 0.75rem;
+        color: #94a3b8;
+        font-weight: 500;
+        white-space: nowrap;
+    }
+
+    .security-badge {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        font-size: 0.75rem;
+        color: #64748b;
+        margin-top: 1.5rem;
+    }
+
+        .security-badge i {
+            color: #22c55e;
+            font-size: 0.9rem;
+        }
+
+    /* Responsive */
+    @@media (max-width: 768px) {
+        .brand-panel {
+            display: none;
+        }
+
+        .form-panel {
+            width: 100%;
+            background: linear-gradient(145deg, #0d1b2a 0%, #1a2a4a 100%);
+        }
+
+        .card-title {
+            color: #e0f2fe;
+        }
+
+        .card-subtitle {
+            color: #94a3b8;
+        }
+
+        .field-label {
+            color: #cbd5e1;
+        }
+
+        .form-logo {
+            background: linear-gradient(135deg, #1e3a5f, #2d6a9f);
+        }
+
+        .field-input {
+            background: rgba(255,255,255,0.07);
+            border-color: rgba(255,255,255,0.12);
+            color: #e2e8f0;
+        }
+
+            .field-input:focus {
+                border-color: #38bdf8;
+                background: rgba(255,255,255,0.1);
+            }
+
+        .security-badge {
+            color: #475569;
+        }
+    }
+</style>
+
+<div class="login-root" dir="rtl">
+
+    <!-- LEFT: Brand Panel -->
+    <div class="brand-panel">
+
+        <!-- Animated Particles -->
+        <div class="particles" id="particles-container"></div>
+
+        <div class="brand-content">
+            <!-- Emblem -->
+            <div class="municipality-emblem">
+                <div class="emblem-outer">
+                    <i class="bi bi-building-fill emblem-inner-icon"></i>
+                </div>
+                <div class="emblem-stars">
+                    <div class="star"></div>
+                    <div class="star"></div>
+                    <div class="star"></div>
+                    <div class="star"></div>
+                    <div class="star"></div>
+                </div>
+            </div>
+
+            <div class="brand-title-ar">بلدية العين 360</div>
+            <div class="brand-title-en">Municipality ELAIN 360</div>
+            <div class="brand-divider"></div>
+            <p class="brand-subtitle">
+                منصة إدارة البلدية الرقمية المتكاملة<br />
+                لتقديم خدمات فعّالة وشفافة للمواطنين
+            </p>
+
+            <div class="brand-stats">
+                <div class="stat-item">
+                    <span class="stat-number">360°</span>
+                    <span class="stat-label">إدارة شاملة</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number">ELAIN</span>
+                    <span class="stat-label">بلدية العين</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number">TN</span>
+                    <span class="stat-label">تونس</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="brand-footer">
+            <div class="alg-flag">
+                <div class="flag-band" style="background:#d4193f;"></div>
+                <div class="flag-band" style="background:#fff;"></div>
+            </div>
+            <span class="brand-footer-text">الجمهورية التونسية</span>
+        </div>
+    </div>
+
+    <!-- RIGHT: Login Form -->
+    <div class="form-panel">
+        <div class="login-card">
+
+            <div class="card-header-section">
+                <div class="form-logo">
+                    <i class="bi bi-shield-lock-fill"></i>
+                </div>
+                <div class="card-title">تسجيل الدخول</div>
+                <div class="card-subtitle">أدخل بياناتك للوصول إلى لوحة التحكم</div>
             </div>
 
             @if (!string.IsNullOrEmpty(ErrorMessage))
             {
-                <div class="alert alert-danger alert-dismissible">
-                    <i class="bi bi-exclamation-triangle me-2"></i>@ErrorMessage
+                <div class="error-box">
+                    <i class="bi bi-exclamation-circle-fill"></i>
+                    <span>@ErrorMessage</span>
                 </div>
             }
 
-            <div class="mb-3">
-                <label class="form-label">Email</label>
-                <input type="email" class="form-control" @bind="Email" placeholder="admin@municipality360.dz" />
+            <!-- Email -->
+            <div class="field-group">
+                <label class="field-label">البريد الإلكتروني</label>
+                <div class="field-wrap">
+                    <input type="email"
+                           class="field-input"
+                           @bind="Email"
+                           placeholder="admin@municipality360.dz"
+                           autocomplete="email" />
+                    <i class="bi bi-envelope field-icon"></i>
+                </div>
             </div>
-            <div class="mb-3">
-                <label class="form-label">Mot de passe</label>
-                <input type="password" class="form-control" @bind="Password" @onkeypress="OnKeyPress" />
+
+            <!-- Password -->
+            <div class="field-group">
+                <label class="field-label">كلمة المرور</label>
+                <div class="field-wrap">
+                    <input type="@(ShowPassword ? "text" : "password")"
+                           class="field-input has-toggle"
+                           @bind="Password"
+                           @onkeypress="OnKeyPress"
+                           placeholder="••••••••"
+                           autocomplete="current-password" />
+                    <i class="bi bi-lock field-icon"></i>
+                    <button type="button" class="toggle-password" @onclick="() => ShowPassword = !ShowPassword" tabindex="-1">
+                        <i class="bi @(ShowPassword ? "bi-eye-slash" : "bi-eye")"></i>
+                    </button>
+                </div>
             </div>
-            <button class="btn btn-warning w-100 fw-bold" @onclick="Logine" disabled="@IsLoading">
+
+            <!-- Submit -->
+            <button class="btn-login" @onclick="Logine" disabled="@IsLoading">
                 @if (IsLoading)
-                { <span class="spinner-border spinner-border-sm me-2"></span> }
-                <i class="bi bi-box-arrow-in-right me-2"></i> Connexion
+                {
+                    <span class="spinner-border spinner-border-sm me-2" style="width:1.1rem;height:1.1rem;border-width:2px;"></span>
+                    <span>جاري التحقق...</span>
+                }
+                else
+                {
+                    <i class="bi bi-box-arrow-in-left me-2"></i>
+                    <span>دخول</span>
+                }
             </button>
+
+            <div class="security-badge">
+                <i class="bi bi-shield-check-fill"></i>
+                <span>اتصال آمن ومشفر · Municipality EL AIN 360 &copy; 2026</span>
+            </div>
+
         </div>
     </div>
+
 </div>
+
+<script>
+    (function () {
+        var container = document.getElementById('particles-container');
+        if (!container) return;
+        var colors = ['#38bdf8', '#0ea5e9', '#7dd3fc', '#bae6fd', '#fbbf24'];
+        for (var i = 0; i < 20; i++) {
+            (function (index) {
+                var p = document.createElement('div');
+                p.className = 'particle';
+                var size = Math.random() * 4 + 2;
+                p.style.width = size + 'px';
+                p.style.height = size + 'px';
+                p.style.left = Math.random() * 100 + '%';
+                p.style.bottom = '0';
+                p.style.background = colors[Math.floor(Math.random() * colors.length)];
+                p.style.animationDuration = (Math.random() * 8 + 6) + 's';
+                p.style.animationDelay = (Math.random() * 10) + 's';
+                container.appendChild(p);
+            })(i);
+        }
+    })();
+</script>
 
 @code {
     [Inject] private IAuthApiService AuthService { get; set; } = null!;
     [Inject] private NavigationManager NavManager { get; set; } = null!;
+    [Inject] private AuthenticationStateProvider AuthStateProvider { get; set; } = null!;
 
     private string Email = "admin@municipality360.dz";
     private string Password = "";
     private string ErrorMessage = "";
     private bool IsLoading = false;
+    private bool ShowPassword = false;
 
     private async Task Logine()
     {
         IsLoading = true;
         ErrorMessage = "";
+        StateHasChanged();
+
         var result = await AuthService.LoginAsync(new() { Email = Email, Password = Password });
         IsLoading = false;
 
         if (result?.Succeeded == true)
             NavManager.NavigateTo("/");
         else
-            ErrorMessage = result?.Errors.FirstOrDefault() ?? "Connexion echouee";
+            ErrorMessage = result?.Errors.FirstOrDefault() ?? "فشل تسجيل الدخول. تحقق من بياناتك.";
     }
 
     private async Task OnKeyPress(KeyboardEventArgs e)

@@ -1,34 +1,85 @@
-﻿<CascadingAuthenticationState>
-    <Router AppAssembly="typeof(Program).Assembly">
+﻿@using Municipality360.Web.Components.Pages.Identity
+@using Municipality360.Web.Components.Layout
+@using Microsoft.AspNetCore.Components.Authorization
+
+<CascadingAuthenticationState>
+    <Router AppAssembly="@typeof(Program).Assembly">
+
         <Found Context="routeData">
-            <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
+            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+
+                @* غير مسجل الدخول: نعرض صفحة Login مباشرة بدون Sidebar *@
                 <NotAuthorized>
-                    @if (!context.User.Identity?.IsAuthenticated ?? true)
-                    {
-                        <RedirectToLogin></RedirectToLogin>
-                    }
-                    else
-                    {
-                        <div class="alert alert-danger m-4">
-                            <i class="bi bi-shield-x me-2"></i>
-                            Accès refusé. Vous n'avez pas les permissions nécessaires.
-                        </div>
-                    }
+                    <Login />
                 </NotAuthorized>
+
+                @* جاري فحص التوكن من LocalStorage *@
                 <Authorizing>
-                    <div class="d-flex justify-content-center align-items-center" style="height:100vh;">
-                        <div class="spinner-border text-primary"></div>
+                    <div style="
+                        position:fixed; inset:0;
+                        background:#0a0e1a;
+                        display:flex; flex-direction:column;
+                        align-items:center; justify-content:center;
+                        font-family:'Tajawal',sans-serif;
+                        z-index:9998;">
+                        <div style="
+                            width:70px; height:70px; border-radius:50%;
+                            background:linear-gradient(135deg,#1e3a5f,#2d6a9f);
+                            display:flex; align-items:center; justify-content:center;
+                            box-shadow:0 0 30px rgba(14,165,233,0.3);
+                            margin-bottom:1.2rem;">
+                            <i class="bi bi-building-fill" style="font-size:2rem;color:#7dd3fc;"></i>
+                        </div>
+                        <div style="color:#94a3b8;font-size:0.9rem;letter-spacing:0.05em;">
+                            جاري التحقق من الجلسة...
+                        </div>
+                        <div style="
+                            margin-top:1.5rem; width:150px; height:2px;
+                            background:rgba(255,255,255,0.06); border-radius:99px; overflow:hidden;">
+                            <div style="
+                                height:100%; background:linear-gradient(90deg,#0369a1,#38bdf8);
+                                border-radius:99px;
+                                animation:auth-bar 1.4s ease-in-out infinite;"></div>
+                        </div>
+                        <style>
+                            @@keyframes auth-bar {
+                                0% {
+                                    width: 0%;
+                                    margin-left: 0;
+                                }
+
+                                50% {
+                                    width: 60%;
+                                    margin-left: 0;
+                                }
+
+                                100% {
+                                    width: 0%;
+                                    margin-left: 100%;
+                                }
+                            }
+                        </style>
                     </div>
                 </Authorizing>
+
             </AuthorizeRouteView>
-            <FocusOnNavigate RouteData="routeData" Selector="h1" />
+            <FocusOnNavigate RouteData="@routeData" Selector="h1" />
         </Found>
+
+        @* صفحة 404 *@
         <NotFound>
-            <PageTitle>Page introuvable</PageTitle>
-            <div class="text-center mt-5">
-                <h3>404 - Page introuvable</h3>
-                <a href="/" class="btn btn-primary mt-3">Retour à l'accueil</a>
-            </div>
+            <LayoutView Layout="@typeof(MainLayout)">
+                <div class="d-flex flex-column align-items-center justify-content-center"
+                     style="min-height:60vh; font-family:'Tajawal',sans-serif; text-align:center;">
+                    <i class="bi bi-exclamation-circle" style="font-size:4rem;color:#94a3b8;margin-bottom:1rem;"></i>
+                    <h2 style="color:#1e293b;font-weight:700;">404 - الصفحة غير موجودة</h2>
+                    <p style="color:#64748b;margin-top:0.5rem;">عذراً، الصفحة التي تبحث عنها غير موجودة.</p>
+                    <a href="/" class="btn btn-primary mt-3" style="font-family:'Tajawal',sans-serif;">
+                        <i class="bi bi-house-door-fill me-2"></i>العودة للرئيسية
+                    </a>
+                </div>
+            </LayoutView>
         </NotFound>
+
     </Router>
 </CascadingAuthenticationState>
