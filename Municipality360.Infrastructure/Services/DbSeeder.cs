@@ -12,7 +12,7 @@ public static class DbSeeder
         await context.Database.EnsureCreatedAsync();
 
         // Seed Roles
-        string[] roles = { "SuperAdmin", "Admin", "Manager", "Employee" };
+        string[] roles = { "SuperAdmin", "Admin", "Manager", "Employee", "Finances", "Urbanisme", "EtatCivil","SIG", "BureauOrdre", "Reclamations", "Nettoyage", "Stock", "RessourcesHumaines" };
         foreach (var role in roles)
         {
             if (!await roleManager.RoleExistsAsync(role))
@@ -20,14 +20,14 @@ public static class DbSeeder
         }
 
         // Seed Admin User
-        if (await userManager.FindByEmailAsync("admin@municipality360.dz") == null)
+        if (await userManager.FindByEmailAsync("ilyescherif21@gmail.com") == null)
         {
             var admin = new ApplicationUser
             {
-                FirstName = "Super",
-                LastName = "Admin",
-                Email = "admin@municipality360.dz",
-                UserName = "admin@municipality360.dz",
+                FirstName = "Ilyes",
+                LastName = "Cherif",
+                Email = "ilyescherif21@gmail.com",
+                UserName = "Ilyes21",
                 EmailConfirmed = true
             };
             var result = await userManager.CreateAsync(admin, "Admin@123456");

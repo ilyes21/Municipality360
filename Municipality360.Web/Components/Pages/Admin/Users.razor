@@ -1,588 +1,2100 @@
 @page "/admin/users"
-@attribute [Authorize(Roles = "SuperAdmin")]
 @using Microsoft.AspNetCore.Authorization
-@using Municipality360.Application.Common
+@using System.Security.Claims
 @using Municipality360.Application.DTOs.Identity
-@inject IUserApiService UserService
+@using Municipality360.Web.Services
+@attribute [Authorize(Roles = "SuperAdmin,Admin")]
+@layout Municipality360.Web.Components.Layout.MainLayout
 
-<PageTitle>إدارة المستخدمين - Municipality360</PageTitle>
+<PageTitle>المستخدمون والصلاحيات — Municipality360</PageTitle>
 
 <style>
-    :root { --accent:#0ea5e9; --accent-dark:#0369a1; --accent-glow:rgba(14,165,233,.15); --success:#10b981; --danger:#ef4444; --warning:#f59e0b; --border:#e2e8f0; --text1:#0f172a; --text2:#475569; --text3:#94a3b8; --font:'Tajawal',sans-serif; }
-    .ph { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.75rem; flex-wrap:wrap; gap:1rem; }
-    .ph-left h1 { font-size:1.45rem; font-weight:800; color:var(--text1); margin:0; display:flex; align-items:center; gap:.5rem; }
-    .ph-left h1 i { color:var(--accent); } .ph-left p { font-size:.82rem; color:var(--text3); margin:.2rem 0 0; }
-    .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:1rem; margin-bottom:1.75rem; }
-    .stat { background:#fff; border-radius:14px; padding:1rem 1.2rem; border:1px solid var(--border); display:flex; align-items:center; gap:.85rem; box-shadow:0 2px 8px rgba(0,0,0,.04); }
-    .stat-ico { width:42px; height:42px; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:1.15rem; flex-shrink:0; }
-    .ic-blue { background:rgba(14,165,233,.12); color:var(--accent); } .ic-purple { background:rgba(139,92,246,.12); color:#7c3aed; } .ic-amber { background:rgba(245,158,11,.12); color:var(--warning); } .ic-green { background:rgba(16,185,129,.12); color:var(--success); }
-    .stat-val { font-size:1.55rem; font-weight:800; color:var(--text1); line-height:1; } .stat-lbl { font-size:.73rem; color:var(--text3); margin-top:.15rem; }
-    .card { background:#fff; border-radius:16px; border:1px solid var(--border); overflow:hidden; box-shadow:0 2px 12px rgba(0,0,0,.05); }
-    .card-header { padding:.9rem 1.4rem; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:.75rem; flex-wrap:wrap; }
-    .card-header h5 { margin:0; font-weight:700; font-size:.95rem; color:var(--text1); display:flex; align-items:center; gap:.4rem; }
-    .search-wrap { position:relative; } .search-wrap i { position:absolute; right:.75rem; top:50%; transform:translateY(-50%); color:var(--text3); font-size:.85rem; pointer-events:none; }
-    .search-input { padding:.48rem 2rem .48rem .75rem; border:1.5px solid var(--border); border-radius:10px; font-size:.85rem; font-family:var(--font); outline:none; background:#f8fafc; color:var(--text1); transition:border-color .15s; width:220px; }
-    .search-input:focus { border-color:var(--accent); background:#fff; }
-    .tbl-wrap { overflow-x:auto; }
-    table { width:100%; border-collapse:collapse; font-size:.875rem; }
-    thead th { background:#f8fafc; padding:.8rem 1rem; text-align:right; font-weight:700; font-size:.73rem; color:var(--text3); text-transform:uppercase; letter-spacing:.04em; border-bottom:1px solid var(--border); white-space:nowrap; }
-    tbody td { padding:.85rem 1rem; border-bottom:1px solid #f1f5f9; color:var(--text2); vertical-align:middle; }
-    tbody tr:last-child td { border-bottom:none; } tbody tr:hover td { background:#f8fafc; }
-    .user-avatar { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.82rem; font-weight:800; flex-shrink:0; }
-    .role-chip { display:inline-flex; align-items:center; gap:.25rem; padding:.2rem .6rem; border-radius:100px; font-size:.72rem; font-weight:700; }
-    .r-superadmin { background:rgba(139,92,246,.12); color:#7c3aed; }
-    .r-admin   { background:rgba(14,165,233,.12); color:var(--accent-dark); }
-    .r-manager { background:rgba(16,185,129,.12); color:#059669; }
-    .r-employee{ background:rgba(148,163,184,.15); color:var(--text2); }
-    .btn { display:inline-flex; align-items:center; gap:.4rem; padding:.5rem 1rem; border-radius:10px; font-size:.875rem; font-weight:600; cursor:pointer; border:none; transition:all .18s; font-family:var(--font); }
-    .btn-primary { background:linear-gradient(135deg,var(--accent-dark),var(--accent)); color:#fff; box-shadow:0 3px 10px rgba(14,165,233,.3); }
-    .btn-primary:hover { opacity:.9; transform:translateY(-1px); }
-    .btn-ghost { background:transparent; border:1.5px solid var(--border); color:var(--text2); }
-    .btn-ghost:hover { border-color:var(--accent); color:var(--accent); background:var(--accent-glow); }
-    .btn-danger-ghost { background:transparent; border:1.5px solid rgba(239,68,68,.3); color:var(--danger); }
-    .btn-danger-ghost:hover { background:rgba(239,68,68,.08); }
-    .btn-danger { background:linear-gradient(135deg,#dc2626,var(--danger)); color:#fff; border:none; }
-    .btn-sm { padding:.3rem .65rem; font-size:.75rem; }
-    .btn:disabled { opacity:.55; cursor:not-allowed; transform:none !important; }
-    .action-btns { display:flex; gap:.35rem; }
-    .backdrop { position:fixed; inset:0; background:rgba(10,15,30,.6); backdrop-filter:blur(6px); z-index:1000; display:flex; align-items:center; justify-content:center; padding:1rem; animation:fi .2s; }
-    @@keyframes fi { from{opacity:0} to{opacity:1} }
-    .modal { background:#fff; border-radius:18px; width:100%; max-width:500px; box-shadow:0 24px 60px rgba(0,0,0,.18); animation:su .22s; overflow:hidden; }
-    @@keyframes su { from{opacity:0;transform:translateY(16px) scale(.97)} to{opacity:1;transform:none} }
-    .mh { padding:1.1rem 1.4rem; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
-    .mh h5 { margin:0; font-weight:800; font-size:1rem; color:var(--text1); display:flex; align-items:center; gap:.5rem; }
-    .mh h5 i { color:var(--accent); }
-    .mbtn-close { background:none; border:none; cursor:pointer; color:var(--text3); font-size:1.2rem; padding:.2rem .4rem; border-radius:6px; }
-    .mbtn-close:hover { color:var(--danger); background:rgba(239,68,68,.08); }
-    .mb { padding:1.3rem 1.4rem; } .mf { padding:.9rem 1.4rem; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:.65rem; }
-    .fg { margin-bottom:1rem; } .fg label { display:block; font-size:.82rem; font-weight:700; color:var(--text2); margin-bottom:.4rem; }
-    .fg .req { color:var(--danger); margin-right:.2rem; }
-    .fc { width:100%; padding:.58rem .9rem; border:1.5px solid var(--border); border-radius:10px; font-size:.875rem; font-family:var(--font); color:var(--text1); background:#f8fafc; outline:none; transition:border-color .15s,box-shadow .15s; }
-    .fc:focus { border-color:var(--accent); background:#fff; box-shadow:0 0 0 3px var(--accent-glow); }
-    .row2 { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
-    .conf-icon { width:64px; height:64px; border-radius:50%; background:rgba(239,68,68,.1); border:2px solid rgba(239,68,68,.2); display:flex; align-items:center; justify-content:center; margin:0 auto 1rem; color:var(--danger); font-size:1.8rem; }
-    .conf-title { font-size:1.1rem; font-weight:800; color:var(--text1); text-align:center; margin-bottom:.5rem; }
-    .conf-desc { font-size:.88rem; color:var(--text2); text-align:center; line-height:1.6; }
-    .alert { padding:.75rem 1rem; border-radius:10px; font-size:.875rem; display:flex; align-items:center; gap:.5rem; margin-bottom:1rem; }
-    .alert-danger { background:rgba(239,68,68,.08); border:1px solid rgba(239,68,68,.2); color:#dc2626; }
-    .alert-success { background:rgba(16,185,129,.08); border:1px solid rgba(16,185,129,.2); color:#059669; }
-    .info-banner { background:rgba(139,92,246,.06); border:1px solid rgba(139,92,246,.18); border-radius:12px; padding:1rem 1.2rem; margin-bottom:1.5rem; display:flex; align-items:flex-start; gap:.8rem; }
-    .info-banner i { color:#7c3aed; font-size:1.1rem; flex-shrink:0; margin-top:.1rem; }
-    .info-banner p { margin:0; font-size:.84rem; color:var(--text2); line-height:1.6; }
-    .loading-wrap { display:flex; align-items:center; justify-content:center; min-height:280px; flex-direction:column; gap:1rem; }
-    .spinner { width:36px; height:36px; border:3px solid rgba(14,165,233,.2); border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite; }
-    @@keyframes spin { to{transform:rotate(360deg)} }
-    .empty { text-align:center; padding:3rem 1rem; color:var(--text3); }
-    .empty i { font-size:2.8rem; opacity:.35; display:block; margin-bottom:.75rem; }
-    .empty p { font-size:.9rem; margin:0; }
-    .pw-hint { font-size:.75rem; color:var(--text3); margin-top:.3rem; }
-    .btn-success-ghost { background:transparent; border:1.5px solid rgba(16,185,129,.3); color:var(--success); }
-    .btn-success-ghost:hover { background:rgba(16,185,129,.08); }
-    .btn-warning-ghost { background:transparent; border:1.5px solid rgba(245,158,11,.3); color:var(--warning); }
-    .btn-warning-ghost:hover { background:rgba(245,158,11,.08); }
-    .st-active   { display:inline-flex; align-items:center; gap:.3rem; background:rgba(16,185,129,.1); color:#059669; border:1px solid rgba(16,185,129,.25); border-radius:100px; padding:.2rem .6rem; font-size:.72rem; font-weight:600; }
-    .st-inactive { display:inline-flex; align-items:center; gap:.3rem; background:rgba(239,68,68,.08); color:#dc2626; border:1px solid rgba(239,68,68,.2); border-radius:100px; padding:.2rem .6rem; font-size:.72rem; font-weight:600; }
-    tbody tr.row-inactive { opacity:.6; }
-    .role-row  { display:flex; align-items:center; justify-content:space-between; padding:.6rem .75rem; border-radius:10px; border:1px solid var(--border); margin-bottom:.5rem; }
-    .role-row:hover { background:#f8fafc; }
-    .role-dot  { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
-    .role-name { font-size:.86rem; font-weight:700; color:var(--text1); }
-    .role-desc { font-size:.73rem; color:var(--text3); margin-top:.1rem; }
-    .ra-add  { background:rgba(16,185,129,.1); color:#059669; border:1px solid rgba(16,185,129,.25); border-radius:8px; padding:.28rem .65rem; font-size:.75rem; font-weight:700; cursor:pointer; font-family:var(--font); transition:background .15s; }
-    .ra-add:hover { background:rgba(16,185,129,.2); }
-    .ra-rem  { background:rgba(239,68,68,.08); color:#dc2626; border:1px solid rgba(239,68,68,.2); border-radius:8px; padding:.28rem .65rem; font-size:.75rem; font-weight:700; cursor:pointer; font-family:var(--font); transition:background .15s; }
-    .ra-rem:hover { background:rgba(239,68,68,.15); }
-    .ra-add:disabled,.ra-rem:disabled { opacity:.5; cursor:not-allowed; }
-    .warn-box { background:rgba(245,158,11,.08); border:1px solid rgba(245,158,11,.25); border-radius:10px; padding:.75rem 1rem; margin-bottom:1rem; font-size:.83rem; color:#92400e; display:flex; align-items:center; gap:.5rem; }
-    .stat-ico.ic-red { background:rgba(239,68,68,.12); color:var(--danger); }
+    @@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;600;700;800;900&display=swap');
+
+    * {
+        box-sizing: border-box;
+        font-family: 'Tajawal',sans-serif;
+    }
+
+    /* ══ Layout ═════════════════════════════════════════════ */
+    .pu-wrap {
+        direction: rtl;
+    }
+
+    /* ══ Header ═════════════════════════════════════════════ */
+    .pu-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: .75rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .pu-head-t {
+        font-size: 1.4rem;
+        font-weight: 900;
+        color: #0f172a;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+    }
+
+    .pu-head-s {
+        font-size: .76rem;
+        color: #94a3b8;
+        margin-top: .2rem;
+    }
+
+    .pu-head-ico {
+        width: 38px;
+        height: 38px;
+        background: linear-gradient(135deg,#7c3aed,#a855f7);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 1rem;
+        flex-shrink: 0;
+    }
+
+    .head-actions {
+        display: flex;
+        gap: .5rem;
+        flex-wrap: wrap;
+    }
+
+    /* ══ Stats ══════════════════════════════════════════════ */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit,minmax(120px,1fr));
+        gap: .7rem;
+        margin-bottom: 1.3rem;
+    }
+
+    .sc {
+        background: #fff;
+        border-radius: 12px;
+        padding: .8rem .95rem;
+        border: 2px solid #f1f5f9;
+        cursor: pointer;
+        transition: all .16s;
+        box-shadow: 0 1px 4px rgba(0,0,0,.05);
+    }
+
+        .sc:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,.09);
+        }
+
+        .sc.asc {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0,0,0,.12);
+        }
+
+    .sc-val {
+        font-size: 1.45rem;
+        font-weight: 800;
+        line-height: 1;
+    }
+
+    .sc-lbl {
+        font-size: .68rem;
+        color: #94a3b8;
+        margin-top: .25rem;
+        font-weight: 500;
+    }
+
+    /* ══ Toolbar ════════════════════════════════════════════ */
+    .toolbar {
+        display: flex;
+        gap: .6rem;
+        flex-wrap: wrap;
+        align-items: center;
+        margin-bottom: 1.1rem;
+    }
+
+    .search-wrap {
+        position: relative;
+        flex: 1;
+        min-width: 200px;
+    }
+
+    .search-input {
+        width: 100%;
+        height: 40px;
+        padding: 0 2.4rem 0 .9rem;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 10px;
+        font-family: 'Tajawal',sans-serif;
+        font-size: .87rem;
+        outline: none;
+        background: #fff;
+        color: #0f172a;
+        direction: rtl;
+        transition: border-color .15s;
+    }
+
+        .search-input:focus {
+            border-color: #7c3aed;
+            box-shadow: 0 0 0 3px rgba(124,58,237,.1);
+        }
+
+    .search-ico {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #94a3b8;
+        pointer-events: none;
+    }
+
+    .role-filter-select {
+        height: 40px;
+        padding: 0 .8rem;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 10px;
+        font-family: 'Tajawal',sans-serif;
+        font-size: .84rem;
+        outline: none;
+        background: #fff;
+        color: #374151;
+        cursor: pointer;
+        min-width: 170px;
+    }
+
+        .role-filter-select:focus {
+            border-color: #7c3aed;
+        }
+
+    /* ══ Buttons ════════════════════════════════════════════ */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: .4rem;
+        padding: .5rem 1rem;
+        border: none;
+        border-radius: 10px;
+        font-family: 'Tajawal',sans-serif;
+        font-size: .84rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all .16s;
+        white-space: nowrap;
+    }
+
+        .btn:disabled {
+            opacity: .5;
+            cursor: not-allowed;
+        }
+
+    .btn-primary {
+        background: linear-gradient(135deg,#7c3aed,#a855f7);
+        color: #fff;
+        box-shadow: 0 3px 10px rgba(124,58,237,.25);
+    }
+
+        .btn-primary:hover:not(:disabled) {
+            box-shadow: 0 5px 16px rgba(124,58,237,.38);
+            transform: translateY(-1px);
+        }
+
+    .btn-info {
+        background: linear-gradient(135deg,#0369a1,#0ea5e9);
+        color: #fff;
+        box-shadow: 0 3px 10px rgba(14,165,233,.25);
+    }
+
+        .btn-info:hover:not(:disabled) {
+            box-shadow: 0 5px 16px rgba(14,165,233,.35);
+            transform: translateY(-1px);
+        }
+
+    .btn-ghost {
+        background: #f1f5f9;
+        color: #374151;
+        border: 1px solid #e2e8f0;
+    }
+
+        .btn-ghost:hover {
+            background: #e2e8f0;
+        }
+
+    .btn-danger {
+        background: linear-gradient(135deg,#dc2626,#ef4444);
+        color: #fff;
+        box-shadow: 0 3px 10px rgba(239,68,68,.25);
+    }
+
+        .btn-danger:hover:not(:disabled) {
+            box-shadow: 0 5px 16px rgba(239,68,68,.35);
+            transform: translateY(-1px);
+        }
+
+    .btn-sm {
+        padding: .32rem .7rem;
+        font-size: .78rem;
+    }
+
+    /* ══ Alerts ══════════════════════════════════════════════ */
+    .aok {
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        border-radius: 10px;
+        padding: .58rem .9rem;
+        color: #15803d;
+        font-size: .82rem;
+        margin-bottom: .85rem;
+        display: flex;
+        align-items: center;
+        gap: .45rem;
+        animation: ain .25s ease;
+    }
+
+    .aerr {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        border-radius: 10px;
+        padding: .58rem .9rem;
+        color: #dc2626;
+        font-size: .82rem;
+        margin-bottom: .85rem;
+        display: flex;
+        align-items: center;
+        gap: .45rem;
+        animation: ain .25s ease;
+    }
+
+    @@keyframes ain {
+        from {
+            opacity: 0;
+            transform: translateY(-4px)
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0)
+        }
+    }
+
+    /* ══ Table card ══════════════════════════════════════════ */
+    .tcard {
+        background: #fff;
+        border-radius: 14px;
+        border: 1px solid #f1f5f9;
+        box-shadow: 0 1px 8px rgba(0,0,0,.06);
+        overflow: hidden;
+    }
+
+    .tscroll {
+        overflow-x: auto;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    thead tr {
+        background: linear-gradient(135deg,#f8fafc,#f1f5f9);
+        border-bottom: 2px solid #e2e8f0;
+    }
+
+    th {
+        padding: .62rem 1rem;
+        text-align: right;
+        font-size: .7rem;
+        font-weight: 700;
+        color: #64748b;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+
+    td {
+        padding: .7rem 1rem;
+        font-size: .84rem;
+        color: #374151;
+        border-bottom: 1px solid #f8fafc;
+        vertical-align: middle;
+    }
+
+    tbody tr:hover {
+        background: #fafbff;
+    }
+
+    tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    tbody tr.row-off {
+        opacity: .58;
+    }
+
+    /* ══ Avatar ══════════════════════════════════════════════ */
+    .av {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: .79rem;
+        font-weight: 800;
+        color: #fff;
+        flex-shrink: 0;
+    }
+
+    .ucell {
+        display: flex;
+        align-items: center;
+        gap: .6rem;
+    }
+
+    .uname {
+        font-weight: 700;
+        color: #0f172a;
+        font-size: .87rem;
+        line-height: 1.25;
+    }
+
+    .uemail {
+        font-size: .71rem;
+        color: #94a3b8;
+        margin-top: .05rem;
+    }
+
+    .me-badge {
+        background: #dcfce7;
+        color: #15803d;
+        border-radius: 99px;
+        padding: .06rem .4rem;
+        font-size: .61rem;
+        font-weight: 700;
+        margin-right: .3rem;
+        vertical-align: middle;
+    }
+
+    /* ══ Role tags ════════════════════════════════════════════ */
+    .roles-wrap {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .22rem;
+    }
+
+    .rtag {
+        display: inline-flex;
+        align-items: center;
+        gap: .2rem;
+        border-radius: 5px;
+        padding: .13rem .45rem;
+        font-size: .66rem;
+        font-weight: 700;
+        border: 1px solid transparent;
+    }
+
+    /* Couleurs par rôle */
+    .r-SuperAdmin {
+        background: linear-gradient(135deg,#fef3c7,#fde68a);
+        color: #92400e;
+        border-color: #fcd34d;
+    }
+
+    .r-Admin {
+        background: #ede9fe;
+        color: #5b21b6;
+        border-color: #c4b5fd;
+    }
+
+    .r-Manager {
+        background: #e0f2fe;
+        color: #0369a1;
+        border-color: #7dd3fc;
+    }
+
+    .r-Employee {
+        background: #dcfce7;
+        color: #15803d;
+        border-color: #86efac;
+    }
+
+    .r-Finances {
+        background: #fef9c3;
+        color: #854d0e;
+        border-color: #fde047;
+    }
+
+    .r-Urbanisme {
+        background: #f0fdf4;
+        color: #166534;
+        border-color: #86efac;
+    }
+
+    .r-EtatCivil {
+        background: #fff7ed;
+        color: #9a3412;
+        border-color: #fdba74;
+    }
+
+    .r-SIG {
+        background: #ecfeff;
+        color: #155e75;
+        border-color: #67e8f9;
+    }
+
+    .r-BureauOrdre {
+        background: #f0f9ff;
+        color: #075985;
+        border-color: #7dd3fc;
+    }
+
+    .r-Reclamations {
+        background: #fdf2f8;
+        color: #86198f;
+        border-color: #f0abfc;
+    }
+
+    .r-Nettoyage {
+        background: #f7fee7;
+        color: #3f6212;
+        border-color: #a3e635;
+    }
+
+    .r-Stock {
+        background: #fff1f2;
+        color: #9f1239;
+        border-color: #fda4af;
+    }
+
+    .r-RessourcesHumaines {
+        background: #faf5ff;
+        color: #6b21a8;
+        border-color: #d8b4fe;
+    }
+
+    .r-default {
+        background: #f1f5f9;
+        color: #475569;
+        border-color: #cbd5e1;
+    }
+
+    /* ══ Status ══════════════════════════════════════════════ */
+    .pill-on {
+        display: inline-flex;
+        align-items: center;
+        gap: .26rem;
+        background: #f0fdf4;
+        color: #16a34a;
+        border: 1px solid #bbf7d0;
+        border-radius: 99px;
+        padding: .18rem .58rem;
+        font-size: .7rem;
+        font-weight: 600;
+    }
+
+    .pill-off {
+        display: inline-flex;
+        align-items: center;
+        gap: .26rem;
+        background: #fef2f2;
+        color: #dc2626;
+        border: 1px solid #fecaca;
+        border-radius: 99px;
+        padding: .18rem .58rem;
+        font-size: .7rem;
+        font-weight: 600;
+    }
+
+    .sdot {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+
+    /* ══ Icon buttons ════════════════════════════════════════ */
+    .ibwrap {
+        display: flex;
+        gap: .28rem;
+        flex-wrap: nowrap;
+    }
+
+    .ib {
+        width: 29px;
+        height: 29px;
+        border: none;
+        border-radius: 7px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: .76rem;
+        transition: all .13s;
+    }
+
+        .ib:disabled {
+            opacity: .35;
+            cursor: not-allowed;
+        }
+
+    .ib-v {
+        background: #f5f3ff;
+        color: #7c3aed;
+    }
+
+        .ib-v:hover:not(:disabled) {
+            background: #ede9fe;
+        }
+
+    .ib-b {
+        background: #e0f2fe;
+        color: #0369a1;
+    }
+
+        .ib-b:hover:not(:disabled) {
+            background: #bae6fd;
+        }
+
+    .ib-g {
+        background: #f0fdf4;
+        color: #16a34a;
+    }
+
+        .ib-g:hover:not(:disabled) {
+            background: #dcfce7;
+        }
+
+    .ib-r {
+        background: #fef2f2;
+        color: #dc2626;
+    }
+
+        .ib-r:hover:not(:disabled) {
+            background: #fee2e2;
+        }
+
+    .ib-a {
+        background: #fef3c7;
+        color: #d97706;
+    }
+
+        .ib-a:hover:not(:disabled) {
+            background: #fde68a;
+        }
+
+    /* ══ Modal ═══════════════════════════════════════════════ */
+    .mbk {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,.5);
+        backdrop-filter: blur(5px);
+        z-index: 900;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+    }
+
+    .mbox {
+        background: #fff;
+        border-radius: 16px;
+        padding: 1.6rem;
+        width: 100%;
+        box-shadow: 0 24px 64px rgba(0,0,0,.22);
+        animation: mopen .2s cubic-bezier(.34,1.56,.64,1);
+        overflow-y: auto;
+        max-height: 92vh;
+    }
+
+    @@keyframes mopen {
+        from {
+            opacity: 0;
+            transform: scale(.92)
+        }
+
+        to {
+            opacity: 1;
+            transform: scale(1)
+        }
+    }
+
+    .mhead {
+        font-size: 1rem;
+        font-weight: 800;
+        color: #0f172a;
+        margin-bottom: 1.1rem;
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+    }
+
+    .mfoot {
+        display: flex;
+        gap: .55rem;
+        justify-content: flex-end;
+        margin-top: 1.15rem;
+        flex-wrap: wrap;
+    }
+
+    /* ══ Form ════════════════════════════════════════════════ */
+    .fg {
+        margin-bottom: .85rem;
+    }
+
+    .fg2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: .65rem;
+    }
+
+    .fl {
+        display: block;
+        font-size: .76rem;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: .32rem;
+    }
+
+    .fc {
+        width: 100%;
+        height: 42px;
+        padding: 0 .85rem;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 10px;
+        font-family: 'Tajawal',sans-serif;
+        font-size: .86rem;
+        outline: none;
+        color: #0f172a;
+        background: #fff;
+        transition: border-color .15s;
+    }
+
+        .fc:focus {
+            border-color: #7c3aed;
+            box-shadow: 0 0 0 3px rgba(124,58,237,.1);
+        }
+
+    .hint {
+        font-size: .69rem;
+        color: #94a3b8;
+        margin-top: .25rem;
+    }
+
+    /* ══ Role multi-select grid ══════════════════════════════ */
+    .role-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill,minmax(145px,1fr));
+        gap: .4rem;
+        margin-top: .38rem;
+    }
+
+    .rchip {
+        display: flex;
+        align-items: center;
+        gap: .35rem;
+        padding: .38rem .65rem;
+        border-radius: 8px;
+        border: 1.5px solid #e2e8f0;
+        font-family: 'Tajawal',sans-serif;
+        font-size: .78rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all .13s;
+        color: #64748b;
+        background: #f8fafc;
+        user-select: none;
+    }
+
+        .rchip:hover {
+            border-color: #7c3aed;
+            color: #7c3aed;
+            background: #f5f3ff;
+        }
+
+        .rchip.rsel {
+            color: #fff !important;
+            border-color: transparent !important;
+        }
+            /* couleurs sélectionnées */
+            .rchip.rsel.rc-SuperAdmin {
+                background: linear-gradient(135deg,#f59e0b,#f97316);
+            }
+
+            .rchip.rsel.rc-Admin {
+                background: linear-gradient(135deg,#7c3aed,#a855f7);
+            }
+
+            .rchip.rsel.rc-Manager {
+                background: linear-gradient(135deg,#0369a1,#0ea5e9);
+            }
+
+            .rchip.rsel.rc-Employee {
+                background: linear-gradient(135deg,#16a34a,#22c55e);
+            }
+
+            .rchip.rsel.rc-Finances {
+                background: linear-gradient(135deg,#d97706,#f59e0b);
+            }
+
+            .rchip.rsel.rc-Urbanisme {
+                background: linear-gradient(135deg,#059669,#10b981);
+            }
+
+            .rchip.rsel.rc-EtatCivil {
+                background: linear-gradient(135deg,#ea580c,#f97316);
+            }
+
+            .rchip.rsel.rc-SIG {
+                background: linear-gradient(135deg,#0e7490,#06b6d4);
+            }
+
+            .rchip.rsel.rc-BureauOrdre {
+                background: linear-gradient(135deg,#0369a1,#38bdf8);
+            }
+
+            .rchip.rsel.rc-Reclamations {
+                background: linear-gradient(135deg,#a21caf,#d946ef);
+            }
+
+            .rchip.rsel.rc-Nettoyage {
+                background: linear-gradient(135deg,#4d7c0f,#84cc16);
+            }
+
+            .rchip.rsel.rc-Stock {
+                background: linear-gradient(135deg,#be123c,#fb7185);
+            }
+
+            .rchip.rsel.rc-RessourcesHumaines {
+                background: linear-gradient(135deg,#6d28d9,#c084fc);
+            }
+
+    .rchip-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: currentColor;
+        flex-shrink: 0;
+    }
+
+    /* ══ Roles manager rows ══════════════════════════════════ */
+    .rm-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: .45rem .55rem;
+        border-radius: 9px;
+        margin-bottom: .22rem;
+        transition: background .12s;
+    }
+
+        .rm-row:hover {
+            background: #f8fafc;
+        }
+
+    .rm-l {
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+    }
+
+    .rm-dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+
+    .rm-name {
+        font-size: .83rem;
+        font-weight: 700;
+        color: #0f172a;
+    }
+
+    .rm-desc {
+        font-size: .69rem;
+        color: #94a3b8;
+    }
+
+    .btn-add-role {
+        background: #f0fdf4;
+        color: #16a34a;
+        border: 1px solid #bbf7d0;
+        border-radius: 7px;
+        padding: .23rem .55rem;
+        font-size: .72rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all .12s;
+    }
+
+        .btn-add-role:hover:not(:disabled) {
+            background: #dcfce7;
+        }
+
+    .btn-rem-role {
+        background: #fef2f2;
+        color: #dc2626;
+        border: 1px solid #fecaca;
+        border-radius: 7px;
+        padding: .23rem .55rem;
+        font-size: .72rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all .12s;
+    }
+
+        .btn-rem-role:hover:not(:disabled) {
+            background: #fee2e2;
+        }
+
+        .btn-add-role:disabled, .btn-rem-role:disabled {
+            opacity: .38;
+            cursor: not-allowed;
+        }
+
+    /* ══ Role category divider ═══════════════════════════════ */
+    .role-cat {
+        font-size: .65rem;
+        font-weight: 700;
+        color: #94a3b8;
+        letter-spacing: .1em;
+        text-transform: uppercase;
+        padding: .3rem .55rem .15rem;
+        margin-top: .3rem;
+    }
+
+    /* ══ Permissions matrix ══════════════════════════════════ */
+    .pmatrix {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: .77rem;
+    }
+
+        .pmatrix th {
+            padding: .42rem .6rem;
+            background: #f8fafc;
+            font-size: .67rem;
+            font-weight: 700;
+            color: #64748b;
+            border: 1px solid #e2e8f0;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+            .pmatrix th:first-child {
+                text-align: right;
+                min-width: 160px;
+            }
+
+        .pmatrix td {
+            padding: .38rem .6rem;
+            border: 1px solid #f1f5f9;
+            text-align: center;
+        }
+
+        .pmatrix tr:hover td {
+            background: #f8fafc;
+        }
+
+        .pmatrix td:first-child {
+            text-align: right;
+            font-weight: 600;
+            color: #374151;
+        }
+
+    .pyes {
+        color: #22c55e;
+        font-size: .9rem;
+    }
+
+    .pno {
+        color: #d1d5db;
+        font-size: .9rem;
+    }
+
+    /* ══ Confirm ═════════════════════════════════════════════ */
+    .conf-ico {
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        margin: 0 auto .85rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.35rem;
+    }
+
+    .conf-msg {
+        text-align: center;
+        color: #64748b;
+        font-size: .86rem;
+        line-height: 1.65;
+        margin-bottom: 1.1rem;
+    }
+
+    .warn-box {
+        background: #fef3c7;
+        border: 1px solid #fde68a;
+        border-radius: 9px;
+        padding: .6rem .85rem;
+        font-size: .79rem;
+        color: #92400e;
+        margin-bottom: .85rem;
+    }
+
+    /* ══ Sidebar ═════════════════════════════════════════════ */
+    .dbk {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,.35);
+        z-index: 808;
+    }
+
+    .dsb {
+        position: fixed;
+        top: 0;
+        right: 0;
+        width: 380px;
+        height: 100vh;
+        background: #fff;
+        box-shadow: -6px 0 32px rgba(0,0,0,.13);
+        z-index: 809;
+        overflow-y: auto;
+        animation: dsbin .2s ease;
+        direction: rtl;
+    }
+
+    @@keyframes dsbin {
+        from {
+            transform: translateX(100%)
+        }
+
+        to {
+            transform: translateX(0)
+        }
+    }
+
+    .dsb-head {
+        background: linear-gradient(145deg,#0d1b2a,#1e293b);
+        padding: 1.35rem;
+        position: relative;
+    }
+
+    .dsb-av {
+        width: 56px;
+        height: 56px;
+        border-radius: 14px;
+        margin: 0 auto .8rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        font-weight: 800;
+        color: #fff;
+    }
+
+    .dsb-name {
+        text-align: center;
+        font-size: .98rem;
+        font-weight: 800;
+        color: #e2e8f0;
+    }
+
+    .dsb-email {
+        text-align: center;
+        font-size: .72rem;
+        color: #475569;
+        margin-top: .15rem;
+    }
+
+    .dsb-tags {
+        text-align: center;
+        margin-top: .6rem;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: .2rem;
+    }
+
+    .dsb-close {
+        position: absolute;
+        top: .85rem;
+        left: .85rem;
+        width: 28px;
+        height: 28px;
+        background: rgba(255,255,255,.12);
+        border: none;
+        border-radius: 7px;
+        color: #94a3b8;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: .8rem;
+        transition: all .12s;
+    }
+
+        .dsb-close:hover {
+            background: rgba(255,255,255,.2);
+            color: #e2e8f0;
+        }
+
+    .dsb-body {
+        padding: 1.1rem;
+    }
+
+    .dsb-sec {
+        margin-bottom: 1.1rem;
+    }
+
+    .dsb-sec-t {
+        font-size: .64rem;
+        font-weight: 700;
+        color: #94a3b8;
+        letter-spacing: .1em;
+        text-transform: uppercase;
+        margin-bottom: .6rem;
+    }
+
+    .dsb-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: .38rem 0;
+        border-bottom: 1px solid #f8fafc;
+    }
+
+    .dsb-l {
+        font-size: .77rem;
+        color: #64748b;
+    }
+
+    .dsb-v {
+        font-size: .79rem;
+        font-weight: 600;
+        color: #0f172a;
+    }
+
+    /* ══ Loading / Empty ═════════════════════════════════════ */
+    .ldg {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 3rem;
+        color: #94a3b8;
+        gap: .65rem;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 2.8rem;
+        color: #94a3b8;
+    }
+
+        .empty-state i {
+            font-size: 2rem;
+            display: block;
+            margin-bottom: .45rem;
+        }
+
+    /* ══ Spinner ═════════════════════════════════════════════ */
+    .spin {
+        display: inline-block;
+        width: .8rem;
+        height: .8rem;
+        border: 2px solid rgba(255,255,255,.35);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: spin .6s linear infinite;
+    }
+
+    @@keyframes spin {
+        to {
+            transform: rotate(360deg)
+        }
+    }
+
+    /* ══ Role count badge ════════════════════════════════════ */
+    .rc-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 20px;
+        height: 20px;
+        background: #f1f5f9;
+        color: #64748b;
+        border-radius: 99px;
+        font-size: .67rem;
+        font-weight: 700;
+        padding: 0 .35rem;
+        margin-right: .2rem;
+    }
 </style>
-<div class="ph">
-    <div class="ph-left">
-        <h1><i class="bi bi-people"></i> إدارة المستخدمين</h1>
-        <p>عرض وإدارة حسابات المستخدمين وصلاحياتهم</p>
-    </div>
-    <button class="btn btn-primary" @onclick="OpenCreate"><i class="bi bi-person-plus"></i> إضافة مستخدم</button>
-</div>
 
-<div class="info-banner">
-    <i class="bi bi-shield-lock"></i>
-    <p>هذه الصفحة مخصصة لمدير النظام الأعلى فقط. يمكنك هنا إضافة مستخدمين جدد، وتعيين أدوارهم، وحذف الحسابات.</p>
-</div>
+<div class="pu-wrap">
 
-<div class="stats">
-    <div class="stat"><div class="stat-ico ic-blue"><i class="bi bi-people"></i></div><div><div class="stat-val">@users.Count()</div><div class="stat-lbl">إجمالي المستخدمين</div></div></div>
-    <div class="stat"><div class="stat-ico ic-purple"><i class="bi bi-star"></i></div><div><div class="stat-val">@users.Count(u => u.Roles.Contains("SuperAdmin"))</div><div class="stat-lbl">مدراء النظام</div></div></div>
-    <div class="stat"><div class="stat-ico ic-amber"><i class="bi bi-person-gear"></i></div><div><div class="stat-val">@users.Count(u => u.Roles.Contains("Admin"))</div><div class="stat-lbl">المسؤولون</div></div></div>
-    <div class="stat"><div class="stat-ico ic-green"><i class="bi bi-person-check"></i></div><div><div class="stat-val">@users.Count(u => u.IsActive)</div><div class="stat-lbl">نشطون</div></div></div>
-    <div class="stat"><div class="stat-ico ic-red"><i class="bi bi-person-dash"></i></div><div><div class="stat-val">@users.Count(u => !u.IsActive)</div><div class="stat-lbl">موقوفون</div></div></div>
-</div>
-
-<div class="card">
-    <div class="card-header">
-        <h5><i class="bi bi-table"></i> قائمة المستخدمين</h5>
-        <div class="search-wrap">
-            <i class="bi bi-search"></i>
-            <input class="search-input" placeholder="بحث بالاسم أو البريد..." @bind="searchTerm" @bind:event="oninput" />
+    <!-- ═══════════════ HEADER ═══════════════ -->
+    <div class="pu-head">
+        <div style="display:flex;align-items:center;gap:.75rem;">
+            <div class="pu-head-ico"><i class="bi bi-shield-lock"></i></div>
+            <div>
+                <h1 class="pu-head-t">المستخدمون والصلاحيات</h1>
+                <div class="pu-head-s">إدارة الحسابات · الأدوار · الصلاحيات</div>
+            </div>
+        </div>
+        <div class="head-actions">
+            <button class="btn btn-info" @onclick="() => ShowPerms = true">
+                <i class="bi bi-table"></i> مرجع الصلاحيات
+            </button>
+            <AuthorizeView Roles="SuperAdmin,Admin">
+                <Authorized>
+                    <button class="btn btn-primary" @onclick="OpenAdd">
+                        <i class="bi bi-person-plus"></i> مستخدم جديد
+                    </button>
+                </Authorized>
+            </AuthorizeView>
         </div>
     </div>
 
-    @if (isLoading)
+    @if (!string.IsNullOrEmpty(OkMsg))
     {
-        <div class="loading-wrap"><div class="spinner"></div><span style="color:var(--text3);font-size:.85rem;">جاري التحميل...</span></div>
+        <div class="aok"><i class="bi bi-check-circle-fill"></i> @OkMsg</div>
     }
-    else if (!filtered.Any())
+    @if (!string.IsNullOrEmpty(ErrMsg))
     {
-        <div class="empty"><i class="bi bi-people"></i><p>لا يوجد مستخدمون</p></div>
+        <div class="aerr"><i class="bi bi-exclamation-circle-fill"></i> @ErrMsg</div>
     }
-    else
-    {
-        <div class="tbl-wrap">
-            <table>
-                <thead>
-                    <tr><th>#</th><th>المستخدم</th><th>البريد الإلكتروني</th><th>الأدوار</th><th>الحالة</th><th>البريد</th><th>الإجراءات</th></tr>
-                </thead>
-                <tbody>
-                    @foreach (var (u, idx) in filtered.Select((u, i) => (u, i + 1)))
-                    {
-                        <tr class="@(!u.IsActive ? "row-inactive" : "")">
-                            <td style="color:var(--text3);font-size:.78rem;">@idx</td>
-                            <td>
-                                <div style="display:flex;align-items:center;gap:.65rem;">
-                                    <div class="user-avatar" style="background:@AvatarColor(u.Roles);">
-                                        <span style="color:#fff;">@(u.FullName?.Length > 0 ? u.FullName[0].ToString() : "؟")</span>
+
+    <!-- ═══════════════ STATS ═══════════════ -->
+    <div class="stats-grid">
+        <div class="sc @(SF == "" ? "asc" : "")" style="border-color:@(SF == "" ? "#7c3aed" : "#f1f5f9");" @onclick='() => SF = ""'>
+            <div class="sc-val" style="color:#7c3aed;">@(UserList?.Count() ?? 0)</div>
+            <div class="sc-lbl">الكل</div>
+        </div>
+        @foreach (var (role, color) in RoleColors)
+        {
+            var rr = role;
+            var cc = color;
+            <div class="sc @(SF == rr ? "asc" : "")" style="border-color:@(SF == rr ? cc : "#f1f5f9");" @onclick="() => SF = rr">
+                <div class="sc-val" style="color:@cc;">@(UserList?.Count(u => u.Roles.Contains(rr)) ?? 0)</div>
+                <div class="sc-lbl">@RoleAr(rr)</div>
+            </div>
+        }
+        <div class="sc @(SF == "on" ? "asc" : "")" style="border-color:@(SF == "on" ? "#22c55e" : "#f1f5f9");" @onclick='() => SF = "on"'>
+            <div class="sc-val" style="color:#22c55e;">@(UserList?.Count(u => u.IsActive) ?? 0)</div>
+            <div class="sc-lbl">نشطون</div>
+        </div>
+        <div class="sc @(SF == "off" ? "asc" : "")" style="border-color:@(SF == "off" ? "#ef4444" : "#f1f5f9");" @onclick='() => SF = "off"'>
+            <div class="sc-val" style="color:#ef4444;">@(UserList?.Count(u => !u.IsActive) ?? 0)</div>
+            <div class="sc-lbl">موقوفون</div>
+        </div>
+    </div>
+
+    <!-- ═══════════════ TOOLBAR ═══════════════ -->
+    <div class="toolbar">
+        <div class="search-wrap">
+            <input class="search-input" placeholder="بحث بالاسم أو البريد..."
+                   @bind="Search" @bind:event="oninput" />
+            <i class="bi bi-search search-ico"></i>
+        </div>
+        <select class="role-filter-select" @bind="SF">
+            <option value="">— جميع الأدوار —</option>
+            @foreach (var r in AllRoles)
+            {
+                <option value="@r">@RoleAr(r)</option>
+            }
+            <option value="on">نشط</option>
+            <option value="off">موقوف</option>
+        </select>
+    </div>
+
+    <!-- ═══════════════ TABLE ═══════════════ -->
+    <div class="tcard">
+        <div class="tscroll">
+            @if (Loading)
+            {
+                <div class="ldg">
+                    <div class="spinner-border spinner-border-sm" style="color:#7c3aed;width:.95rem;height:.95rem;border-width:2px;"></div>
+                    <span>جاري تحميل المستخدمين...</span>
+                </div>
+            }
+            else if (!Visible.Any())
+            {
+                <div class="empty-state">
+                    <i class="bi bi-people"></i>
+                    <div>لا يوجد مستخدمون مطابقون</div>
+                </div>
+            }
+            else
+            {
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width:42px;">#</th>
+                            <th>المستخدم</th>
+                            <th>الأدوار <span class="rc-badge">@Visible.Count()</span></th>
+                            <th>الحالة</th>
+                            <th style="text-align:center;">البريد</th>
+                            <th>إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{
+                            int idx = 0;
+                        }
+                        @foreach (var u in Visible)
+                        {
+                            idx++;
+                            bool isMe = u.Email == MeEmail;
+                            <tr class="@(!u.IsActive ? "row-off" : "")">
+                                <td style="color:#94a3b8;font-size:.76rem;font-weight:600;">@idx</td>
+                                <td>
+                                    <div class="ucell">
+                                        <div class="av" style="background:@AvatarGradient(u.Roles);">
+                                            @Initials(u)
+                                        </div>
+                                        <div>
+                                            <div class="uname">
+                                                @u.FullName
+                                                @if (isMe)
+                                                {
+                                                    <span class="me-badge">أنا</span>
+                                                }
+                                            </div>
+                                            <div class="uemail">@u.Email</div>
+                                        </div>
                                     </div>
-                                    <span style="font-weight:600;color:var(--text1);">@(string.IsNullOrEmpty(u.FullName) ? (u.Email?.Split('@')[0] ?? "مستخدم") : u.FullName)</span>
-                                </div>
-                            </td>
-                            <td style="font-size:.82rem;">@u.Email</td>
-                            <td>
-                                <div style="display:flex;flex-wrap:wrap;gap:.3rem;">
-                                    @foreach (var role in u.Roles)
-                                    {
-                                        <span class="role-chip @RoleClass(role)">
-                                            <i class="bi @RoleIcon(role)"></i>@RoleAr(role)
-                                        </span>
-                                    }
-                                    @if (!u.Roles.Any()) { <span style="color:var(--text3);font-size:.78rem;">بدون دور</span> }
-                                </div>
-                            </td>
-                            <td>
-                                @if (u.IsActive)
-                                { <span class="st-active"><i class="bi bi-circle-fill" style="font-size:.4rem;"></i>نشط</span> }
-                                else
-                                { <span class="st-inactive"><i class="bi bi-circle-fill" style="font-size:.4rem;"></i>موقوف</span> }
-                            </td>
-                            <td style="text-align:center;">
-                                @if (u.EmailConfirmed)
-                                { <i class="bi bi-patch-check-fill" style="color:var(--success);font-size:1.1rem;" title="مؤكد"></i> }
-                                else
-                                { <i class="bi bi-patch-question" style="color:var(--text3);font-size:1.1rem;" title="غير مؤكد"></i> }
-                            </td>
-                            <td>
-                                <div class="action-btns">
-                                    <button class="btn btn-warning-ghost btn-sm" title="إدارة الأدوار" @onclick="() => OpenRoles(u)">
-                                        <i class="bi bi-key"></i>
-                                    </button>
+                                </td>
+                                <td>
+                                    <div class="roles-wrap">
+                                        @foreach (var r in u.Roles.Take(3))
+                                        {
+                                            <span class="rtag r-@r"><i class="bi @RoleIco(r)" style="font-size:.6rem;"></i>@RoleAr(r)</span>
+                                        }
+                                        @if (u.Roles.Count > 3)
+                                        {
+                                            <span class="rtag r-default">+@(u.Roles.Count - 3)</span>
+                                        }
+                                        @if (!u.Roles.Any())
+                                        {
+                                            <span style="color:#cbd5e1;font-size:.75rem;">—</span>
+                                        }
+                                    </div>
+                                </td>
+                                <td>
                                     @if (u.IsActive)
                                     {
-                                        <button class="btn btn-danger-ghost btn-sm" title="إيقاف الحساب" @onclick="() => ToggleUser(u, false)">
-                                            <i class="bi bi-person-dash"></i>
-                                        </button>
+                                        <span class="pill-on"><span class="sdot" style="background:#22c55e;"></span>نشط</span>
                                     }
                                     else
                                     {
-                                        <button class="btn btn-success-ghost btn-sm" title="تفعيل الحساب" @onclick="() => ToggleUser(u, true)">
-                                            <i class="bi bi-person-check"></i>
-                                        </button>
+
+                                        <span class="pill-off"><span class="sdot" style="background:#dc2626;"></span>موقوف</span>
                                     }
-                                    <button class="btn btn-ghost btn-sm" title="إعادة تعيين كلمة المرور" @onclick="() => OpenResetPwd(u)">
-                                        <i class="bi bi-lock-fill"></i>
-                                    </button>
-                                    <button class="btn btn-danger-ghost btn-sm" title="حذف الحساب" @onclick="() => OpenDelete(u)">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
+                                </td>
+                                <td style="text-align:center;">
+                                    @if (u.EmailConfirmed)
+                                    {
+                                        <i class="bi bi-patch-check-fill" style="color:#22c55e;" title="مؤكد"></i>
+                                    }
+                                    else
+                                    {
+
+                                        <i class="bi bi-patch-question" style="color:#cbd5e1;" title="غير مؤكد"></i>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="ibwrap">
+                                        <button class="ib ib-v" title="تفاصيل" @onclick="() => OpenDetail(u)">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                        <AuthorizeView Roles="SuperAdmin">
+                                            <Authorized>
+                                                <button class="ib ib-a" title="إدارة الأدوار" @onclick="() => OpenRolesMgr(u)">
+                                                    <i class="bi bi-key"></i>
+                                                </button>
+                                            </Authorized>
+                                        </AuthorizeView>
+                                        @if (!isMe)
+                                        {
+                                            @if (u.IsActive)
+                                            {
+                                                <button class="ib ib-r" title="إيقاف" @onclick="() => ConfirmOff(u)">
+                                                    <i class="bi bi-person-dash"></i>
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <button class="ib ib-g" title="تفعيل" @onclick="() => DoToggle(u, true)">
+                                                    <i class="bi bi-person-check"></i>
+                                                </button>
+                                            }
+                                            <AuthorizeView Roles="SuperAdmin">
+                                                <Authorized>
+                                                    <button class="ib ib-b" title="إعادة كلمة المرور" @onclick="() => OpenResetPwd(u)">
+                                                        <i class="bi bi-lock-fill"></i>
+                                                    </button>
+                                                    <button class="ib ib-r" title="حذف" @onclick="() => OpenDelete(u)">
+                                                        <i class="bi bi-trash3"></i>
+                                                    </button>
+                                                </Authorized>
+                                            </AuthorizeView>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+
+</div><!-- end pu-wrap -->
+<!-- ══════════════════════════════════════════════════════════════
+     MODAL: إضافة مستخدم جديد
+     POST api/auth/users
+══════════════════════════════════════════════════════════════ -->
+@if (ShowAdd)
+{
+    <div class="mbk" @onclick="() => ShowAdd = false">
+        <div class="mbox" @onclick:stopPropagation="true" style="max-width:540px;" dir="rtl">
+            <div class="mhead"><i class="bi bi-person-plus-fill" style="color:#7c3aed;"></i>إضافة مستخدم جديد</div>
+            @if (!string.IsNullOrEmpty(FErr))
+            {
+                <div class="aerr"><i class="bi bi-exclamation-circle-fill"></i> @FErr</div>
+            }
+            <div class="fg2">
+                <div class="fg"><label class="fl">الاسم *</label><input class="fc" @bind="FA" placeholder="الاسم" /></div>
+                <div class="fg"><label class="fl">اللقب *</label><input class="fc" @bind="FB" placeholder="اللقب" /></div>
+            </div>
+            <div class="fg">
+                <label class="fl">البريد الإلكتروني *</label>
+                <input class="fc" type="email" @bind="FC" placeholder="user@municipality360.dz" />
+            </div>
+            <div class="fg">
+                <label class="fl">كلمة المرور *</label>
+                <input class="fc" type="password" @bind="FD" placeholder="••••••••" />
+                <div class="hint">8 أحرف على الأقل · حرف كبير · رقم · رمز خاص (مثال: Admin@2025)</div>
+            </div>
+            <div class="fg">
+                <label class="fl">الدور الرئيسي *</label>
+                <div class="role-grid">
+                    @foreach (var r in AllRoles)
+                    {
+                        var rr = r;
+                        <div class="rchip @(FRole == rr ? "rsel rc-" + rr : "")" @onclick="() => FRole = rr">
+                            <span class="rchip-dot"></span>
+                            <i class="bi @RoleIco(rr)"></i>
+                            @RoleAr(rr)
+                        </div>
                     }
-                </tbody>
-            </table>
-        </div>
-    }
-</div>
-
-<!-- Modal: Create User -->
-@if (showForm)
-{
-    <div class="backdrop" @onclick="CloseForm">
-        <div class="modal" @onclick:stopPropagation="true">
-            <div class="mh">
-                <h5><i class="bi bi-person-plus"></i>إضافة مستخدم جديد</h5>
-                <button class="mbtn-close" @onclick="CloseForm"><i class="bi bi-x-lg"></i></button>
+                </div>
+                <div class="hint">سيتم تعيين أدوار إضافية لاحقاً عبر "إدارة الأدوار"</div>
             </div>
-            <div class="mb">
-                @if (!string.IsNullOrEmpty(formMsg))
-                {
-                    <div class="alert @(formSuccess ? "alert-success" : "alert-danger")">
-                        <i class="bi @(formSuccess ? "bi-check-circle" : "bi-exclamation-circle")"></i>@formMsg
-                    </div>
-                }
-                <div class="row2">
-                    <div class="fg"><label><span class="req">*</span>الاسم</label><input class="fc" placeholder="الاسم الأول" @bind="fFirstName" /></div>
-                    <div class="fg"><label><span class="req">*</span>اللقب</label><input class="fc" placeholder="القب" @bind="fLastName" /></div>
-                </div>
-                <div class="fg"><label><span class="req">*</span>البريد الإلكتروني</label><input class="fc" type="email" placeholder="user@elain.dz" @bind="fEmail" /></div>
-                <div class="fg">
-                    <label><span class="req">*</span>الدور (الصلاحية)</label>
-                    <select class="fc" @bind="fRole">
-                        <option value="SuperAdmin">⭐ مدير النظام الأعلى (SuperAdmin)</option>
-                        <option value="Admin">🔵 مسؤول (Admin)</option>
-                        <option value="Manager">🟢 مدير مصلحة (Manager)</option>
-                        <option value="Employee">⚪ عون إداري (Employee)</option>
-                    </select>
-                </div>
-                <div class="fg">
-                    <label><span class="req">*</span>كلمة المرور</label>
-                    <input class="fc" type="password" placeholder="••••••••" @bind="fPassword" />
-                    <p class="pw-hint">يجب أن تحتوي على 8 أحرف على الأقل، حرف كبير، حرف صغير، رقم ورمز.</p>
-                </div>
-                <div class="fg">
-                    <label><span class="req">*</span>تأكيد كلمة المرور</label>
-                    <input class="fc" type="password" placeholder="••••••••" @bind="fConfirmPassword" />
-                </div>
-            </div>
-            <div class="mf">
-                <button class="btn btn-ghost" @onclick="CloseForm">إلغاء</button>
-                <button class="btn btn-primary" @onclick="SaveUser" disabled="@(isSaving || formSuccess)">
-                    @if (isSaving) { <span class="spinner" style="width:16px;height:16px;border-width:2px;"></span> } else { <i class="bi bi-person-check"></i> }
-                    إنشاء الحساب
+            <div class="mfoot">
+                <button class="btn btn-ghost" @onclick="() => ShowAdd = false">إلغاء</button>
+                <button class="btn btn-primary" @onclick="DoAdd" disabled="@Busy">
+                    @if (Busy)
+                    {
+                        <span class="spin"></span>
+                    }
+     إنشاء الحساب
                 </button>
             </div>
         </div>
     </div>
 }
 
-<!-- Modal: Roles Management -->
-@if (showRoles && rolesTarget != null)
+
+<!-- ══════════════════════════════════════════════════════════════
+     MODAL: إدارة أدوار مستخدم
+     POST api/auth/roles/assign | POST api/auth/roles/remove
+══════════════════════════════════════════════════════════════ -->
+@if (ShowRoles && RUser != null)
 {
-    <div class="backdrop" @onclick="() => showRoles = false">
-        <div class="modal" @onclick:stopPropagation="true">
-            <div class="mh">
-                <h5><i class="bi bi-key"></i>إدارة أدوار — @rolesTarget.FullName</h5>
-                <button class="mbtn-close" @onclick="() => showRoles = false"><i class="bi bi-x-lg"></i></button>
-            </div>
-            <div class="mb">
-                @if (!string.IsNullOrEmpty(rolesMsg))
-                {
-                    <div class="alert @(rolesMsgOk ? "alert-success" : "alert-danger")">
-                        <i class="bi @(rolesMsgOk ? "bi-check-circle" : "bi-exclamation-circle")"></i>@rolesMsg
-                    </div>
-                }
-                <div style="background:#f8fafc;border-radius:10px;padding:.75rem;margin-bottom:1rem;font-size:.82rem;color:var(--text2);">
-                    <i class="bi bi-info-circle" style="color:var(--accent);margin-left:.3rem;"></i>
-                    الأدوار الحالية:
-                    <strong style="color:var(--text1);">@(rolesTarget.Roles.Any() ? string.Join(" · ", rolesTarget.Roles.Select(RoleAr)) : "بدون دور")</strong>
-                </div>
-                @foreach (var role in allRoles)
-                {
-                    var r = role;
-                    var hasIt = rolesTarget.Roles.Contains(r);
-                    <div class="role-row">
-                        <div style="display:flex;align-items:center;gap:.65rem;">
-                            <div class="role-dot" style="background:@RoleDotColor(r);"></div>
-                            <div>
-                                <div class="role-name"><i class="bi @RoleIcon(r)" style="margin-left:.3rem;"></i>@RoleAr(r)</div>
-                                <div class="role-desc">@RoleDesc(r)</div>
-                            </div>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:.4rem;">
-                            @if (hasIt)
-                            {
-                                <i class="bi bi-check-circle-fill" style="color:var(--success);font-size:.9rem;"></i>
-                                <button class="ra-rem" @onclick="() => RemoveRole(r)" disabled="@isSaving">
-                                    <i class="bi bi-dash-circle"></i> إلغاء
-                                </button>
-                            }
-                            else
-                            {
-                                <i class="bi bi-circle" style="color:var(--border);font-size:.9rem;"></i>
-                                <button class="ra-add" @onclick="() => AssignRole(r)" disabled="@isSaving">
-                                    <i class="bi bi-plus-circle"></i> تعيين
-                                </button>
-                            }
+    <div class="mbk" @onclick="() => ShowRoles = false">
+        <div class="mbox" @onclick:stopPropagation="true" style="max-width:500px;" dir="rtl">
+            <div class="mhead"><i class="bi bi-key-fill" style="color:#f59e0b;"></i>إدارة أدوار — @RUser.FullName</div>
+            @if (!string.IsNullOrEmpty(ROk))
+            {
+                <div class="aok"><i class="bi bi-check-circle-fill"></i> @ROk</div>
+            }
+            @if (!string.IsNullOrEmpty(RErr))
+            {
+                <div class="aerr"><i class="bi bi-exclamation-circle-fill"></i> @RErr</div>
+            }
+
+            <!-- ── الأدوار الإدارية ── -->
+            <div class="role-cat">الأدوار الإدارية</div>
+            @foreach (var role in AdminRoles)
+            {
+                var rr = role; bool has = RUser.Roles.Contains(rr);
+                <div class="rm-row">
+                    <div class="rm-l">
+                        <div class="rm-dot" style="background:@RoleColor(rr);"></div>
+                        <div>
+                            <div class="rm-name"><i class="bi @RoleIco(rr)"></i> @RoleAr(rr)</div>
+                            <div class="rm-desc">@RoleDesc(rr)</div>
                         </div>
                     </div>
-                }
-            </div>
-            <div class="mf">
-                <button class="btn btn-ghost" @onclick="() => showRoles = false">إغلاق</button>
+                    @if (has)
+                    {
+                        <button class="btn-rem-role" @onclick="() => DoRemRole(rr)" disabled="@Busy"><i class="bi bi-dash-circle"></i> إلغاء</button>
+                    }
+                    else
+                    {
+
+                        <button class="btn-add-role" @onclick="() => DoAddRole(rr)" disabled="@Busy"><i class="bi bi-plus-circle"></i> تعيين</button>
+                    }
+                </div>
+            }
+
+            <!-- ── أدوار الوحدات ── -->
+            <div class="role-cat" style="margin-top:.7rem;">أدوار الوحدات والمصالح</div>
+            @foreach (var role in UnitRoles)
+            {
+                var rr = role; bool has = RUser.Roles.Contains(rr);
+                <div class="rm-row">
+                    <div class="rm-l">
+                        <div class="rm-dot" style="background:@RoleColor(rr);"></div>
+                        <div>
+                            <div class="rm-name"><i class="bi @RoleIco(rr)"></i> @RoleAr(rr)</div>
+                            <div class="rm-desc">@RoleDesc(rr)</div>
+                        </div>
+                    </div>
+                    @if (has)
+                    {
+                        <button class="btn-rem-role" @onclick="() => DoRemRole(rr)" disabled="@Busy"><i class="bi bi-dash-circle"></i> إلغاء</button>
+                    }
+                    else
+                    {
+
+                        <button class="btn-add-role" @onclick="() => DoAddRole(rr)" disabled="@Busy"><i class="bi bi-plus-circle"></i> تعيين</button>
+                    }
+                </div>
+            }
+
+            <div class="mfoot">
+                <button class="btn btn-ghost" @onclick="() => ShowRoles = false">إغلاق</button>
             </div>
         </div>
     </div>
 }
 
-<!-- Modal: Reset Password -->
-@if (showResetPwd && resetTarget != null)
+
+<!-- ══════════════════════════════════════════════════════════════
+     MODAL: مرجع الصلاحيات
+══════════════════════════════════════════════════════════════ -->
+@if (ShowPerms)
 {
-    <div class="backdrop" @onclick="() => showResetPwd = false">
-        <div class="modal" style="max-width:440px;" @onclick:stopPropagation="true">
-            <div class="mh">
-                <h5><i class="bi bi-lock-fill"></i>إعادة تعيين كلمة المرور</h5>
-                <button class="mbtn-close" @onclick="() => showResetPwd = false"><i class="bi bi-x-lg"></i></button>
+    <div class="mbk" @onclick="() => ShowPerms = false">
+        <div class="mbox" @onclick:stopPropagation="true" style="max-width:720px;" dir="rtl">
+            <div class="mhead"><i class="bi bi-table" style="color:#0ea5e9;"></i>مرجع الأدوار والصلاحيات</div>
+            <div style="overflow-x:auto;">
+                <table class="pmatrix">
+                    <thead>
+                        <tr>
+                            <th>الصلاحية</th>
+                            <th>SuperAdmin</th>
+                            <th>Admin</th>
+                            <th>Manager</th>
+                            <th>Employee</th>
+                            <th>Finances</th>
+                            <th>Urbanisme</th>
+                            <th>EtatCivil</th>
+                            <th>SIG</th>
+                            <th>BureauOrdre</th>
+                            <th>Reclamations</th>
+                            <th>Nettoyage</th>
+                            <th>Stock</th>
+                            <th>RH</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in Perms)
+                        {
+                            <tr>
+                                <td>@p.N</td>
+                                <td><i class="bi @(p.V[0] ? "bi-check-circle-fill pyes" : "bi-x-circle pno")"></i></td>
+                                <td><i class="bi @(p.V[1] ? "bi-check-circle-fill pyes" : "bi-x-circle pno")"></i></td>
+                                <td><i class="bi @(p.V[2] ? "bi-check-circle-fill pyes" : "bi-x-circle pno")"></i></td>
+                                <td><i class="bi @(p.V[3] ? "bi-check-circle-fill pyes" : "bi-x-circle pno")"></i></td>
+                                <td><i class="bi @(p.V[4] ? "bi-check-circle-fill pyes" : "bi-x-circle pno")"></i></td>
+                                <td><i class="bi @(p.V[5] ? "bi-check-circle-fill pyes" : "bi-x-circle pno")"></i></td>
+                                <td><i class="bi @(p.V[6] ? "bi-check-circle-fill pyes" : "bi-x-circle pno")"></i></td>
+                                <td><i class="bi @(p.V[7] ? "bi-check-circle-fill pyes" : "bi-x-circle pno")"></i></td>
+                                <td><i class="bi @(p.V[8] ? "bi-check-circle-fill pyes" : "bi-x-circle pno")"></i></td>
+                                <td><i class="bi @(p.V[9] ? "bi-check-circle-fill pyes" : "bi-x-circle pno")"></i></td>
+                                <td><i class="bi @(p.V[10] ? "bi-check-circle-fill pyes" : "bi-x-circle pno")"></i></td>
+                                <td><i class="bi @(p.V[11] ? "bi-check-circle-fill pyes" : "bi-x-circle pno")"></i></td>
+                                <td><i class="bi @(p.V[12] ? "bi-check-circle-fill pyes" : "bi-x-circle pno")"></i></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
             </div>
-            <div class="mb">
-                @if (!string.IsNullOrEmpty(pwdMsg))
+            <div style="font-size:.7rem;color:#94a3b8;margin-top:.7rem;">
+                ترتيب الأعمدة: SuperAdmin · Admin · Manager · Employee · Finances · Urbanisme · EtatCivil · SIG · BureauOrdre · Reclamations · Nettoyage · Stock · RessourcesHumaines
+            </div>
+            <div class="mfoot"><button class="btn btn-ghost" @onclick="() => ShowPerms = false">إغلاق</button></div>
+        </div>
+    </div>
+}
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     MODAL: إعادة تعيين كلمة المرور
+     POST api/auth/users/reset-password
+══════════════════════════════════════════════════════════════ -->
+@if (ShowReset && SelU != null)
+{
+    <div class="mbk" @onclick="() => ShowReset = false">
+        <div class="mbox" @onclick:stopPropagation="true" style="max-width:400px;" dir="rtl">
+            <div class="mhead"><i class="bi bi-lock-fill" style="color:#f59e0b;"></i>إعادة تعيين كلمة المرور</div>
+            @if (!string.IsNullOrEmpty(FErr))
+            {
+                <div class="aerr"><i class="bi bi-exclamation-circle-fill"></i> @FErr</div>
+            }
+            <div class="warn-box"><i class="bi bi-exclamation-triangle-fill"></i> سيتم تغيير كلمة مرور: <strong>@SelU.Email</strong></div>
+            <div class="fg">
+                <label class="fl">كلمة المرور الجديدة *</label>
+                <input class="fc" type="password" @bind="P1" placeholder="••••••••" />
+                <div class="hint">8 أحرف على الأقل · حرف كبير · رقم · رمز خاص</div>
+            </div>
+            <div class="fg">
+                <label class="fl">تأكيد كلمة المرور *</label>
+                <input class="fc" type="password" @bind="P2" placeholder="••••••••" />
+            </div>
+            <div class="mfoot">
+                <button class="btn btn-ghost" @onclick="() => ShowReset = false">إلغاء</button>
+                <button class="btn btn-danger" @onclick="DoReset" disabled="@Busy">
+                    @if (Busy)
+                    {
+                        <span class="spin"></span>
+                    }
+     تأكيد التغيير
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     MODAL: تأكيد الإيقاف
+     PATCH api/auth/users/toggle  (IsActive=false)
+══════════════════════════════════════════════════════════════ -->
+@if (ShowToggleConf && SelU != null)
+{
+    <div class="mbk" @onclick="() => ShowToggleConf = false">
+        <div class="mbox" @onclick:stopPropagation="true" style="max-width:370px;" dir="rtl">
+            <div class="conf-ico" style="background:#fef2f2;color:#dc2626;"><i class="bi bi-person-dash-fill"></i></div>
+            <div class="mhead" style="justify-content:center;">تأكيد إيقاف الحساب</div>
+            <div class="conf-msg">
+                هل تريد إيقاف حساب <strong style="color:#0f172a;">@SelU.FullName</strong>؟<br />
+                <span style="font-size:.8rem;">لن يتمكن من الدخول حتى يُفعَّل مجدداً.</span>
+            </div>
+            <div class="mfoot" style="justify-content:center;">
+                <button class="btn btn-ghost" @onclick="() => ShowToggleConf = false">إلغاء</button>
+                <button class="btn btn-danger" @onclick="() => DoToggle(SelU!, false)" disabled="@Busy">
+                    @if (Busy)
+                    {
+                        <span class="spin"></span>
+                    }
+     تأكيد الإيقاف
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     MODAL: تأكيد الحذف
+     DELETE api/auth/users/{id}
+══════════════════════════════════════════════════════════════ -->
+@if (ShowDel && SelU != null)
+{
+    <div class="mbk" @onclick="() => ShowDel = false">
+        <div class="mbox" @onclick:stopPropagation="true" style="max-width:370px;" dir="rtl">
+            <div class="conf-ico" style="background:#fef2f2;color:#ef4444;"><i class="bi bi-person-x-fill"></i></div>
+            <div class="mhead" style="justify-content:center;">تأكيد حذف الحساب</div>
+            <div class="conf-msg">
+                هل أنت متأكد من حذف حساب <strong style="color:#0f172a;">@SelU.FullName</strong>؟<br />
+                <span style="color:#ef4444;font-size:.79rem;">لا يمكن التراجع عن هذا الإجراء.</span>
+            </div>
+            <div class="mfoot" style="justify-content:center;">
+                <button class="btn btn-ghost" @onclick="() => ShowDel = false">إلغاء</button>
+                <button class="btn btn-danger" @onclick="DoDel" disabled="@Busy">
+                    @if (Busy)
+                    {
+                        <span class="spin"></span>
+                    }
+     تأكيد الحذف
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     SIDEBAR: تفاصيل المستخدم
+══════════════════════════════════════════════════════════════ -->
+@if (DetailU != null)
+{
+    <div class="dbk" @onclick="() => DetailU = null"></div>
+    <div class="dsb">
+        <div class="dsb-head">
+            <button class="dsb-close" @onclick="() => DetailU = null"><i class="bi bi-x-lg"></i></button>
+            <div class="dsb-av" style="background:@AvatarGradient(DetailU.Roles);">@Initials(DetailU)</div>
+            <div class="dsb-name">@DetailU.FullName</div>
+            <div class="dsb-email">@DetailU.Email</div>
+            <div class="dsb-tags">
+                @foreach (var r in DetailU.Roles)
                 {
-                    <div class="alert @(pwdMsgOk ? "alert-success" : "alert-danger")">
-                        <i class="bi @(pwdMsgOk ? "bi-check-circle" : "bi-exclamation-circle")"></i>@pwdMsg
+                    <span class="rtag r-@r"><i class="bi @RoleIco(r)" style="font-size:.6rem;"></i>@RoleAr(r)</span>
+                }
+            </div>
+        </div>
+        <div class="dsb-body">
+            <!-- معلومات -->
+            <div class="dsb-sec">
+                <div class="dsb-sec-t">معلومات الحساب</div>
+                <div class="dsb-row">
+                    <span class="dsb-l">الحالة</span>
+                    @if (DetailU.IsActive)
+                    {
+                        <span class="pill-on"><span class="sdot" style="background:#22c55e;"></span>نشط</span>
+                    }
+                    else
+                    {
+
+                        <span class="pill-off"><span class="sdot" style="background:#dc2626;"></span>موقوف</span>
+                    }
+                </div>
+                <div class="dsb-row">
+                    <span class="dsb-l">البريد الإلكتروني</span>
+                    <span class="dsb-v" style="font-size:.72rem;direction:ltr;">@DetailU.Email</span>
+                </div>
+                <div class="dsb-row">
+                    <span class="dsb-l">تأكيد البريد</span>
+                    @if (DetailU.EmailConfirmed)
+                    {
+                        <i class="bi bi-patch-check-fill" style="color:#22c55e;"></i>
+                    }
+                    else
+                    {
+
+                        <span style="color:#94a3b8;font-size:.77rem;">غير مؤكد</span>
+                    }
+                </div>
+                <div class="dsb-row">
+                    <span class="dsb-l">عدد الأدوار</span>
+                    <span class="dsb-v">@DetailU.Roles.Count دور</span>
+                </div>
+            </div>
+
+            <!-- الأدوار الإدارية -->
+            <div class="dsb-sec">
+                <div class="dsb-sec-t">الأدوار الإدارية</div>
+                @foreach (var r in AdminRoles)
+                {
+                    bool has = DetailU.Roles.Contains(r);
+                    <div class="rm-row">
+                        <div class="rm-l">
+                            <div class="rm-dot" style="background:@(has? RoleColor(r):"#e2e8f0");"></div>
+                            <div class="rm-name" style="color:@(has ? "#0f172a" : "#94a3b8");font-weight:@(has ? "700" : "400");">@RoleAr(r)</div>
+                        </div>
+                        @if (has)
+                        {
+                            <i class="bi bi-check-circle-fill" style="color:#22c55e;font-size:.85rem;"></i>
+                        }
+                        else
+                        {
+
+                            <i class="bi bi-circle" style="color:#e2e8f0;font-size:.85rem;"></i>
+                        }
                     </div>
                 }
-                <div class="warn-box">
-                    <i class="bi bi-exclamation-triangle-fill"></i>
-                    سيتم تغيير كلمة مرور الحساب: <strong>@resetTarget.Email</strong>
-                </div>
-                <div class="fg">
-                    <label><span class="req">*</span>كلمة المرور الجديدة</label>
-                    <input class="fc" type="password" placeholder="••••••••" @bind="newPwd" />
-                    <p class="pw-hint">8 أحرف على الأقل · حرف كبير · رقم · رمز خاص</p>
-                </div>
-                <div class="fg">
-                    <label><span class="req">*</span>تأكيد كلمة المرور</label>
-                    <input class="fc" type="password" placeholder="••••••••" @bind="newPwd2" />
-                </div>
             </div>
-            <div class="mf">
-                <button class="btn btn-ghost" @onclick="() => showResetPwd = false">إلغاء</button>
-                <button class="btn btn-danger" @onclick="DoResetPwd" disabled="@isSaving">
-                    @if (isSaving) { <span class="spinner" style="width:16px;height:16px;border-width:2px;margin-left:.4rem;"></span> }
-                    else { <i class="bi bi-lock-fill"></i> }
-                    تأكيد التغيير
-                </button>
+
+            <!-- أدوار الوحدات -->
+            <div class="dsb-sec">
+                <div class="dsb-sec-t">أدوار الوحدات</div>
+                @foreach (var r in UnitRoles)
+                {
+                    bool has = DetailU.Roles.Contains(r);
+                    <div class="rm-row">
+                        <div class="rm-l">
+                            <div class="rm-dot" style="background:@(has? RoleColor(r):"#e2e8f0");"></div>
+                            <div class="rm-name" style="color:@(has ? "#0f172a" : "#94a3b8");font-weight:@(has ? "700" : "400");">@RoleAr(r)</div>
+                        </div>
+                        @if (has)
+                        {
+                            <i class="bi bi-check-circle-fill" style="color:#22c55e;font-size:.85rem;"></i>
+                        }
+                        else
+                        {
+
+                            <i class="bi bi-circle" style="color:#e2e8f0;font-size:.85rem;"></i>
+                        }
+                    </div>
+                }
+            </div>
+
+            <!-- إجراءات سريعة -->
+            <div style="display:flex;flex-direction:column;gap:.45rem;margin-top:.75rem;">
+                <AuthorizeView Roles="SuperAdmin">
+                    <Authorized>
+                        <button class="btn btn-primary" style="justify-content:center;"
+                                @onclick="() => { OpenRolesMgr(DetailU!); DetailU = null; }">
+                            <i class="bi bi-key"></i> إدارة الأدوار
+                        </button>
+                    </Authorized>
+                </AuthorizeView>
+                @if (DetailU.Email != MeEmail)
+                {
+                    @if (DetailU.IsActive)
+                    {
+                        <button class="btn" style="justify-content:center;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;"
+                                @onclick="() => { ConfirmOff(DetailU!); DetailU = null; }">
+                            <i class="bi bi-person-dash"></i> إيقاف الحساب
+                        </button>
+                    }
+                    else
+                    {
+                        <button class="btn" style="justify-content:center;background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;"
+                                @onclick="() => { DoToggle(DetailU!, true); DetailU = null; }">
+                            <i class="bi bi-person-check"></i> تفعيل الحساب
+                        </button>
+                    }
+                }
             </div>
         </div>
-    </div>
-}
-
-<!-- Modal: Confirm Delete -->
-@if (showDelete && deleteTarget != null)
-{
-    <div class="backdrop" @onclick="() => showDelete = false">
-        <div class="modal" style="max-width:400px;" @onclick:stopPropagation="true">
-            <div class="mb" style="padding-top:1.75rem;text-align:center;">
-                <div class="conf-icon"><i class="bi bi-person-x"></i></div>
-                <div class="conf-title">حذف المستخدم</div>
-                <div class="conf-desc">
-                    هل أنت متأكد من حذف حساب <strong>"@deleteTarget.FullName"</strong>؟<br />
-                    لا يمكن التراجع عن هذه العملية.
-                </div>
-            </div>
-            <div class="mf">
-                <button class="btn btn-ghost" @onclick="() => showDelete = false">إلغاء</button>
-                <button class="btn btn-danger" @onclick="ConfirmDelete" disabled="@isSaving">
-                    @if (isSaving) { <span class="spinner" style="width:16px;height:16px;border-width:2px;"></span> } else { <i class="bi bi-trash3"></i> } حذف الحساب
-                </button>
-            </div>
-        </div>
-    </div>
-}
-
-@if (!string.IsNullOrEmpty(toast))
-{
-    <div style="position:fixed;bottom:1.5rem;left:1.5rem;z-index:2000;background:#0f172a;color:#fff;padding:.8rem 1.2rem;border-radius:12px;display:flex;align-items:center;gap:.6rem;font-size:.875rem;box-shadow:0 8px 24px rgba(0,0,0,.25);animation:fi .25s;">
-        <i class="bi bi-check-circle-fill" style="color:var(--success);"></i>@toast
     </div>
 }
 
 @code {
+    // ── DI ─────────────────────────────────────────────────────
+    [Inject] IUserApiService UserSvc { get; set; } = null!;
+    [Inject] AuthenticationStateProvider AuthSP { get; set; } = null!;
+
     // ── Data ────────────────────────────────────────────────────
-    private IEnumerable<UserDetailDto> users = Enumerable.Empty<UserDetailDto>();
-    private string[] allRoles = { "SuperAdmin", "Admin", "Manager", "Employee" };
-    private string searchTerm = "";
-    private bool isLoading = true;
+    private IEnumerable<UserDetailDto>? UserList;
+    private bool Loading = true;
+    private bool Busy = false;
+    private string MeEmail = "";
 
-    // ── Modals state ────────────────────────────────────────────
-    private bool showForm, showDelete, showRoles, showResetPwd;
-    private bool isSaving, formSuccess;
-    private UserDetailDto? deleteTarget, rolesTarget, resetTarget;
+    // ── Filters ─────────────────────────────────────────────────
+    private string SF = "";
+    private string Search = "";
 
-    // ── Add user form ────────────────────────────────────────────
-    private string fFirstName = "", fLastName = "", fEmail = "",
-                   fPassword = "", fConfirmPassword = "",
-                   fRole = "Employee", formMsg = "";
+    // ── Page alerts ─────────────────────────────────────────────
+    private string OkMsg = "", ErrMsg = "";
 
-    // ── Roles modal ──────────────────────────────────────────────
-    private string rolesMsg = ""; private bool rolesMsgOk;
+    // ── Modals ──────────────────────────────────────────────────
+    private bool ShowAdd, ShowRoles, ShowPerms, ShowReset, ShowDel, ShowToggleConf;
 
-    // ── Reset password modal ─────────────────────────────────────
-    private string newPwd = "", newPwd2 = "", pwdMsg = ""; private bool pwdMsgOk;
+    // ── Selected ────────────────────────────────────────────────
+    private UserDetailDto? SelU;
+    private UserDetailDto? DetailU;
+    private UserDetailDto? RUser;
 
-    // ── Toast ────────────────────────────────────────────────────
-    private string toast = "";
+    // ── Add form ────────────────────────────────────────────────
+    private string FA = "", FB = "", FC = "", FD = "", FRole = "Employee", FErr = "";
 
-    // ── Filtered list ─────────────────────────────────────────────
-    private IEnumerable<UserDetailDto> filtered =>
-        string.IsNullOrWhiteSpace(searchTerm) ? users
-        : users.Where(u =>
-            u.FullName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
-            u.Email.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
+    // ── Reset pwd ───────────────────────────────────────────────
+    private string P1 = "", P2 = "";
 
-    // ── Init ─────────────────────────────────────────────────────
+    // ── Roles modal feedback ─────────────────────────────────────
+    private string ROk = "", RErr = "";
+
+    // ══ الأدوار الـ 13 المُعرَّفة في DbSeeder ════════════════════
+    private static readonly string[] AllRoles =
+    {
+        "SuperAdmin","Admin","Manager","Employee",
+        "Finances","Urbanisme","EtatCivil","SIG",
+        "BureauOrdre","Reclamations","Nettoyage","Stock","RessourcesHumaines"
+    };
+
+    // تقسيم الأدوار إلى فئتين للعرض
+    private static readonly string[] AdminRoles =
+        { "SuperAdmin","Admin","Manager","Employee" };
+
+    private static readonly string[] UnitRoles =
+        { "Finances","Urbanisme","EtatCivil","SIG",
+          "BureauOrdre","Reclamations","Nettoyage","Stock","RessourcesHumaines" };
+
+    // لون كل دور في بطاقات الإحصاء
+    private static readonly (string Role, string Color)[] RoleColors =
+    {
+        ("SuperAdmin",        "#f59e0b"),
+        ("Admin",             "#7c3aed"),
+        ("Manager",           "#0369a1"),
+        ("Employee",          "#16a34a"),
+        ("Finances",          "#d97706"),
+        ("Urbanisme",         "#059669"),
+        ("EtatCivil",         "#ea580c"),
+        ("SIG",               "#0e7490"),
+        ("BureauOrdre",       "#0369a1"),
+        ("Reclamations",      "#a21caf"),
+        ("Nettoyage",         "#4d7c0f"),
+        ("Stock",             "#be123c"),
+        ("RessourcesHumaines","#6d28d9"),
+    };
+
+    // ══ جدول الصلاحيات (13 عمود) ═════════════════════════════════
+    // ترتيب V[]: SA, AD, MG, EM, FI, UR, EC, SI, BO, RE, NE, ST, RH
+    private record Perm(string N, bool[] V);
+    private static readonly Perm[] Perms =
+    {
+        new("تسجيل الدخول",                     new[]{true,true,true,true,true,true,true,true,true,true,true,true,true}),
+        new("إدارة المستخدمين",                   new[]{true,true,false,false,false,false,false,false,false,false,false,false,false}),
+        new("تعيين / إلغاء الأدوار",              new[]{true,false,false,false,false,false,false,false,false,false,false,false,false}),
+        new("حذف المستخدمين",                      new[]{true,false,false,false,false,false,false,false,false,false,false,false,false}),
+        new("إعادة كلمة المرور",                   new[]{true,false,false,false,false,false,false,false,false,false,false,false,false}),
+        new("إدارة الأقسام والمصالح",              new[]{true,true,false,false,false,false,false,false,false,false,false,false,false}),
+        new("إدارة الموظفين",                      new[]{true,true,true,false,false,false,false,false,false,false,false,false,true}),
+        new("عرض الموظفين",                        new[]{true,true,true,true,false,false,false,false,false,false,false,false,true}),
+        new("إدارة الميزانية / المالية",           new[]{true,true,false,false,true,false,false,false,false,false,false,false,false}),
+        new("عرض التقارير المالية",                 new[]{true,true,true,false,true,false,false,false,false,false,false,false,false}),
+        new("إدارة التعمير والبناء",               new[]{true,true,false,false,false,true,false,false,false,false,false,false,false}),
+        new("إدارة الحالة المدنية",                 new[]{true,true,false,false,false,false,true,false,false,false,false,false,false}),
+        new("الوصول لنظام SIG",                   new[]{true,true,true,false,false,false,false,true,false,false,false,false,false}),
+        new("إدارة البريد والأوامر",               new[]{true,true,false,false,false,false,false,false,true,false,false,false,false}),
+        new("إدارة الشكاوى والمطالبات",            new[]{true,true,true,false,false,false,false,false,false,true,false,false,false}),
+        new("إدارة النظافة والبيئة",               new[]{true,true,false,false,false,false,false,false,false,false,true,false,false}),
+        new("إدارة المخزون والمعدات",              new[]{true,true,false,false,false,false,false,false,false,false,false,true,false}),
+        new("إدارة الموارد البشرية",               new[]{true,true,false,false,false,false,false,false,false,false,false,false,true}),
+    };
+
+    // ── Computed ─────────────────────────────────────────────────
+    private IEnumerable<UserDetailDto> Visible =>
+        (UserList ?? Enumerable.Empty<UserDetailDto>())
+        .Where(u =>
+            (SF == ""
+             || (SF == "on" && u.IsActive)
+             || (SF == "off" && !u.IsActive)
+             || u.Roles.Contains(SF))
+            && (string.IsNullOrEmpty(Search)
+                || u.FullName.Contains(Search, StringComparison.OrdinalIgnoreCase)
+                || u.Email.Contains(Search, StringComparison.OrdinalIgnoreCase)));
+
+    // ── Init ──────────────────────────────────────────────────────
     protected override async Task OnInitializedAsync()
     {
-        var rolesResult = await UserService.GetRolesAsync();
-        if (rolesResult?.Data?.Any() == true)
-            allRoles = rolesResult.Data.ToArray();
-        await LoadAsync();
+        var state = await AuthSP.GetAuthenticationStateAsync();
+        MeEmail = state.User.FindFirst(ClaimTypes.Email)?.Value
+               ?? state.User.FindFirst("email")?.Value ?? "";
+        await Load();
     }
 
-    private async Task LoadAsync()
+    // ── Load — GET api/auth/users ─────────────────────────────────
+    private async Task Load()
     {
-        isLoading = true;
-        var r = await UserService.GetAllDetailAsync();
-        users = r?.Data ?? Enumerable.Empty<UserDetailDto>();
-        isLoading = false;
+        Loading = true; StateHasChanged();
+        var r = await UserSvc.GetAllDetailAsync();
+        UserList = r?.Data ?? Enumerable.Empty<UserDetailDto>();
+        Loading = false;
     }
 
     // ── Open modals ───────────────────────────────────────────────
-    private void OpenCreate()
-    {
-        fFirstName = fLastName = fEmail = fPassword = fConfirmPassword = formMsg = "";
-        fRole = "Employee"; formSuccess = false; showForm = true;
-    }
-    private void CloseForm() { showForm = false; formMsg = ""; }
-    private void OpenDelete(UserDetailDto u)   { deleteTarget = u; showDelete = true; }
-    private void OpenRoles(UserDetailDto u)    { rolesTarget = u; rolesMsg = ""; rolesMsgOk = false; showRoles = true; }
-    private void OpenResetPwd(UserDetailDto u) { resetTarget = u; newPwd = newPwd2 = pwdMsg = ""; pwdMsgOk = false; showResetPwd = true; }
+    private void OpenAdd() { FA = ""; FB = ""; FC = ""; FD = ""; FRole = "Employee"; FErr = ""; ShowAdd = true; }
+    private void OpenDetail(UserDetailDto u) => DetailU = u;
+    private void OpenDelete(UserDetailDto u) { SelU = u; ShowDel = true; }
+    private void OpenResetPwd(UserDetailDto u) { SelU = u; P1 = ""; P2 = ""; FErr = ""; ShowReset = true; }
+    private void OpenRolesMgr(UserDetailDto u) { RUser = u; ROk = ""; RErr = ""; ShowRoles = true; }
+    private void ConfirmOff(UserDetailDto u) { SelU = u; ShowToggleConf = true; }
 
-    // ── Actions ───────────────────────────────────────────────────
-    private async Task SaveUser()
+    // ── DoAdd — POST api/auth/users ───────────────────────────────
+    private async Task DoAdd()
     {
-        if (string.IsNullOrWhiteSpace(fFirstName) || string.IsNullOrWhiteSpace(fLastName) ||
-            string.IsNullOrWhiteSpace(fEmail)     || string.IsNullOrWhiteSpace(fPassword))
-        { formMsg = "يجب تعبئة جميع الحقول."; return; }
-        if (fPassword != fConfirmPassword) { formMsg = "كلمتا المرور غير متطابقتان."; return; }
-        if (fPassword.Length < 8) { formMsg = "كلمة المرور يجب أن لا تقل عن 8 أحرف."; return; }
-
-        isSaving = true; formMsg = "";
-        var dto = new RegisterDto { FirstName = fFirstName, LastName = fLastName, Email = fEmail, Password = fPassword, Role = fRole };
-        var r = await UserService.RegisterAsync(dto);
-        isSaving = false;
-        if (r?.Succeeded == true) { formMsg = "تم إنشاء الحساب بنجاح! ✅"; formSuccess = true; await LoadAsync(); ShowToast("تم إنشاء حساب المستخدم بنجاح"); }
-        else formMsg = r?.Message ?? r?.Errors?.FirstOrDefault() ?? "فشل إنشاء الحساب.";
+        if (string.IsNullOrWhiteSpace(FA)) { FErr = "الاسم مطلوب."; return; }
+        if (string.IsNullOrWhiteSpace(FB)) { FErr = "اللقب مطلوب."; return; }
+        if (string.IsNullOrWhiteSpace(FC)) { FErr = "البريد الإلكتروني مطلوب."; return; }
+        if (string.IsNullOrWhiteSpace(FD)) { FErr = "كلمة المرور مطلوبة."; return; }
+        if (FD.Length < 8) { FErr = "كلمة المرور 8 أحرف على الأقل."; return; }
+        Busy = true; FErr = "";
+        var r = await UserSvc.RegisterAsync(new RegisterDto
+        { FirstName = FA.Trim(), LastName = FB.Trim(), Email = FC.Trim(), Password = FD, Role = FRole });
+        Busy = false;
+        if (r?.Succeeded == true) { ShowAdd = false; Flash($"✓ تم إنشاء حساب {FA} {FB}."); await Load(); }
+        else FErr = r?.Errors?.FirstOrDefault() ?? "حدث خطأ. تحقق من متطلبات كلمة المرور.";
     }
 
-    private async Task ConfirmDelete()
+    // ── DoDel — DELETE api/auth/users/{id} ────────────────────────
+    private async Task DoDel()
     {
-        if (deleteTarget == null) return;
-        isSaving = true;
-        var ok = await UserService.DeleteAsync(deleteTarget.Id);
-        isSaving = false; showDelete = false;
-        if (ok) { await LoadAsync(); ShowToast("تم حذف المستخدم بنجاح"); }
-        else ShowToast("❌ فشل الحذف. تأكد من صلاحياتك.");
+        if (SelU == null) return;
+        Busy = true;
+        var ok = await UserSvc.DeleteAsync(SelU.Id);
+        Busy = false; ShowDel = false;
+        if (ok) { Flash($"✓ تم حذف حساب {SelU.FullName}."); await Load(); }
+        else FlashErr("فشل الحذف.");
     }
 
-    private async Task ToggleUser(UserDetailDto u, bool activate)
+    // ── DoToggle — PATCH api/auth/users/toggle ────────────────────
+    private async Task DoToggle(UserDetailDto u, bool activate)
     {
-        var ok = await UserService.ToggleActiveAsync(u.Id, activate);
-        if (ok) { await LoadAsync(); ShowToast(activate ? $"تم تفعيل حساب {u.FullName}" : $"تم إيقاف حساب {u.FullName}"); }
-        else ShowToast("❌ فشلت عملية التفعيل/الإيقاف.");
+        ShowToggleConf = false; Busy = true;
+        var ok = await UserSvc.ToggleActiveAsync(u.Id, activate);
+        Busy = false;
+        if (ok) { Flash(activate ? $"✓ تم تفعيل {u.FullName}." : $"✓ تم إيقاف {u.FullName}."); await Load(); }
+        else FlashErr("فشلت العملية.");
     }
 
-    private async Task AssignRole(string role)
+    // ── DoReset — POST api/auth/users/reset-password ──────────────
+    private async Task DoReset()
     {
-        if (rolesTarget == null) return;
-        isSaving = true; rolesMsg = "";
-        var ok = await UserService.AssignRoleAsync(rolesTarget.Id, role);
-        isSaving = false;
+        if (SelU == null) return;
+        if (string.IsNullOrWhiteSpace(P1)) { FErr = "كلمة المرور مطلوبة."; return; }
+        if (P1.Length < 8) { FErr = "8 أحرف على الأقل."; return; }
+        if (P1 != P2) { FErr = "كلمتا المرور غير متطابقتين."; return; }
+        Busy = true; FErr = "";
+        var ok = await UserSvc.ResetPasswordAsync(SelU.Id, P1);
+        Busy = false;
+        if (ok) { ShowReset = false; Flash($"✓ تم تغيير كلمة مرور {SelU.FullName}."); }
+        else FErr = "فشلت العملية. تحقق من متطلبات كلمة المرور.";
+    }
+
+    // ── DoAddRole — POST api/auth/roles/assign ────────────────────
+    private async Task DoAddRole(string role)
+    {
+        if (RUser == null) return;
+        Busy = true; ROk = ""; RErr = "";
+        var ok = await UserSvc.AssignRoleAsync(RUser.Id, role);
+        Busy = false;
         if (ok)
         {
-            rolesMsg = $"✅ تم تعيين دور '{RoleAr(role)}' بنجاح."; rolesMsgOk = true;
-            await LoadAsync();
-            var updated = users.FirstOrDefault(u => u.Id == rolesTarget.Id);
-            if (updated != null) rolesTarget = updated;
+            if (!RUser.Roles.Contains(role)) RUser.Roles.Add(role);
+            ROk = $"✓ تم تعيين «{RoleAr(role)}».";
+            await Load();
+            RUser = UserList?.FirstOrDefault(u => u.Id == RUser.Id) ?? RUser;
         }
-        else { rolesMsg = "فشل تعيين الدور."; rolesMsgOk = false; }
+        else RErr = "فشل تعيين الدور.";
     }
 
-    private async Task RemoveRole(string role)
+    // ── DoRemRole — POST api/auth/roles/remove ────────────────────
+    private async Task DoRemRole(string role)
     {
-        if (rolesTarget == null) return;
-        isSaving = true; rolesMsg = "";
-        var ok = await UserService.RemoveRoleAsync(rolesTarget.Id, role);
-        isSaving = false;
+        if (RUser == null) return;
+        Busy = true; ROk = ""; RErr = "";
+        var ok = await UserSvc.RemoveRoleAsync(RUser.Id, role);
+        Busy = false;
         if (ok)
         {
-            rolesMsg = $"✅ تم إلغاء دور '{RoleAr(role)}' بنجاح."; rolesMsgOk = true;
-            await LoadAsync();
-            var updated = users.FirstOrDefault(u => u.Id == rolesTarget.Id);
-            if (updated != null) rolesTarget = updated;
+            RUser.Roles.Remove(role);
+            ROk = $"✓ تم إلغاء «{RoleAr(role)}».";
+            await Load();
+            RUser = UserList?.FirstOrDefault(u => u.Id == RUser.Id) ?? RUser;
         }
-        else { rolesMsg = "فشل إلغاء الدور."; rolesMsgOk = false; }
+        else RErr = "فشل إلغاء الدور.";
     }
 
-    private async Task DoResetPwd()
+    // ── Flash ─────────────────────────────────────────────────────
+    private async void Flash(string msg)
+    { OkMsg = msg; ErrMsg = ""; StateHasChanged(); await Task.Delay(4000); OkMsg = ""; StateHasChanged(); }
+    private async void FlashErr(string msg)
+    { ErrMsg = msg; OkMsg = ""; StateHasChanged(); await Task.Delay(4500); ErrMsg = ""; StateHasChanged(); }
+
+    // ══ Display helpers ══════════════════════════════════════════
+    private static string Initials(UserDetailDto u)
     {
-        if (resetTarget == null) return;
-        if (string.IsNullOrWhiteSpace(newPwd)) { pwdMsg = "كلمة المرور مطلوبة."; pwdMsgOk = false; return; }
-        if (newPwd.Length < 8)                 { pwdMsg = "8 أحرف على الأقل."; pwdMsgOk = false; return; }
-        if (newPwd != newPwd2)                  { pwdMsg = "كلمتا المرور غير متطابقتين."; pwdMsgOk = false; return; }
-        isSaving = true; pwdMsg = "";
-        var ok = await UserService.ResetPasswordAsync(resetTarget.Id, newPwd);
-        isSaving = false;
-        if (ok) { pwdMsg = "تم تغيير كلمة المرور بنجاح. ✅"; pwdMsgOk = true; ShowToast($"تم إعادة تعيين كلمة مرور {resetTarget.FullName}"); }
-        else    { pwdMsg = "فشلت العملية. تأكد أن كلمة المرور تستوفي المتطلبات."; pwdMsgOk = false; }
+        var f = u.FirstName?.Trim() ?? ""; var l = u.LastName?.Trim() ?? "";
+        return $"{(f.Length > 0 ? f[0] : ' ')}{(l.Length > 0 ? l[0] : ' ')}".Trim().ToUpper();
     }
 
-    // ── Helpers ───────────────────────────────────────────────────
-    private string AvatarColor(IEnumerable<string> roles)
+    private static string AvatarGradient(IList<string> roles)
     {
-        if (roles.Contains("SuperAdmin")) return "linear-gradient(135deg,#7c3aed,#a78bfa)";
-        if (roles.Contains("Admin"))      return "linear-gradient(135deg,#0369a1,#38bdf8)";
-        if (roles.Contains("Manager"))    return "linear-gradient(135deg,#059669,#34d399)";
-        return "linear-gradient(135deg,#475569,#94a3b8)";
+        if (roles.Contains("SuperAdmin")) return "linear-gradient(135deg,#f59e0b,#f97316)";
+        if (roles.Contains("Admin")) return "linear-gradient(135deg,#7c3aed,#a855f7)";
+        if (roles.Contains("Manager")) return "linear-gradient(135deg,#0369a1,#0ea5e9)";
+        if (roles.Contains("Finances")) return "linear-gradient(135deg,#d97706,#f59e0b)";
+        if (roles.Contains("Urbanisme")) return "linear-gradient(135deg,#059669,#10b981)";
+        if (roles.Contains("EtatCivil")) return "linear-gradient(135deg,#ea580c,#f97316)";
+        if (roles.Contains("SIG")) return "linear-gradient(135deg,#0e7490,#06b6d4)";
+        if (roles.Contains("BureauOrdre")) return "linear-gradient(135deg,#0369a1,#38bdf8)";
+        if (roles.Contains("Reclamations")) return "linear-gradient(135deg,#a21caf,#d946ef)";
+        if (roles.Contains("Nettoyage")) return "linear-gradient(135deg,#4d7c0f,#84cc16)";
+        if (roles.Contains("Stock")) return "linear-gradient(135deg,#be123c,#fb7185)";
+        if (roles.Contains("RessourcesHumaines")) return "linear-gradient(135deg,#6d28d9,#c084fc)";
+        if (roles.Contains("Employee")) return "linear-gradient(135deg,#16a34a,#22c55e)";
+        return "linear-gradient(135deg,#64748b,#94a3b8)";
     }
 
-    private string RoleClass(string role) => role switch
-    {
-        "SuperAdmin" => "r-superadmin",
-        "Admin"      => "r-admin",
-        "Manager"    => "r-manager",
-        _            => "r-employee"
-    };
-
-    private string RoleIcon(string role) => role switch
-    {
-        "SuperAdmin" => "bi-star-fill",
-        "Admin"      => "bi-shield-check",
-        "Manager"    => "bi-person-gear",
-        _            => "bi-person"
-    };
-
-    private string RoleAr(string role) => role switch
-    {
-        "SuperAdmin" => "مدير النظام",
-        "Admin"      => "مسؤول",
-        "Manager"    => "مدير مصلحة",
-        "Employee"   => "عون إداري",
-        _            => role
-    };
-
-    private string RoleDesc(string role) => role switch
-    {
-        "SuperAdmin" => "صلاحيات كاملة غير محدودة على كل النظام",
-        "Admin"      => "إدارة المستخدمين، الأقسام والبيانات",
-        "Manager"    => "إدارة الموظفين وعرض التقارير",
-        "Employee"   => "عرض البيانات فقط – بدون تعديل",
-        _            => ""
-    };
-
-    private string RoleDotColor(string role) => role switch
+    private static string RoleColor(string r) => r switch
     {
         "SuperAdmin" => "#f59e0b",
-        "Admin"      => "#7c3aed",
-        "Manager"    => "#0ea5e9",
-        _            => "#22c55e"
+        "Admin" => "#7c3aed",
+        "Manager" => "#0369a1",
+        "Employee" => "#16a34a",
+        "Finances" => "#d97706",
+        "Urbanisme" => "#059669",
+        "EtatCivil" => "#ea580c",
+        "SIG" => "#0e7490",
+        "BureauOrdre" => "#0369a1",
+        "Reclamations" => "#a21caf",
+        "Nettoyage" => "#4d7c0f",
+        "Stock" => "#be123c",
+        "RessourcesHumaines" => "#6d28d9",
+        _ => "#64748b"
     };
 
-    private async void ShowToast(string msg) { toast = msg; StateHasChanged(); await Task.Delay(3500); toast = ""; StateHasChanged(); }
+    private static string RoleIco(string r) => r switch
+    {
+        "SuperAdmin" => "bi-star-fill",
+        "Admin" => "bi-shield-fill",
+        "Manager" => "bi-person-gear",
+        "Employee" => "bi-person-badge",
+        "Finances" => "bi-cash-coin",
+        "Urbanisme" => "bi-building",
+        "EtatCivil" => "bi-card-text",
+        "SIG" => "bi-geo-alt-fill",
+        "BureauOrdre" => "bi-envelope-paper-fill",
+        "Reclamations" => "bi-chat-left-text-fill",
+        "Nettoyage" => "bi-recycle",
+        "Stock" => "bi-box-seam-fill",
+        "RessourcesHumaines" => "bi-people-fill",
+        _ => "bi-person"
+    };
+
+    private static string RoleAr(string r) => r switch
+    {
+        "SuperAdmin" => "مدير النظام الأعلى",
+        "Admin" => "مسؤول",
+        "Manager" => "مشرف",
+        "Employee" => "موظف",
+        "Finances" => "المالية",
+        "Urbanisme" => "التعمير",
+        "EtatCivil" => "الحالة المدنية",
+        "SIG" => "نظام GIS",
+        "BureauOrdre" => "مكتب الأوامر",
+        "Reclamations" => "الشكاوى",
+        "Nettoyage" => "النظافة",
+        "Stock" => "المخزون",
+        "RessourcesHumaines" => "الموارد البشرية",
+        _ => r
+    };
+
+    private static string RoleDesc(string r) => r switch
+    {
+        "SuperAdmin" => "صلاحيات كاملة غير محدودة",
+        "Admin" => "إدارة المستخدمين والبيانات",
+        "Manager" => "إشراف على الموظفين والتقارير",
+        "Employee" => "عرض البيانات العامة فقط",
+        "Finances" => "الميزانية والتقارير المالية",
+        "Urbanisme" => "رخص البناء والتعمير",
+        "EtatCivil" => "وثائق الحالة المدنية",
+        "SIG" => "الخرائط والبيانات الجغرافية",
+        "BureauOrdre" => "البريد الوارد والصادر",
+        "Reclamations" => "استقبال ومتابعة الشكاوى",
+        "Nettoyage" => "جدولة النظافة والبيئة",
+        "Stock" => "المخزون والمعدات البلدية",
+        "RessourcesHumaines" => "الملفات الإدارية للموظفين",
+        _ => ""
+    };
 }

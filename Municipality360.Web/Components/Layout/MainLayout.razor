@@ -31,9 +31,7 @@
         direction: rtl;
     }
 
-    /* ══════════════════════════════
-           SIDEBAR
-        ══════════════════════════════ */
+    /* ══ SIDEBAR ══════════════════════════════════════════ */
     .app-sidebar {
         position: fixed;
         top: 0;
@@ -45,7 +43,7 @@
         flex-direction: column;
         z-index: 300;
         overflow: hidden;
-        box-shadow: -3px 0 30px rgba(0,0,0,0.35);
+        box-shadow: -3px 0 30px rgba(0,0,0,.35);
         transition: transform .3s cubic-bezier(.4,0,.2,1);
     }
 
@@ -112,7 +110,7 @@
         letter-spacing: .04em;
     }
 
-    /* Nav scroll area */
+    /* Nav scroll */
     .sb-nav {
         flex: 1;
         overflow-y: auto;
@@ -143,15 +141,14 @@
         user-select: none;
     }
 
-    /* ── Group header (collapsible) ── */
+    /* Group header */
     .sb-group-btn {
-        width: 100%;
+        width: calc(100% - 1rem);
         display: flex;
         align-items: center;
         gap: .7rem;
         padding: .6rem 1.1rem .6rem 1rem;
         margin: .05rem .5rem;
-        width: calc(100% - 1rem);
         background: none;
         border: none;
         border-radius: 10px;
@@ -201,7 +198,7 @@
         color: var(--accent);
     }
 
-    /* Badge count */
+    /* Badge */
     .sb-badge {
         font-size: .6rem;
         font-weight: 700;
@@ -217,7 +214,7 @@
             background: #ef4444;
         }
 
-    /* ── Children list ── */
+    /* Children */
     .sb-children {
         overflow: hidden;
         max-height: 0;
@@ -225,7 +222,7 @@
     }
 
         .sb-children.open {
-            max-height: 600px;
+            max-height: 800px;
         }
 
     .sb-child-link {
@@ -289,7 +286,7 @@
                 border-radius: 0 0 0 3px;
             }
 
-    /* ── Simple nav link (no children) ── */
+    /* Simple link */
     .sb-link {
         display: flex;
         align-items: center;
@@ -393,6 +390,16 @@
             color: #f59e0b;
         }
 
+    /* رول badge ديناميكي */
+    .sb-role-tag {
+        display: inline-block;
+        font-size: .58rem;
+        font-weight: 700;
+        border-radius: 4px;
+        padding: .08rem .35rem;
+        margin-top: .18rem;
+    }
+
     .sb-logout-btn {
         width: 100%;
         display: flex;
@@ -417,9 +424,7 @@
             border-color: rgba(239,68,68,.3);
         }
 
-    /* ══════════════════════════════
-           TOPBAR
-        ══════════════════════════════ */
+    /* ══ TOPBAR ══════════════════════════════════════════ */
     .app-topbar {
         position: fixed;
         top: 0;
@@ -479,7 +484,6 @@
         color: #94a3b8;
     }
 
-    /* Notification bell */
     .tb-notif-btn {
         position: relative;
         width: 38px;
@@ -526,30 +530,42 @@
         }
     }
 
-    /* Notification dropdown */
-    .notif-dropdown {
-        position: absolute;
-        top: calc(var(--topbar-h) + 4px);
-        left: 1rem;
-        width: 340px;
-        background: #fff;
-        border: 1px solid #e2e8f0;
-        border-radius: 14px;
-        box-shadow: 0 12px 40px rgba(0,0,0,.12);
-        z-index: 500;
-        overflow: hidden;
-        animation: dropdown-in .2s ease;
+    .tb-online {
+        display: flex;
+        align-items: center;
+        gap: .35rem;
+        font-size: .75rem;
+        color: #22c55e;
     }
 
-    @@keyframes dropdown-in {
+        .tb-online i {
+            font-size: .45rem;
+        }
+
+    /* Notification dropdown */
+    .notif-dropdown {
+        position: fixed;
+        top: calc(var(--topbar-h) + 6px);
+        left: 1.2rem;
+        width: 320px;
+        background: #fff;
+        border-radius: 14px;
+        box-shadow: 0 8px 32px rgba(0,0,0,.14);
+        border: 1px solid #e2e8f0;
+        z-index: 498;
+        overflow: hidden;
+        animation: notif-in .18s ease;
+    }
+
+    @@keyframes notif-in {
         from {
             opacity: 0;
-            transform: translateY(-8px);
+            transform: translateY(-8px)
         }
 
         to {
             opacity: 1;
-            transform: translateY(0);
+            transform: translateY(0)
         }
     }
 
@@ -557,33 +573,33 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: .85rem 1.1rem .7rem;
+        padding: .85rem 1rem .65rem;
         border-bottom: 1px solid #f1f5f9;
     }
 
     .notif-header-title {
+        font-size: .88rem;
         font-weight: 700;
         color: #0f172a;
-        font-size: .9rem;
     }
 
     .notif-count-badge {
         background: #ef4444;
         color: #fff;
         border-radius: 99px;
-        padding: .15em .55em;
-        font-size: .68rem;
+        font-size: .65rem;
         font-weight: 700;
+        padding: .15em .5em;
     }
 
     .notif-item {
         display: flex;
         align-items: flex-start;
-        gap: .75rem;
-        padding: .75rem 1.1rem;
-        border-bottom: 1px solid #f8fafc;
-        transition: background .15s;
+        gap: .7rem;
+        padding: .72rem 1rem;
         cursor: pointer;
+        transition: background .15s;
+        border-bottom: 1px solid #f8fafc;
     }
 
         .notif-item:hover {
@@ -595,14 +611,14 @@
         }
 
     .notif-icon-wrap {
-        width: 34px;
-        height: 34px;
-        border-radius: 10px;
-        flex-shrink: 0;
+        width: 32px;
+        height: 32px;
+        border-radius: 9px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: .9rem;
+        font-size: .88rem;
+        flex-shrink: 0;
     }
 
         .notif-icon-wrap.blue {
@@ -620,80 +636,45 @@
             color: #d97706;
         }
 
-        .notif-icon-wrap.red {
-            background: #fee2e2;
-            color: #dc2626;
-        }
-
-    .notif-body {
-        flex: 1;
-        min-width: 0;
-    }
-
     .notif-title-text {
-        font-size: .82rem;
+        font-size: .8rem;
         font-weight: 600;
         color: #0f172a;
-        margin-bottom: .18rem;
+        line-height: 1.35;
     }
 
     .notif-time {
-        font-size: .7rem;
+        font-size: .69rem;
         color: #94a3b8;
+        margin-top: .18rem;
     }
 
     .notif-footer {
-        padding: .65rem 1.1rem;
         text-align: center;
+        padding: .62rem;
+        border-top: 1px solid #f1f5f9;
     }
 
         .notif-footer a {
-            font-size: .8rem;
+            font-size: .78rem;
             color: var(--accent);
-            font-weight: 600;
             text-decoration: none;
+            font-weight: 600;
         }
 
-            .notif-footer a:hover {
-                text-decoration: underline;
-            }
-
-    /* Online badge */
-    .tb-online {
-        display: flex;
-        align-items: center;
-        gap: .4rem;
-        background: #f0fdf4;
-        border: 1px solid #bbf7d0;
-        border-radius: 99px;
-        padding: .28rem .7rem;
-        font-size: .73rem;
-        color: #166534;
-        font-weight: 600;
-    }
-
-        .tb-online i {
-            color: #22c55e;
-            font-size: .65rem;
-        }
-
-    /* ══════════════════════════════
-           MAIN
-        ══════════════════════════════ */
+    /* ══ MAIN ════════════════════════════════════════════ */
     .app-main {
         margin-right: var(--sidebar-w);
-        margin-top: var(--topbar-h);
-        min-height: calc(100vh - var(--topbar-h));
-        padding: 1.75rem 2rem;
+        padding-top: var(--topbar-h);
+        min-height: 100vh;
+        padding: calc(var(--topbar-h) + 1.5rem) 1.6rem 1.6rem;
     }
 
-    /* ══════════════════════════════
-           LOGOUT CONFIRM MODAL
-        ══════════════════════════════ */
+    /* ══ LOGOUT MODAL ════════════════════════════════════ */
     .modal-backdrop-custom {
         position: fixed;
         inset: 0;
-        background: rgba(0,0,0,.45);
+        background: rgba(0,0,0,.5);
         backdrop-filter: blur(4px);
         z-index: 900;
         display: flex;
@@ -726,12 +707,12 @@
     @@keyframes modal-in {
         from {
             opacity: 0;
-            transform: scale(.9) translateY(10px);
+            transform: scale(.9) translateY(10px)
         }
 
         to {
             opacity: 1;
-            transform: scale(1) translateY(0);
+            transform: scale(1) translateY(0)
         }
     }
 
@@ -806,9 +787,7 @@
             transform: translateY(-1px);
         }
 
-    /* ══════════════════════════════
-           RESPONSIVE
-        ══════════════════════════════ */
+    /* ══ RESPONSIVE ══════════════════════════════════════ */
     @@media (max-width:768px) {
         .app-sidebar {
             transform: translateX(100%);
@@ -824,7 +803,7 @@
 
         .app-main {
             margin-right: 0;
-            padding: 1.2rem 1rem;
+            padding: calc(var(--topbar-h) + 1rem) 1rem 1rem;
         }
 
         .tb-toggle {
@@ -851,22 +830,17 @@
         }
 </style>
 
-@* ══ SIDEBAR OVERLAY (mobile) ══ *@
+@* ══ OVERLAY MOBILE ══ *@
 <div class="sb-overlay @(SidebarOpen ? "show" : "")" @onclick="CloseSidebar"></div>
 
-@* ══ LOGOUT CONFIRM MODAL ══ *@
+@* ══ LOGOUT MODAL ══ *@
 @if (ShowLogoutModal)
 {
     <div class="modal-backdrop-custom" @onclick="CancelLogout">
         <div class="logout-modal" @onclick:stopPropagation="true">
-            <div class="logout-modal-icon">
-                <i class="bi bi-box-arrow-right"></i>
-            </div>
+            <div class="logout-modal-icon"><i class="bi bi-box-arrow-right"></i></div>
             <div class="logout-modal-title">تسجيل الخروج</div>
-            <div class="logout-modal-msg">
-                هل أنت متأكد من رغبتك في تسجيل الخروج؟<br />
-                سيتم إنهاء جلستك الحالية.
-            </div>
+            <div class="logout-modal-msg">هل أنت متأكد من رغبتك في تسجيل الخروج؟<br />سيتم إنهاء جلستك الحالية.</div>
             <div class="logout-modal-btns">
                 <button class="modal-btn-cancel" @onclick="CancelLogout">إلغاء</button>
                 <button class="modal-btn-confirm" @onclick="ConfirmLogout">
@@ -884,7 +858,7 @@
 @* ══ NOTIFICATION DROPDOWN ══ *@
 @if (ShowNotifications)
 {
-    <div style="position:fixed;inset:0;z-index:499;" @onclick="() => ShowNotifications = false"></div>
+    <div style="position:fixed;inset:0;z-index:497;" @onclick="() => ShowNotifications = false"></div>
     <div class="notif-dropdown">
         <div class="notif-header">
             <span class="notif-header-title"><i class="bi bi-bell-fill me-2" style="color:var(--accent);"></i>الإشعارات</span>
@@ -893,18 +867,14 @@
         @foreach (var n in Notifications)
         {
             <div class="notif-item @(n.IsRead ? "" : "unread")" @onclick="() => MarkRead(n)">
-                <div class="notif-icon-wrap @n.Color">
-                    <i class="bi @n.Icon"></i>
-                </div>
+                <div class="notif-icon-wrap @n.Color"><i class="bi @n.Icon"></i></div>
                 <div class="notif-body">
                     <div class="notif-title-text">@n.Title</div>
                     <div class="notif-time">@n.Time</div>
                 </div>
             </div>
         }
-        <div class="notif-footer">
-            <a href="/notifications">عرض كل الإشعارات</a>
-        </div>
+        <div class="notif-footer"><a href="/notifications">عرض كل الإشعارات</a></div>
     </div>
 }
 
@@ -921,127 +891,332 @@
 
     <nav class="sb-nav">
 
-        @* ── لوحة التحكم ── *@
+        @* ══════════════════════════════════════════════════
+           الرئيسية — للجميع
+        ══════════════════════════════════════════════════ *@
         <div class="sb-label">الرئيسية</div>
         <NavLink class="sb-link" href="/" Match="NavLinkMatch.All">
-            <i class="bi bi-speedometer2"></i>
-            <span>لوحة التحكم</span>
+            <i class="bi bi-speedometer2"></i><span>لوحة التحكم</span>
         </NavLink>
 
-        @* ── مكتب الضبط ── *@
-        <div class="sb-label">الإدارة اليومية</div>
-        <button class="sb-group-btn @(OpenGroup == "bureau" ? "open" : "")"
-                @onclick='() => ToggleGroup("bureau")'>
-            <i class="bi bi-inbox-fill sb-group-icon"></i>
-            <span class="sb-group-label">مكتب الضبط</span>
-            <i class="bi bi-chevron-left sb-group-arrow"></i>
-        </button>
-        <div class="sb-children @(OpenGroup == "bureau" ? "open" : "")">
-            <NavLink class="sb-child-link" href="/bureau/incoming">
-                <i class="bi bi-envelope-arrow-down"></i><span>البريد الوارد</span>
-            </NavLink>
-            <NavLink class="sb-child-link" href="/bureau/outgoing">
-                <i class="bi bi-envelope-arrow-up"></i><span>البريد الصادر</span>
-            </NavLink>
-            <NavLink class="sb-child-link" href="/bureau/archive">
-                <i class="bi bi-archive"></i><span>الأرشيف</span>
-            </NavLink>
-            <NavLink class="sb-child-link" href="/bureau/follow">
-                <i class="bi bi-clock-history"></i><span>المتابعة</span>
-            </NavLink>
-            <NavLink class="sb-child-link" href="/bureau/search">
-                <i class="bi bi-search"></i><span>البحث</span>
-            </NavLink>
-        </div>
+        @* ══════════════════════════════════════════════════
+           الإدارة اليومية
+        ══════════════════════════════════════════════════ *@
+        @if (CanAccess("SuperAdmin", "Admin", "Manager", "BureauOrdre"))
+        {
+            <div class="sb-label">الإدارة اليومية</div>
 
-        @* ── الشكاوى ── *@
-        <button class="sb-group-btn @(OpenGroup == "complaints" ? "open" : "")"
-                @onclick='() => ToggleGroup("complaints")'>
-            <i class="bi bi-chat-square-text-fill sb-group-icon"></i>
-            <span class="sb-group-label">الشكاوى</span>
-            <span class="sb-badge red">@UnreadComplaints</span>
-            <i class="bi bi-chevron-left sb-group-arrow"></i>
-        </button>
-        <div class="sb-children @(OpenGroup == "complaints" ? "open" : "")">
-            <NavLink class="sb-child-link" href="/complaints/list">
-                <i class="bi bi-list-check"></i><span>متابعة الشكاوى</span>
-            </NavLink>
-            <NavLink class="sb-child-link" href="/complaints/add">
-                <i class="bi bi-plus-circle"></i><span>إضافة شكوى</span>
-            </NavLink>
-            <NavLink class="sb-child-link" href="/complaints/status">
-                <i class="bi bi-arrow-repeat"></i><span>تغيير الحالة</span>
-            </NavLink>
-            <NavLink class="sb-child-link" href="/complaints/citizens">
-                <i class="bi bi-people"></i><span>متابعة المواطنين</span>
-            </NavLink>
-            <NavLink class="sb-child-link" href="/complaints/stats">
-                <i class="bi bi-bar-chart"></i><span>إحصائيات</span>
-            </NavLink>
-        </div>
+            @* ── مكتب الضبط (BureauOrdre) ── *@
+            @if (CanAccess("SuperAdmin", "Admin", "Manager", "BureauOrdre"))
+            {
+                <button class="sb-group-btn @(OpenGroup == "bureau" ? "open" : "")" @onclick='() => ToggleGroup("bureau")'>
+                    <i class="bi bi-inbox-fill sb-group-icon"></i>
+                    <span class="sb-group-label">مكتب الضبط</span>
+                    <i class="bi bi-chevron-left sb-group-arrow"></i>
+                </button>
+                <div class="sb-children @(OpenGroup == "bureau" ? "open" : "")">
+                    <NavLink class="sb-child-link" href="/bureau/incoming">
+                        <i class="bi bi-envelope-arrow-down"></i><span>البريد الوارد</span>
+                    </NavLink>
+                    <NavLink class="sb-child-link" href="/bureau/outgoing">
+                        <i class="bi bi-envelope-arrow-up"></i><span>البريد الصادر</span>
+                    </NavLink>
+                    <NavLink class="sb-child-link" href="/bureau/archive">
+                        <i class="bi bi-archive"></i><span>الأرشيف</span>
+                    </NavLink>
+                    <NavLink class="sb-child-link" href="/bureau/follow">
+                        <i class="bi bi-clock-history"></i><span>المتابعة</span>
+                    </NavLink>
+                    <NavLink class="sb-child-link" href="/bureau/search">
+                        <i class="bi bi-search"></i><span>البحث</span>
+                    </NavLink>
+                </div>
+            }
 
-        @* ── رخص البناء ── *@
-        <button class="sb-group-btn @(OpenGroup == "permits" ? "open" : "")"
-                @onclick='() => ToggleGroup("permits")'>
-            <i class="bi bi-file-earmark-ruled-fill sb-group-icon"></i>
-            <span class="sb-group-label">رخص البناء</span>
-            <i class="bi bi-chevron-left sb-group-arrow"></i>
-        </button>
-        <div class="sb-children @(OpenGroup == "permits" ? "open" : "")">
-            <NavLink class="sb-child-link" href="/permits/add">
-                <i class="bi bi-plus-square"></i><span>إضافة رخصة</span>
-            </NavLink>
-            <NavLink class="sb-child-link" href="/permits/list">
-                <i class="bi bi-card-list"></i><span>قائمة الرخص</span>
-            </NavLink>
-            <NavLink class="sb-child-link" href="/permits/follow">
-                <i class="bi bi-clock-history"></i><span>متابعة الطلبات</span>
-            </NavLink>
-            <NavLink class="sb-child-link" href="/permits/expired">
-                <i class="bi bi-exclamation-triangle"></i><span>الرخص المنتهية</span>
-            </NavLink>
-        </div>
+            @* ── الشكاوى والمطالبات (Reclamations) ── *@
+            @if (CanAccess("SuperAdmin", "Admin", "Manager", "Reclamations"))
+            {
+                <button class="sb-group-btn @(OpenGroup == "complaints" ? "open" : "")" @onclick='() => ToggleGroup("complaints")'>
+                    <i class="bi bi-chat-square-text-fill sb-group-icon"></i>
+                    <span class="sb-group-label">الشكاوى والمطالبات</span>
+                    @if (UnreadComplaints > 0)
+                    {
+                        <span class="sb-badge red">@UnreadComplaints</span>
+                    }
+                    <i class="bi bi-chevron-left sb-group-arrow"></i>
+                </button>
+                <div class="sb-children @(OpenGroup == "complaints" ? "open" : "")">
+                    <NavLink class="sb-child-link" href="/complaints/list">
+                        <i class="bi bi-list-check"></i><span>متابعة الشكاوى</span>
+                    </NavLink>
+                    <NavLink class="sb-child-link" href="/complaints/add">
+                        <i class="bi bi-plus-circle"></i><span>إضافة شكوى</span>
+                    </NavLink>
+                    <NavLink class="sb-child-link" href="/complaints/status">
+                        <i class="bi bi-arrow-repeat"></i><span>تغيير الحالة</span>
+                    </NavLink>
+                    <NavLink class="sb-child-link" href="/complaints/citizens">
+                        <i class="bi bi-people"></i><span>متابعة المواطنين</span>
+                    </NavLink>
+                    <NavLink class="sb-child-link" href="/complaints/stats">
+                        <i class="bi bi-bar-chart"></i><span>إحصائيات</span>
+                    </NavLink>
+                </div>
+            }
+        }
 
-        @* ── التنظيم الهيكلي ── *@
-        <div class="sb-label">الموارد البشرية</div>
-        <button class="sb-group-btn @(OpenGroup == "org" ? "open" : "")"
-                @onclick='() => ToggleGroup("org")'>
-            <i class="bi bi-diagram-3-fill sb-group-icon"></i>
-            <span class="sb-group-label">التنظيم الهيكلي</span>
-            <i class="bi bi-chevron-left sb-group-arrow"></i>
-        </button>
-        <div class="sb-children @(OpenGroup == "org" ? "open" : "")">
-            <NavLink class="sb-child-link" href="/departements">
-                <i class="bi bi-building"></i><span>الأقسام</span>
-            </NavLink>
-            <NavLink class="sb-child-link" href="/services">
-                <i class="bi bi-diagram-3"></i><span>المصالح</span>
-            </NavLink>
-            <NavLink class="sb-child-link" href="/postes">
-                <i class="bi bi-briefcase"></i><span>المناصب</span>
-            </NavLink>
-            <NavLink class="sb-child-link" href="/employes">
-                <i class="bi bi-person-badge"></i><span>الموظفون</span>
-            </NavLink>
-            <NavLink class="sb-child-link" href="/org/chart">
-                <i class="bi bi-share"></i><span>المخطط التنظيمي</span>
-            </NavLink>
-        </div>
+        @* ══════════════════════════════════════════════════
+           الخدمات البلدية
+        ══════════════════════════════════════════════════ *@
+        @if (CanAccess("SuperAdmin", "Admin", "Manager", "Urbanisme", "EtatCivil", "Finances", "Nettoyage", "Stock"))
+        {
+            <div class="sb-label">الخدمات البلدية</div>
 
-        @* ── SIG ── *@
-        <div class="sb-label">الأدوات المتقدمة</div>
-        <NavLink class="sb-link" href="/sig">
-            <i class="bi bi-globe2"></i>
-            <span>منظومة المعلومات الجغرافية</span>
-            <span class="sb-badge" style="margin-right:auto;">SIG</span>
-        </NavLink>
+            @* ── رخص البناء والتعمير (Urbanisme) ── *@
+            @if (CanAccess("SuperAdmin", "Admin", "Urbanisme"))
+            {
+                <button class="sb-group-btn @(OpenGroup == "permits" ? "open" : "")" @onclick='() => ToggleGroup("permits")'>
+                    <i class="bi bi-file-earmark-ruled-fill sb-group-icon"></i>
+                    <span class="sb-group-label">رخص البناء والتعمير</span>
+                    <i class="bi bi-chevron-left sb-group-arrow"></i>
+                </button>
+                <div class="sb-children @(OpenGroup == "permits" ? "open" : "")">
+                    <NavLink class="sb-child-link" href="/permits/add">
+                        <i class="bi bi-plus-square"></i><span>إضافة رخصة</span>
+                    </NavLink>
+                    <NavLink class="sb-child-link" href="/permits/list">
+                        <i class="bi bi-card-list"></i><span>قائمة الرخص</span>
+                    </NavLink>
+                    <NavLink class="sb-child-link" href="/permits/follow">
+                        <i class="bi bi-clock-history"></i><span>متابعة الطلبات</span>
+                    </NavLink>
+                    <NavLink class="sb-child-link" href="/permits/expired">
+                        <i class="bi bi-exclamation-triangle"></i><span>الرخص المنتهية</span>
+                    </NavLink>
+                    <NavLink class="sb-child-link" href="/permits/stats">
+                        <i class="bi bi-bar-chart-line"></i><span>إحصائيات التعمير</span>
+                    </NavLink>
+                </div>
+            }
 
-        @* ── إدارة المستخدمين – SuperAdmin فقط ── *@
-        @if (IsSuperAdmin)
+            @* ── الحالة المدنية (EtatCivil) ── *@
+            @if (CanAccess("SuperAdmin", "Admin", "EtatCivil"))
+            {
+                <button class="sb-group-btn @(OpenGroup == "civil" ? "open" : "")" @onclick='() => ToggleGroup("civil")'>
+                    <i class="bi bi-card-text sb-group-icon"></i>
+                    <span class="sb-group-label">الحالة المدنية</span>
+                    <i class="bi bi-chevron-left sb-group-arrow"></i>
+                </button>
+                <div class="sb-children @(OpenGroup == "civil" ? "open" : "")">
+                    <NavLink class="sb-child-link" href="/civil/birth">
+                        <i class="bi bi-person-add"></i><span>عقود الميلاد</span>
+                    </NavLink>
+                    <NavLink class="sb-child-link" href="/civil/death">
+                        <i class="bi bi-file-earmark-x"></i><span>عقود الوفاة</span>
+                    </NavLink>
+                    <NavLink class="sb-child-link" href="/civil/marriage">
+                        <i class="bi bi-heart"></i><span>عقود الزواج</span>
+                    </NavLink>
+                    <NavLink class="sb-child-link" href="/civil/extract">
+                        <i class="bi bi-printer"></i><span>استخراج وثيقة</span>
+                    </NavLink>
+                    <NavLink class="sb-child-link" href="/civil/search">
+                        <i class="bi bi-search"></i><span>البحث في السجلات</span>
+                    </NavLink>
+                </div>
+            }
+
+            @* ── الميزانية والمالية (Finances) ── *@
+            @if (CanAccess("SuperAdmin", "Admin", "Manager", "Finances"))
+            {
+                <button class="sb-group-btn @(OpenGroup == "finance" ? "open" : "")" @onclick='() => ToggleGroup("finance")'>
+                    <i class="bi bi-cash-coin sb-group-icon"></i>
+                    <span class="sb-group-label">الميزانية والمالية</span>
+                    <i class="bi bi-chevron-left sb-group-arrow"></i>
+                </button>
+                <div class="sb-children @(OpenGroup == "finance" ? "open" : "")">
+                    <NavLink class="sb-child-link" href="/finance/budget">
+                        <i class="bi bi-wallet2"></i><span>الميزانية السنوية</span>
+                    </NavLink>
+                    <NavLink class="sb-child-link" href="/finance/revenues">
+                        <i class="bi bi-arrow-down-circle"></i><span>الإيرادات</span>
+                    </NavLink>
+                    <NavLink class="sb-child-link" href="/finance/expenses">
+                        <i class="bi bi-arrow-up-circle"></i><span>النفقات</span>
+                    </NavLink>
+                    <NavLink class="sb-child-link" href="/finance/orders">
+                        <i class="bi bi-file-earmark-text"></i><span>أوامر الصرف</span>
+                    </NavLink>
+                    @if (CanAccess("SuperAdmin", "Admin", "Manager", "Finances"))
+                    {
+                        <NavLink class="sb-child-link" href="/finance/reports">
+                            <i class="bi bi-file-earmark-bar-graph"></i><span>التقارير المالية</span>
+                        </NavLink>
+                    }
+                </div>
+            }
+
+            @* ── النظافة والبيئة (Nettoyage) ── *@
+            @if (CanAccess("SuperAdmin", "Admin", "Manager", "Nettoyage"))
+            {
+                <button class="sb-group-btn @(OpenGroup == "clean" ? "open" : "")" @onclick='() => ToggleGroup("clean")'>
+                    <i class="bi bi-recycle sb-group-icon"></i>
+                    <span class="sb-group-label">النظافة والبيئة</span>
+                    <i class="bi bi-chevron-left sb-group-arrow"></i>
+                </button>
+                <div class="sb-children @(OpenGroup == "clean" ? "open" : "")">
+                    <NavLink class="sb-child-link" href="/clean/schedule">
+                        <i class="bi bi-calendar3"></i><span>جدول التنظيف</span>
+                    </NavLink>
+                    <NavLink class="sb-child-link" href="/clean/zones">
+                        <i class="bi bi-map"></i><span>مناطق التدخل</span>
+                    </NavLink>
+                    <NavLink class="sb-child-link" href="/clean/teams">
+                        <i class="bi bi-people"></i><span>الفرق الميدانية</span>
+                    </NavLink>
+                    <NavLink class="sb-child-link" href="/clean/reports">
+                        <i class="bi bi-clipboard-data"></i><span>تقارير النظافة</span>
+                    </NavLink>
+                </div>
+            }
+
+            @* ── المخزون والمعدات (Stock) ── *@
+            @if (CanAccess("SuperAdmin", "Admin", "Stock"))
+            {
+                <button class="sb-group-btn @(OpenGroup == "stock" ? "open" : "")" @onclick='() => ToggleGroup("stock")'>
+                    <i class="bi bi-box-seam-fill sb-group-icon"></i>
+                    <span class="sb-group-label">المخزون والمعدات</span>
+                    <i class="bi bi-chevron-left sb-group-arrow"></i>
+                </button>
+                <div class="sb-children @(OpenGroup == "stock" ? "open" : "")">
+                    <NavLink class="sb-child-link" href="/stock/inventory">
+                        <i class="bi bi-list-ol"></i><span>جرد المخزون</span>
+                    </NavLink>
+                    <NavLink class="sb-child-link" href="/stock/entry">
+                        <i class="bi bi-box-arrow-in-down"></i><span>إدخال بضاعة</span>
+                    </NavLink>
+                    <NavLink class="sb-child-link" href="/stock/exit">
+                        <i class="bi bi-box-arrow-up"></i><span>إخراج بضاعة</span>
+                    </NavLink>
+                    <NavLink class="sb-child-link" href="/stock/equipment">
+                        <i class="bi bi-tools"></i><span>المعدات البلدية</span>
+                    </NavLink>
+                    <NavLink class="sb-child-link" href="/stock/alerts">
+                        <i class="bi bi-exclamation-diamond"></i><span>تنبيهات المخزون</span>
+                    </NavLink>
+                </div>
+            }
+        }
+
+        @* ══════════════════════════════════════════════════
+           الموارد البشرية
+        ══════════════════════════════════════════════════ *@
+        @if (CanAccess("SuperAdmin", "Admin", "Manager", "Employee", "RessourcesHumaines"))
+        {
+            <div class="sb-label">الموارد البشرية</div>
+
+            @* ── التنظيم الهيكلي ── *@
+            @if (CanAccess("SuperAdmin", "Admin", "Manager", "RessourcesHumaines"))
+            {
+                <button class="sb-group-btn @(OpenGroup == "org" ? "open" : "")" @onclick='() => ToggleGroup("org")'>
+                    <i class="bi bi-diagram-3-fill sb-group-icon"></i>
+                    <span class="sb-group-label">التنظيم الهيكلي</span>
+                    <i class="bi bi-chevron-left sb-group-arrow"></i>
+                </button>
+                <div class="sb-children @(OpenGroup == "org" ? "open" : "")">
+                    @if (CanAccess("SuperAdmin", "Admin"))
+                    {
+                        <NavLink class="sb-child-link" href="/departements">
+                            <i class="bi bi-building"></i><span>الأقسام</span>
+                        </NavLink>
+                        <NavLink class="sb-child-link" href="/services">
+                            <i class="bi bi-diagram-3"></i><span>المصالح</span>
+                        </NavLink>
+                        <NavLink class="sb-child-link" href="/postes">
+                            <i class="bi bi-briefcase"></i><span>المناصب</span>
+                        </NavLink>
+                    }
+                    <NavLink class="sb-child-link" href="/employes">
+                        <i class="bi bi-person-badge"></i><span>الموظفون</span>
+                    </NavLink>
+                    <NavLink class="sb-child-link" href="/org/chart">
+                        <i class="bi bi-share"></i><span>المخطط التنظيمي</span>
+                    </NavLink>
+                </div>
+            }
+
+            @* ── الموارد البشرية التفصيلية (RH) ── *@
+            @if (CanAccess("SuperAdmin", "Admin", "RessourcesHumaines"))
+            {
+                <button class="sb-group-btn @(OpenGroup == "rh" ? "open" : "")" @onclick='() => ToggleGroup("rh")'>
+                    <i class="bi bi-people-fill sb-group-icon"></i>
+                    <span class="sb-group-label">الموارد البشرية</span>
+                    <i class="bi bi-chevron-left sb-group-arrow"></i>
+                </button>
+                <div class="sb-children @(OpenGroup == "rh" ? "open" : "")">
+                    <NavLink class="sb-child-link" href="/rh/leaves">
+                        <i class="bi bi-calendar-check"></i><span>الإجازات والغيابات</span>
+                    </NavLink>
+                    <NavLink class="sb-child-link" href="/rh/payroll">
+                        <i class="bi bi-cash-stack"></i><span>الرواتب والأجور</span>
+                    </NavLink>
+                    <NavLink class="sb-child-link" href="/rh/training">
+                        <i class="bi bi-mortarboard"></i><span>التكوين والتدريب</span>
+                    </NavLink>
+                    <NavLink class="sb-child-link" href="/rh/evaluation">
+                        <i class="bi bi-star-half"></i><span>التقييم السنوي</span>
+                    </NavLink>
+                    <NavLink class="sb-child-link" href="/rh/reports">
+                        <i class="bi bi-file-earmark-person"></i><span>التقارير الإدارية</span>
+                    </NavLink>
+                </div>
+            }
+        }
+
+        @* ══════════════════════════════════════════════════
+           الأدوات المتقدمة
+        ══════════════════════════════════════════════════ *@
+        @if (CanAccess("SuperAdmin", "Admin", "Manager", "SIG"))
+        {
+            <div class="sb-label">الأدوات المتقدمة</div>
+
+            @* ── نظام GIS / SIG ── *@
+            <NavLink class="sb-link" href="/sig">
+                <i class="bi bi-globe2"></i>
+                <span>منظومة المعلومات الجغرافية</span>
+                <span class="sb-badge" style="margin-right:auto;">SIG</span>
+            </NavLink>
+
+            @* ── التقارير العامة (Admin+) ── *@
+            @if (CanAccess("SuperAdmin", "Admin", "Manager"))
+            {
+                <button class="sb-group-btn @(OpenGroup == "reports" ? "open" : "")" @onclick='() => ToggleGroup("reports")'>
+                    <i class="bi bi-graph-up sb-group-icon"></i>
+                    <span class="sb-group-label">التقارير والإحصائيات</span>
+                    <i class="bi bi-chevron-left sb-group-arrow"></i>
+                </button>
+                <div class="sb-children @(OpenGroup == "reports" ? "open" : "")">
+                    <NavLink class="sb-child-link" href="/reports/dashboard">
+                        <i class="bi bi-pie-chart"></i><span>لوحة التقارير</span>
+                    </NavLink>
+                    <NavLink class="sb-child-link" href="/reports/annual">
+                        <i class="bi bi-calendar4-range"></i><span>التقرير السنوي</span>
+                    </NavLink>
+                    <NavLink class="sb-child-link" href="/reports/export">
+                        <i class="bi bi-file-earmark-arrow-down"></i><span>تصدير البيانات</span>
+                    </NavLink>
+                </div>
+            }
+        }
+
+        @* ══════════════════════════════════════════════════
+           الإدارة العليا — SuperAdmin و Admin فقط
+        ══════════════════════════════════════════════════ *@
+        @if (CanAccess("SuperAdmin", "Admin"))
         {
             <div class="sb-label">الإدارة العليا</div>
-            <button class="sb-group-btn @(OpenGroup == "users" ? "open" : "")"
-                    @onclick='() => ToggleGroup("users")'>
+
+            <button class="sb-group-btn @(OpenGroup == "users" ? "open" : "")" @onclick='() => ToggleGroup("users")'>
                 <i class="bi bi-shield-lock-fill sb-group-icon"></i>
                 <span class="sb-group-label">المستخدمون والصلاحيات</span>
                 <i class="bi bi-chevron-left sb-group-arrow"></i>
@@ -1050,34 +1225,51 @@
                 <NavLink class="sb-child-link" href="/admin/users">
                     <i class="bi bi-people-fill"></i><span>قائمة المستخدمين</span>
                 </NavLink>
-                <NavLink class="sb-child-link" href="/admin/users/add">
-                    <i class="bi bi-person-plus"></i><span>إضافة مستخدم</span>
-                </NavLink>
-                <NavLink class="sb-child-link" href="/admin/roles">
-                    <i class="bi bi-key"></i><span>الأدوار والصلاحيات</span>
-                </NavLink>
-                <NavLink class="sb-child-link" href="/admin/logs">
-                    <i class="bi bi-journal-text"></i><span>سجل النشاطات</span>
-                </NavLink>
+                @if (IsSuperAdmin)
+                {
+                    <NavLink class="sb-child-link" href="/admin/logs">
+                        <i class="bi bi-journal-text"></i><span>سجل النشاطات</span>
+                    </NavLink>
+                }
             </div>
+
+            @* ── الإعدادات العامة (SuperAdmin فقط) ── *@
+            @if (IsSuperAdmin)
+            {
+                <button class="sb-group-btn @(OpenGroup == "settings" ? "open" : "")" @onclick='() => ToggleGroup("settings")'>
+                    <i class="bi bi-gear-fill sb-group-icon"></i>
+                    <span class="sb-group-label">إعدادات النظام</span>
+                    <i class="bi bi-chevron-left sb-group-arrow"></i>
+                </button>
+                <div class="sb-children @(OpenGroup == "settings" ? "open" : "")">
+                    <NavLink class="sb-child-link" href="/settings/general">
+                        <i class="bi bi-sliders"></i><span>الإعدادات العامة</span>
+                    </NavLink>
+                    <NavLink class="sb-child-link" href="/settings/municipality">
+                        <i class="bi bi-building-gear"></i><span>بيانات البلدية</span>
+                    </NavLink>
+                    <NavLink class="sb-child-link" href="/settings/backup">
+                        <i class="bi bi-cloud-arrow-up"></i><span>النسخ الاحتياطي</span>
+                    </NavLink>
+                </div>
+            }
         }
 
     </nav>
 
-    @* Footer – user info + logout *@
+    @* ── Footer: معلومات المستخدم ── *@
     <div class="sb-footer">
         <div class="sb-user">
             <div class="sb-avatar"><i class="bi bi-person-fill"></i></div>
             <div style="overflow:hidden;flex:1;">
                 <div class="sb-uname">@UserDisplay</div>
                 <div class="sb-urole @(IsSuperAdmin ? "superadmin" : "")">
-                    @(IsSuperAdmin ? "⭐ مدير النظام الأعلى" : UserRole)
+                    @UserRoleDisplay
                 </div>
             </div>
         </div>
         <button class="sb-logout-btn" @onclick="AskLogout">
-            <i class="bi bi-box-arrow-right"></i>
-            <span>تسجيل الخروج</span>
+            <i class="bi bi-box-arrow-right"></i><span>تسجيل الخروج</span>
         </button>
     </div>
 
@@ -1086,9 +1278,7 @@
 @* ══ TOPBAR ══ *@
 <header class="app-topbar">
     <div class="tb-left">
-        <button class="tb-toggle" @onclick="ToggleSidebar">
-            <i class="bi bi-list"></i>
-        </button>
+        <button class="tb-toggle" @onclick="ToggleSidebar"><i class="bi bi-list"></i></button>
         <div class="tb-divider"></div>
         <div>
             <div class="tb-page-title">Municipality360</div>
@@ -1096,51 +1286,45 @@
         </div>
     </div>
     <div class="tb-right">
-        @* Notification bell *@
-        <button class="tb-notif-btn" @onclick='() => ShowNotifications = !ShowNotifications'
-                style="position:relative;">
+        <button class="tb-notif-btn" @onclick='() => ShowNotifications = !ShowNotifications' style="position:relative;">
             <i class="bi bi-bell"></i>
             @if (Notifications.Any(n => !n.IsRead))
             {
                 <span class="notif-dot"></span>
             }
         </button>
-        <div class="tb-online">
-            <i class="bi bi-circle-fill"></i>
-            <span>متصل</span>
-        </div>
+        <div class="tb-online"><i class="bi bi-circle-fill"></i><span>متصل</span></div>
     </div>
 </header>
 
 @* ══ MAIN CONTENT ══ *@
-<main class="app-main">
-    @Body
-</main>
+<main class="app-main">@Body</main>
 
 @code {
-    [Inject] private AuthenticationStateProvider AuthStateProvider { get; set; } = null!;
-    [Inject] private NavigationManager NavManager { get; set; } = null!;
+    [Inject] AuthenticationStateProvider AuthStateProvider { get; set; } = null!;
+    [Inject] NavigationManager NavManager { get; set; } = null!;
 
-    // ── State ──────────────────────────────
+    // ── State ──────────────────────────────────────────
     private bool SidebarOpen = false;
     private bool ShowLogoutModal = false;
     private bool IsLoggingOut = false;
     private bool ShowNotifications = false;
     private string OpenGroup = "";
 
-    // ── User info ──────────────────────────
-    private string UserDisplay = "مسؤول";
-    private string UserRole = "مستخدم";
+    // ── User ───────────────────────────────────────────
+    private string UserDisplay = "مستخدم";
+    private string UserRoleDisplay = "مستخدم";
     private bool IsSuperAdmin = false;
+    private List<string> UserRoles = new();
     private int UnreadComplaints = 3;
 
-    // ── Notifications ──────────────────────
+    // ── Notifications ──────────────────────────────────
     private List<NotifItem> Notifications = new()
     {
-        new("شكوى جديدة بانتظار المراجعة",    "منذ 5 دقائق",  "bi-chat-square-text", "blue",  false),
-        new("طلب رخصة بناء #2041 تمت الموافقة","منذ 30 دقيقة", "bi-file-check",       "green", false),
-        new("بريد وارد – مديرية التعمير",      "منذ ساعة",     "bi-envelope",         "amber", false),
-        new("تقرير شهري جاهز للتحميل",         "منذ يومين",    "bi-file-earmark-bar-graph","blue",true),
+        new("شكوى جديدة بانتظار المراجعة",    "منذ 5 دقائق",  "bi-chat-square-text",        "blue",  false),
+        new("رخصة بناء #2041 تمت الموافقة",   "منذ 30 دقيقة", "bi-file-check",              "green", false),
+        new("بريد وارد – مديرية التعمير",      "منذ ساعة",     "bi-envelope",                "amber", false),
+        new("تقرير شهري جاهز للتحميل",         "منذ يومين",    "bi-file-earmark-bar-graph",  "blue",  true),
     };
 
     protected override async Task OnInitializedAsync()
@@ -1154,33 +1338,62 @@
             return;
         }
 
-        // استخراج البيانات من الـ Claims
-        UserDisplay = user.Identity?.Name
-            ?? user.FindFirst("email")?.Value
-            ?? user.FindFirst(ClaimTypes.Email)?.Value
-            ?? "مسؤول";
+        // استخراج بيانات المستخدم
+        UserDisplay = user.FindFirst("firstName")?.Value is { Length: > 0 } fn
+                    ? fn + " " + (user.FindFirst("lastName")?.Value ?? "")
+                    : user.Identity?.Name
+                   ?? user.FindFirst(ClaimTypes.Email)?.Value
+                   ?? "مستخدم";
 
-        var roles = user.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
-        IsSuperAdmin = roles.Contains("SuperAdmin");
-        UserRole = IsSuperAdmin ? "مدير النظام الأعلى"
-                     : roles.Contains("Admin") ? "مسؤول"
-                     : roles.Contains("Agent") ? "عون إداري"
-                     : "مستخدم";
+        UserRoles = user.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
+        IsSuperAdmin = UserRoles.Contains("SuperAdmin");
 
-        // فتح المجموعة بناءً على المسار الحالي
+        // عرض أهم دور في الـ Footer
+        UserRoleDisplay = IsSuperAdmin ? "⭐ مدير النظام الأعلى"
+            : UserRoles.Contains("Admin") ? "🛡 مسؤول"
+            : UserRoles.Contains("Manager") ? "👤 مشرف"
+            : UserRoles.Contains("Finances") ? "💰 المالية"
+            : UserRoles.Contains("Urbanisme") ? "🏢 التعمير"
+            : UserRoles.Contains("EtatCivil") ? "📄 الحالة المدنية"
+            : UserRoles.Contains("SIG") ? "🗺 نظام GIS"
+            : UserRoles.Contains("BureauOrdre") ? "✉ مكتب الضبط"
+            : UserRoles.Contains("Reclamations") ? "💬 الشكاوى"
+            : UserRoles.Contains("Nettoyage") ? "♻ النظافة"
+            : UserRoles.Contains("Stock") ? "📦 المخزون"
+            : UserRoles.Contains("RessourcesHumaines") ? "👥 الموارد البشرية"
+            : UserRoles.Contains("Employee") ? "🔖 موظف"
+                                                                 : "مستخدم";
+
         AutoOpenGroup();
     }
 
+    // ── دالة مساعدة: هل المستخدم يمتلك أحد هذه الأدوار ─────────
+    private bool CanAccess(params string[] roles)
+        => IsSuperAdmin || roles.Any(r => UserRoles.Contains(r));
+
+    // ── فتح المجموعة تلقائياً حسب المسار ──────────────────────
     private void AutoOpenGroup()
     {
         var path = NavManager.Uri;
-        if (path.Contains("/bureau")) OpenGroup = "bureau";
-        else if (path.Contains("/complaints")) OpenGroup = "complaints";
-        else if (path.Contains("/permits")) OpenGroup = "permits";
-        else if (path.Contains("/departements") || path.Contains("/services") ||
-                 path.Contains("/postes") || path.Contains("/employes") ||
-                 path.Contains("/org")) OpenGroup = "org";
-        else if (path.Contains("/admin")) OpenGroup = "users";
+        OpenGroup = path switch
+        {
+            _ when path.Contains("/bureau") => "bureau",
+            _ when path.Contains("/complaints") => "complaints",
+            _ when path.Contains("/permits") => "permits",
+            _ when path.Contains("/civil") => "civil",
+            _ when path.Contains("/finance") => "finance",
+            _ when path.Contains("/clean") => "clean",
+            _ when path.Contains("/stock") => "stock",
+            _ when path.Contains("/rh") => "rh",
+            _ when path.Contains("/departements") || path.Contains("/services") ||
+                   path.Contains("/postes") || path.Contains("/employes") ||
+                   path.Contains("/org") => "org",
+            _ when path.Contains("/sig") => "",
+            _ when path.Contains("/reports") => "reports",
+            _ when path.Contains("/admin") => "users",
+            _ when path.Contains("/settings") => "settings",
+            _ => ""
+        };
     }
 
     private void ToggleGroup(string name)
@@ -1189,28 +1402,20 @@
     private void ToggleSidebar() => SidebarOpen = !SidebarOpen;
     private void CloseSidebar() => SidebarOpen = false;
 
-    // ── Logout flow ───────────────────────
-    private void AskLogout()
-    {
-        ShowLogoutModal = true;
-        ShowNotifications = false;
-    }
-
+    // ── Logout ──────────────────────────────────────────
+    private void AskLogout() { ShowLogoutModal = true; ShowNotifications = false; }
     private void CancelLogout() => ShowLogoutModal = false;
 
     private async Task ConfirmLogout()
     {
-        IsLoggingOut = true;
-        StateHasChanged();
-        if (AuthStateProvider is CustomAuthStateProvider provider)
-            await provider.NotifyUserLoggedOut();
+        IsLoggingOut = true; StateHasChanged();
+        if (AuthStateProvider is CustomAuthStateProvider p)
+            await p.NotifyUserLoggedOut();
         NavManager.NavigateTo("/login", forceLoad: true);
     }
 
-    // ── Notifications ─────────────────────
     private void MarkRead(NotifItem n) { n.IsRead = true; ShowNotifications = false; }
 
-    // ── Model ─────────────────────────────
     private record NotifItem(string Title, string Time, string Icon, string Color, bool IsReadInit)
     {
         public bool IsRead { get; set; } = IsReadInit;
