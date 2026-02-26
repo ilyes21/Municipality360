@@ -400,6 +400,51 @@
         margin-top: .18rem;
     }
 
+    .sb-user-link {
+        display: flex;
+        align-items: center;
+        gap: .7rem;
+        padding: .55rem .7rem;
+        margin-bottom: .45rem;
+        background: rgba(255,255,255,.05);
+        border-radius: 10px;
+        text-decoration: none;
+        cursor: pointer;
+        transition: background .15s;
+    }
+
+        .sb-user-link:hover {
+            background: rgba(255,255,255,.09);
+        }
+
+    .sb-profile-btn {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: .38rem;
+        padding: .42rem .6rem;
+        border-radius: 8px;
+        cursor: pointer;
+        background: rgba(14,165,233,.1);
+        border: 1px solid rgba(14,165,233,.2);
+        color: #7dd3fc;
+        font-family: var(--font);
+        font-size: .78rem;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all .18s;
+    }
+
+        .sb-profile-btn:hover {
+            background: rgba(14,165,233,.2);
+            color: #bae6fd;
+        }
+
+        .sb-profile-btn i {
+            font-size: .82rem;
+        }
+
     .sb-logout-btn {
         width: 100%;
         display: flex;
@@ -1259,7 +1304,7 @@
 
     @* ── Footer: معلومات المستخدم ── *@
     <div class="sb-footer">
-        <div class="sb-user">
+        <a class="sb-user sb-user-link" href="/profile">
             <div class="sb-avatar"><i class="bi bi-person-fill"></i></div>
             <div style="overflow:hidden;flex:1;">
                 <div class="sb-uname">@UserDisplay</div>
@@ -1267,6 +1312,12 @@
                     @UserRoleDisplay
                 </div>
             </div>
+            <i class="bi bi-pencil-square" style="font-size:.72rem;color:#475569;flex-shrink:0;"></i>
+        </a>
+        <div style="display:flex;gap:.45rem;margin-bottom:.5rem;">
+            <a href="/profile" class="sb-profile-btn">
+                <i class="bi bi-person-gear"></i><span>الملف الشخصي</span>
+            </a>
         </div>
         <button class="sb-logout-btn" @onclick="AskLogout">
             <i class="bi bi-box-arrow-right"></i><span>تسجيل الخروج</span>

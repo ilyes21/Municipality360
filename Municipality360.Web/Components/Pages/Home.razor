@@ -1,80 +1,1532 @@
 ﻿@page "/"
-@* @attribute [Authorize] *@
+@using Microsoft.AspNetCore.Authorization
+@using System.Security.Claims
+@attribute [Authorize]
+@implements IDisposable
+@layout Municipality360.Web.Components.Layout.MainLayout
 
-<PageTitle>Tableau de bord - Municipality360</PageTitle>
+<PageTitle>لوحة التحكم — Municipality360</PageTitle>
 
-<div class="mb-4">
-    <h4 class="fw-bold">Tableau de bord</h4>
-    <p class="text-muted">Bienvenue dans Municipality360 - Systeme de gestion municipale</p>
-</div>
+<style>
+    @@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&family=Cairo+Play:wght@400;600;700&display=swap');
 
-<div class="row g-4 mb-4">
-    <div class="col-md-3">
-        <div class="card border-0 bg-primary text-white shadow-sm">
-            <div class="card-body d-flex justify-content-between align-items-center">
-                <div>
-                    <div class="small opacity-75">Departements</div>
-                    <h3 class="fw-bold mb-0">@Stats.Departements</h3>
+    :root {
+        --ink: #0a1628;
+        --ink2: #1e3a5f;
+        --sky: #0ea5e9;
+        --sky-d: #0369a1;
+        --sky-l: #e0f2fe;
+        --gold: #f59e0b;
+        --gold-l: #fef3c7;
+        --jade: #10b981;
+        --jade-l: #d1fae5;
+        --rose: #f43f5e;
+        --rose-l: #ffe4e6;
+        --amber: #f97316;
+        --amber-l: #fff7ed;
+        --violet: #8b5cf6;
+        --violet-l: #ede9fe;
+        --surface: #f8fafd;
+        --card: #ffffff;
+        --border: #e8eef5;
+        --muted: #64748b;
+        --font: 'Cairo', sans-serif;
+    }
+
+    *, *::before, *::after {
+        box-sizing: border-box;
+    }
+
+    body {
+        font-family: var(--font);
+        direction: rtl;
+    }
+
+    /* ══ PAGE WRAPPER ══════════════════════════════════════ */
+    .dash {
+        padding: 0;
+        direction: rtl;
+    }
+
+    /* ══ GREETING HERO ════════════════════════════════════ */
+    .greeting {
+        background: linear-gradient(135deg, var(--ink) 0%, var(--ink2) 55%, #0d3461 100%);
+        border-radius: 20px;
+        padding: 2rem 2.2rem;
+        margin-bottom: 1.6rem;
+        position: relative;
+        overflow: hidden;
+        animation: slideDown .5s cubic-bezier(.22,1,.36,1);
+    }
+
+        .greeting::before {
+            content: '';
+            position: absolute;
+            top: -40px;
+            left: -60px;
+            width: 280px;
+            height: 280px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(14,165,233,.18) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .greeting::after {
+            content: '';
+            position: absolute;
+            bottom: -30px;
+            right: 10%;
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(245,158,11,.1) 0%, transparent 70%);
+            pointer-events: none;
+        }
+    /* شبكة خفية في الخلفية */
+    .greeting-grid {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background-image: linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+        background-size: 48px 48px;
+    }
+
+    .greeting-inner {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .greet-left {
+        flex: 1;
+    }
+
+    .greet-eyebrow {
+        font-size: .7rem;
+        font-weight: 700;
+        letter-spacing: .18em;
+        text-transform: uppercase;
+        color: var(--sky);
+        margin-bottom: .35rem;
+    }
+
+    .greet-name {
+        font-size: 1.65rem;
+        font-weight: 900;
+        color: #f0f9ff;
+        line-height: 1.2;
+        margin-bottom: .25rem;
+    }
+
+        .greet-name span {
+            color: var(--gold);
+        }
+
+    .greet-sub {
+        font-size: .82rem;
+        color: #64748b;
+    }
+
+    .greet-right {
+        display: flex;
+        align-items: center;
+        gap: .75rem;
+    }
+
+    .greet-time-box {
+        background: rgba(255,255,255,.07);
+        border: 1px solid rgba(255,255,255,.1);
+        border-radius: 14px;
+        padding: .85rem 1.2rem;
+        text-align: center;
+        backdrop-filter: blur(4px);
+        min-width: 110px;
+    }
+
+    .greet-time {
+        font-size: 1.55rem;
+        font-weight: 900;
+        color: #e2e8f0;
+        letter-spacing: .03em;
+    }
+
+    .greet-date {
+        font-size: .69rem;
+        color: #475569;
+        margin-top: .12rem;
+    }
+
+    .greet-weather {
+        background: rgba(255,255,255,.07);
+        border: 1px solid rgba(255,255,255,.1);
+        border-radius: 14px;
+        padding: .85rem 1rem;
+        text-align: center;
+        backdrop-filter: blur(4px);
+    }
+
+        .greet-weather i {
+            font-size: 1.5rem;
+            color: #fde68a;
+            display: block;
+        }
+
+    .greet-weather-t {
+        font-size: .85rem;
+        font-weight: 700;
+        color: #e2e8f0;
+    }
+
+    .greet-weather-s {
+        font-size: .67rem;
+        color: #475569;
+    }
+
+    /* ══ KPI RIBBON ═══════════════════════════════════════ */
+    .kpi-ribbon {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1rem;
+        margin-bottom: 1.6rem;
+    }
+
+    @@media (max-width:900px) {
+        .kpi-ribbon {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    @@media (max-width:540px) {
+        .kpi-ribbon {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .kpi {
+        background: var(--card);
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        padding: 1.2rem 1.3rem;
+        box-shadow: 0 2px 12px rgba(10,22,40,.05);
+        position: relative;
+        overflow: hidden;
+        animation: fadeUp .45s cubic-bezier(.22,1,.36,1) both;
+        transition: transform .2s, box-shadow .2s;
+    }
+
+        .kpi:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 28px rgba(10,22,40,.1);
+        }
+
+        .kpi:nth-child(1) {
+            animation-delay: .05s
+        }
+
+        .kpi:nth-child(2) {
+            animation-delay: .10s
+        }
+
+        .kpi:nth-child(3) {
+            animation-delay: .15s
+        }
+
+        .kpi:nth-child(4) {
+            animation-delay: .20s
+        }
+
+    .kpi-stripe {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 4px;
+        height: 100%;
+        border-radius: 0 16px 16px 0;
+    }
+
+    .kpi-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.15rem;
+        margin-bottom: .75rem;
+    }
+
+    .kpi-val {
+        font-size: 2rem;
+        font-weight: 900;
+        line-height: 1;
+        color: var(--ink);
+        margin-bottom: .15rem;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .kpi-lbl {
+        font-size: .75rem;
+        color: var(--muted);
+        font-weight: 600;
+    }
+
+    .kpi-delta {
+        display: inline-flex;
+        align-items: center;
+        gap: .18rem;
+        font-size: .68rem;
+        font-weight: 700;
+        margin-top: .4rem;
+        padding: .12rem .42rem;
+        border-radius: 99px;
+    }
+
+    .delta-up {
+        background: var(--jade-l);
+        color: var(--jade);
+    }
+
+    .delta-down {
+        background: var(--rose-l);
+        color: var(--rose);
+    }
+
+    .delta-flat {
+        background: var(--sky-l);
+        color: var(--sky-d);
+    }
+
+    /* ══ MAIN GRID ════════════════════════════════════════ */
+    .main-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        grid-template-rows: auto auto;
+        gap: 1.1rem;
+        margin-bottom: 1.4rem;
+    }
+
+    @@media (max-width:1100px) {
+        .main-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+
+    @@media (max-width:680px) {
+        .main-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* ══ CARD BASE ════════════════════════════════════════ */
+    .dcard {
+        background: var(--card);
+        border-radius: 16px;
+        border: 1px solid var(--border);
+        box-shadow: 0 2px 12px rgba(10,22,40,.05);
+        overflow: hidden;
+        animation: fadeUp .5s cubic-bezier(.22,1,.36,1) both;
+    }
+
+    .dcard-head {
+        padding: .9rem 1.2rem .75rem;
+        border-bottom: 1px solid #f1f5f9;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .dcard-title {
+        font-size: .88rem;
+        font-weight: 800;
+        color: var(--ink);
+        display: flex;
+        align-items: center;
+        gap: .45rem;
+    }
+
+    .dcard-title-ico {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: .78rem;
+    }
+
+    .dcard-link {
+        font-size: .72rem;
+        color: var(--sky-d);
+        font-weight: 600;
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        gap: .2rem;
+        transition: color .15s;
+    }
+
+        .dcard-link:hover {
+            color: var(--sky);
+        }
+
+    .dcard-body {
+        padding: .9rem 1.2rem 1.1rem;
+    }
+
+    /* ══ ACTIVITY FEED ════════════════════════════════════ */
+    .act-item {
+        display: flex;
+        align-items: flex-start;
+        gap: .72rem;
+        padding: .55rem 0;
+        border-bottom: 1px solid #f8fafc;
+        position: relative;
+    }
+
+        .act-item:last-child {
+            border-bottom: none;
+        }
+
+    .act-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-top: .3rem;
+        flex-shrink: 0;
+    }
+
+    .act-text {
+        font-size: .8rem;
+        color: #374151;
+        line-height: 1.45;
+        flex: 1;
+    }
+
+        .act-text strong {
+            font-weight: 700;
+            color: var(--ink);
+        }
+
+    .act-time {
+        font-size: .67rem;
+        color: #94a3b8;
+        white-space: nowrap;
+        margin-top: .12rem;
+    }
+
+    /* ══ COMPLAINTS FUNNEL ════════════════════════════════ */
+    .funnel-row {
+        display: flex;
+        align-items: center;
+        gap: .75rem;
+        padding: .48rem 0;
+        border-bottom: 1px solid #f8fafc;
+    }
+
+        .funnel-row:last-child {
+            border-bottom: none;
+        }
+
+    .funnel-label {
+        font-size: .78rem;
+        font-weight: 600;
+        color: var(--ink);
+        width: 90px;
+        flex-shrink: 0;
+    }
+
+    .funnel-bar-wrap {
+        flex: 1;
+        height: 8px;
+        background: #f1f5f9;
+        border-radius: 99px;
+        overflow: hidden;
+    }
+
+    .funnel-bar {
+        height: 100%;
+        border-radius: 99px;
+        transition: width 1.2s cubic-bezier(.22,1,.36,1);
+    }
+
+    .funnel-count {
+        font-size: .78rem;
+        font-weight: 800;
+        color: var(--ink);
+        width: 28px;
+        text-align: left;
+    }
+
+    .funnel-pct {
+        font-size: .67rem;
+        color: var(--muted);
+        width: 34px;
+        text-align: left;
+    }
+
+    /* ══ TASKS ════════════════════════════════════════════ */
+    .task-item {
+        display: flex;
+        align-items: center;
+        gap: .65rem;
+        padding: .52rem 0;
+        border-bottom: 1px solid #f8fafc;
+    }
+
+        .task-item:last-child {
+            border-bottom: none;
+        }
+
+    .task-check {
+        width: 18px;
+        height: 18px;
+        border-radius: 5px;
+        flex-shrink: 0;
+        border: 2px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: .6rem;
+        color: #fff;
+        cursor: pointer;
+        transition: all .15s;
+    }
+
+        .task-check.done {
+            background: var(--jade);
+            border-color: var(--jade);
+        }
+
+    .task-text {
+        font-size: .8rem;
+        color: #374151;
+        flex: 1;
+        line-height: 1.35;
+    }
+
+        .task-text.done-text {
+            text-decoration: line-through;
+            color: #94a3b8;
+        }
+
+    .task-prio {
+        font-size: .62rem;
+        font-weight: 700;
+        padding: .1rem .38rem;
+        border-radius: 4px;
+    }
+
+    .p-high {
+        background: var(--rose-l);
+        color: var(--rose);
+    }
+
+    .p-med {
+        background: var(--amber-l);
+        color: var(--amber);
+    }
+
+    .p-low {
+        background: var(--jade-l);
+        color: var(--jade);
+    }
+
+    /* ══ SERVICES GRID ════════════════════════════════════ */
+    .svc-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: .55rem;
+    }
+
+    .svc-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: .35rem;
+        padding: .85rem .5rem;
+        border-radius: 12px;
+        border: 1.5px solid var(--border);
+        background: #fafbff;
+        text-decoration: none;
+        transition: all .18s;
+        cursor: pointer;
+    }
+
+        .svc-btn:hover {
+            border-color: var(--sky);
+            background: var(--sky-l);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 14px rgba(14,165,233,.15);
+        }
+
+    .svc-ico {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: .95rem;
+    }
+
+    .svc-name {
+        font-size: .7rem;
+        font-weight: 700;
+        color: var(--ink);
+        text-align: center;
+    }
+
+    /* ══ CALENDAR / EVENTS ════════════════════════════════ */
+    .ev-item {
+        display: flex;
+        gap: .7rem;
+        padding: .52rem 0;
+        border-bottom: 1px solid #f8fafc;
+        align-items: flex-start;
+    }
+
+        .ev-item:last-child {
+            border-bottom: none;
+        }
+
+    .ev-date-box {
+        min-width: 38px;
+        height: 42px;
+        border-radius: 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .ev-day {
+        font-size: 1.05rem;
+        font-weight: 900;
+        line-height: 1;
+    }
+
+    .ev-mon {
+        font-size: .58rem;
+        font-weight: 600;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+    }
+
+    .ev-info {
+        flex: 1;
+    }
+
+    .ev-title {
+        font-size: .8rem;
+        font-weight: 700;
+        color: var(--ink);
+        line-height: 1.3;
+    }
+
+    .ev-meta {
+        font-size: .68rem;
+        color: var(--muted);
+        margin-top: .12rem;
+        display: flex;
+        gap: .5rem;
+    }
+
+    /* ══ BUDGET DONUT (SVG) ═══════════════════════════════ */
+    .budget-wrap {
+        display: flex;
+        align-items: center;
+        gap: 1.2rem;
+        flex-wrap: wrap;
+    }
+
+    .donut-svg {
+        flex-shrink: 0;
+    }
+
+    .donut-legend {
+        flex: 1;
+    }
+
+    .legend-row {
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+        padding: .35rem 0;
+        border-bottom: 1px solid #f8fafc;
+    }
+
+        .legend-row:last-child {
+            border-bottom: none;
+        }
+
+    .legend-dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 2px;
+        flex-shrink: 0;
+    }
+
+    .legend-lbl {
+        font-size: .76rem;
+        color: var(--ink);
+        flex: 1;
+        font-weight: 600;
+    }
+
+    .legend-pct {
+        font-size: .76rem;
+        font-weight: 800;
+        color: var(--ink);
+    }
+
+    .legend-amt {
+        font-size: .67rem;
+        color: var(--muted);
+    }
+
+    /* ══ SCROLLABLE TABLES ════════════════════════════════ */
+    .mini-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+        .mini-table th {
+            font-size: .67rem;
+            font-weight: 700;
+            color: var(--muted);
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            padding: .38rem .6rem;
+            background: #f8fafc;
+            border-bottom: 1.5px solid var(--border);
+            text-align: right;
+        }
+
+        .mini-table td {
+            padding: .52rem .6rem;
+            font-size: .78rem;
+            color: #374151;
+            border-bottom: 1px solid #f8fafc;
+            vertical-align: middle;
+        }
+
+        .mini-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .mini-table tr:hover td {
+            background: #fafbff;
+        }
+
+    /* ══ STATUS PILLS ═════════════════════════════════════ */
+    .spill {
+        display: inline-flex;
+        align-items: center;
+        gap: .22rem;
+        font-size: .67rem;
+        font-weight: 700;
+        padding: .14rem .48rem;
+        border-radius: 99px;
+    }
+
+    .s-open {
+        background: var(--sky-l);
+        color: var(--sky-d);
+    }
+
+    .s-prog {
+        background: var(--amber-l);
+        color: var(--amber);
+    }
+
+    .s-done {
+        background: var(--jade-l);
+        color: var(--jade);
+    }
+
+    .s-pending {
+        background: var(--violet-l);
+        color: var(--violet);
+    }
+
+    .s-reject {
+        background: var(--rose-l);
+        color: var(--rose);
+    }
+
+    /* ══ WIDE CARD MODIFIER ═══════════════════════════════ */
+    .span2 {
+        grid-column: span 2;
+    }
+
+    .span3 {
+        grid-column: span 3;
+    }
+
+    /* ══ MINI SPARKLINE BAR ═══════════════════════════════ */
+    .spark {
+        display: flex;
+        align-items: flex-end;
+        gap: 3px;
+        height: 36px;
+    }
+
+    .spark-b {
+        flex: 1;
+        border-radius: 3px 3px 0 0;
+        min-width: 8px;
+        transition: opacity .2s;
+    }
+
+        .spark-b:hover {
+            opacity: .75;
+        }
+
+    /* ══ DIVIDER LABEL ════════════════════════════════════ */
+    .section-sep {
+        font-size: .65rem;
+        font-weight: 800;
+        color: #94a3b8;
+        letter-spacing: .14em;
+        text-transform: uppercase;
+        margin-bottom: .7rem;
+        margin-top: .2rem;
+        display: flex;
+        align-items: center;
+        gap: .55rem;
+    }
+
+        .section-sep::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+    /* ══ ANIMATIONS ═══════════════════════════════════════ */
+    @@keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-14px)
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0)
+        }
+    }
+
+    @@keyframes fadeUp {
+        from {
+            opacity: 0;
+            transform: translateY(16px)
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0)
+        }
+    }
+
+    @@keyframes countUp {
+        from {
+            opacity: 0;
+            transform: scale(.8)
+        }
+
+        to {
+            opacity: 1;
+            transform: scale(1)
+        }
+    }
+
+    .kpi-val {
+        animation: countUp .55s cubic-bezier(.22,1,.36,1) both;
+    }
+
+    /* ══ WEATHER MINI ══════════════════════════════════════ */
+    .weather-mini {
+        display: flex;
+        align-items: center;
+        gap: .65rem;
+        background: linear-gradient(135deg,#fef9f0,#fff7e6);
+        border: 1px solid #fde68a;
+        border-radius: 12px;
+        padding: .7rem .95rem;
+    }
+
+    .wm-icon {
+        font-size: 1.6rem;
+    }
+
+    .wm-info {
+        flex: 1;
+    }
+
+    .wm-temp {
+        font-size: 1.2rem;
+        font-weight: 900;
+        color: var(--ink);
+    }
+
+    .wm-desc {
+        font-size: .7rem;
+        color: var(--muted);
+    }
+
+    .wm-extra {
+        font-size: .67rem;
+        color: #94a3b8;
+        display: flex;
+        gap: .5rem;
+        margin-top: .12rem;
+    }
+
+    /* ══ PULSE DOT ════════════════════════════════════════ */
+    .pulse {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--jade);
+        display: inline-block;
+        box-shadow: 0 0 0 0 rgba(16,185,129,.4);
+        animation: pulse-anim 1.8s ease-in-out infinite;
+    }
+
+    @@keyframes pulse-anim {
+        0% {
+            box-shadow: 0 0 0 0 rgba(16,185,129,.45);
+        }
+
+        70% {
+            box-shadow: 0 0 0 8px rgba(16,185,129,0);
+        }
+
+        100% {
+            box-shadow: 0 0 0 0 rgba(16,185,129,0);
+        }
+    }
+</style>
+
+<div class="dash">
+
+    <!-- ═══════════════════════ GREETING ═══════════════════════ -->
+    <div class="greeting">
+        <div class="greeting-grid"></div>
+        <div class="greeting-inner">
+            <div class="greet-left">
+                <div class="greet-eyebrow">Municipality 360 · ELAIN · نظام إدارة البلدية</div>
+                <div class="greet-name">
+                    مرحباً، <span>@GreetName</span> 👋
                 </div>
-                <i class="bi bi-building fs-1 opacity-50"></i>
+                <div class="greet-sub">
+                    <span class="pulse"></span>
+                    &nbsp;@DayName — @TodayDate · آخر تسجيل دخول: اليوم
+                </div>
+            </div>
+            <div class="greet-right">
+                <div class="greet-time-box">
+                    <div class="greet-time">@CurrentTime</div>
+                    <div class="greet-date">@TodayShort</div>
+                </div>
+                <div class="greet-weather">
+                    <i class="bi bi-sun-fill"></i>
+                    <div class="greet-weather-t">28°</div>
+                    <div class="greet-weather-s">مشمس · بسكرة</div>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card border-0 bg-success text-white shadow-sm">
-            <div class="card-body d-flex justify-content-between align-items-center">
-                <div>
-                    <div class="small opacity-75">Services</div>
-                    <h3 class="fw-bold mb-0">@Stats.Services</h3>
+
+    <!-- ═══════════════════════ KPI RIBBON ═══════════════════════ -->
+    <div class="kpi-ribbon">
+
+        <div class="kpi">
+            <div class="kpi-stripe" style="background:var(--sky);"></div>
+            <div class="kpi-icon" style="background:var(--sky-l);color:var(--sky-d);">
+                <i class="bi bi-people-fill"></i>
+            </div>
+            <div class="kpi-val">1 284</div>
+            <div class="kpi-lbl">إجمالي الموظفين</div>
+            <div class="kpi-delta delta-up">
+                <i class="bi bi-arrow-up-short"></i>+12 هذا الشهر
+            </div>
+        </div>
+
+        <div class="kpi">
+            <div class="kpi-stripe" style="background:var(--rose);"></div>
+            <div class="kpi-icon" style="background:var(--rose-l);color:var(--rose);">
+                <i class="bi bi-chat-square-text-fill"></i>
+            </div>
+            <div class="kpi-val">47</div>
+            <div class="kpi-lbl">شكاوى معلّقة</div>
+            <div class="kpi-delta delta-down">
+                <i class="bi bi-arrow-down-short"></i>-8 مقارنة بالأمس
+            </div>
+        </div>
+
+        <div class="kpi">
+            <div class="kpi-stripe" style="background:var(--gold);"></div>
+            <div class="kpi-icon" style="background:var(--gold-l);color:#b45309;">
+                <i class="bi bi-file-earmark-ruled-fill"></i>
+            </div>
+            <div class="kpi-val">23</div>
+            <div class="kpi-lbl">رخص بناء قيد المعالجة</div>
+            <div class="kpi-delta delta-flat">
+                <i class="bi bi-dash"></i>مستقر
+            </div>
+        </div>
+
+        <div class="kpi">
+            <div class="kpi-stripe" style="background:var(--jade);"></div>
+            <div class="kpi-icon" style="background:var(--jade-l);color:#047857;">
+                <i class="bi bi-cash-coin"></i>
+            </div>
+            <div class="kpi-val">68%</div>
+            <div class="kpi-lbl">نسبة تنفيذ الميزانية</div>
+            <div class="kpi-delta delta-up">
+                <i class="bi bi-arrow-up-short"></i>+5% من الربع الماضي
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ═══════════════════════ SECTION 1 ═══════════════════════ -->
+    <div class="section-sep">المعالجة اليومية والمتابعة</div>
+    <div class="main-grid" style="grid-template-columns:1.4fr 1fr 1fr;">
+
+        <!-- بريد اليوم — رسائل واردة/صادرة -->
+        <div class="dcard" style="animation-delay:.07s">
+            <div class="dcard-head">
+                <div class="dcard-title">
+                    <div class="dcard-title-ico" style="background:#e0f2fe;color:#0369a1;">
+                        <i class="bi bi-inbox-fill"></i>
+                    </div>
+                    مكتب الضبط — اليوم
                 </div>
-                <i class="bi bi-diagram-3 fs-1 opacity-50"></i>
+                <a href="/bureau/incoming" class="dcard-link">
+                    الكل <i class="bi bi-arrow-left-short"></i>
+                </a>
+            </div>
+            <div class="dcard-body">
+
+                <!-- Sparks -->
+                <div style="display:flex;gap:1.2rem;margin-bottom:1rem;">
+                    <div style="flex:1;background:#f0f9ff;border-radius:12px;padding:.7rem .9rem;">
+                        <div style="font-size:1.35rem;font-weight:900;color:#0369a1;">34</div>
+                        <div style="font-size:.7rem;color:#64748b;font-weight:600;">وارد اليوم</div>
+                        <div class="spark" style="margin-top:.45rem;">
+                            @foreach (var h in new[] { 30, 55, 40, 70, 50, 65, 34 })
+                            {
+                                <div class="spark-b" style="height:@(h)%;background:#7dd3fc;"></div>
+                            }
+                        </div>
+                    </div>
+                    <div style="flex:1;background:#f0fdf4;border-radius:12px;padding:.7rem .9rem;">
+                        <div style="font-size:1.35rem;font-weight:900;color:#16a34a;">18</div>
+                        <div style="font-size:.7rem;color:#64748b;font-weight:600;">صادر اليوم</div>
+                        <div class="spark" style="margin-top:.45rem;">
+                            @foreach (var h in new[] { 20, 35, 60, 40, 80, 45, 18 })
+                            {
+                                <div class="spark-b" style="height:@(h)%;background:#6ee7b7;"></div>
+                            }
+                        </div>
+                    </div>
+                    <div style="flex:1;background:#fef9c3;border-radius:12px;padding:.7rem .9rem;">
+                        <div style="font-size:1.35rem;font-weight:900;color:#b45309;">9</div>
+                        <div style="font-size:.7rem;color:#64748b;font-weight:600;">بانتظار الإجراء</div>
+                        <div class="spark" style="margin-top:.45rem;">
+                            @foreach (var h in new[] { 50, 30, 70, 45, 60, 35, 9 })
+                            {
+                                <div class="spark-b" style="height:@(h)%;background:#fde68a;"></div>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <!-- آخر البريد الوارد -->
+                @foreach (var m in MailItems)
+                {
+                    <div class="act-item">
+                        <div class="act-dot" style="background:@m.Color;"></div>
+                        <div style="flex:1;">
+                            <div class="act-text"><strong>@m.From</strong> — @m.Subject</div>
+                            <div class="act-time">@m.Time</div>
+                        </div>
+                        <span class="spill @m.StatusCls">@m.Status</span>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- الشكاوى — قمع الحالات -->
+        <div class="dcard" style="animation-delay:.12s">
+            <div class="dcard-head">
+                <div class="dcard-title">
+                    <div class="dcard-title-ico" style="background:#ffe4e6;color:#f43f5e;">
+                        <i class="bi bi-chat-square-text-fill"></i>
+                    </div>
+                    الشكاوى — الحالة
+                </div>
+                <a href="/complaints/list" class="dcard-link">
+                    تفاصيل <i class="bi bi-arrow-left-short"></i>
+                </a>
+            </div>
+            <div class="dcard-body">
+                <div style="text-align:center;margin-bottom:.9rem;">
+                    <div style="font-size:2.4rem;font-weight:900;color:var(--ink);">156</div>
+                    <div style="font-size:.72rem;color:var(--muted);font-weight:600;">إجمالي الشكاوى هذا الشهر</div>
+                </div>
+                @foreach (var f in FunnelData)
+                {
+                    <div class="funnel-row">
+                        <div class="funnel-label">@f.Label</div>
+                        <div class="funnel-bar-wrap">
+                            <div class="funnel-bar"
+                                 style="width:@(f.Pct)%;background:@f.Color;"></div>
+                        </div>
+                        <div class="funnel-count">@f.Count</div>
+                        <div class="funnel-pct" style="color:@f.Color;">@(f.Pct)%</div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- المهام العاجلة -->
+        <div class="dcard" style="animation-delay:.17s">
+            <div class="dcard-head">
+                <div class="dcard-title">
+                    <div class="dcard-title-ico" style="background:#ede9fe;color:#6d28d9;">
+                        <i class="bi bi-check2-square"></i>
+                    </div>
+                    المهام العاجلة
+                </div>
+                <span style="font-size:.68rem;color:var(--muted);">@Tasks.Count(t => !t.Done)/@Tasks.Count متبقية</span>
+            </div>
+            <div class="dcard-body">
+                @foreach (var t in Tasks)
+                {
+                    <div class="task-item">
+                        <div class="task-check @(t.Done ? "done" : "")"
+                             @onclick="() => t.Done = !t.Done">
+                            @if (t.Done)
+                            {
+                                <i class="bi bi-check-lg"></i>
+                            }
+                        </div>
+                        <div class="task-text @(t.Done ? "done-text" : "")">@t.Text</div>
+                        <span class="task-prio @t.PrioCls">@t.Prio</span>
+                    </div>
+                }
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ═══════════════════════ SECTION 2 ═══════════════════════ -->
+    <div class="section-sep">المالية والميزانية</div>
+    <div class="main-grid" style="grid-template-columns:1fr 1.6fr;">
+
+        <!-- دوناط الميزانية -->
+        <div class="dcard" style="animation-delay:.1s">
+            <div class="dcard-head">
+                <div class="dcard-title">
+                    <div class="dcard-title-ico" style="background:#fef9c3;color:#d97706;">
+                        <i class="bi bi-pie-chart-fill"></i>
+                    </div>
+                    توزيع الميزانية
+                </div>
+                <a href="/finance/budget" class="dcard-link">
+                    التفاصيل <i class="bi bi-arrow-left-short"></i>
+                </a>
+            </div>
+            <div class="dcard-body">
+                <div class="budget-wrap">
+                    <!-- SVG Donut -->
+                    <svg class="donut-svg" width="110" height="110" viewBox="0 0 36 36">
+                        <circle cx="18" cy="18" r="15.9" fill="none" stroke="#f1f5f9" stroke-width="3.5" />
+                        <!-- RH 34% -->
+                        <circle cx="18" cy="18" r="15.9" fill="none"
+                                stroke="#0ea5e9" stroke-width="3.5"
+                                stroke-dasharray="34 66" stroke-dashoffset="25"
+                                transform="rotate(-90 18 18)" />
+                        <!-- Infrastructure 28% -->
+                        <circle cx="18" cy="18" r="15.9" fill="none"
+                                stroke="#10b981" stroke-width="3.5"
+                                stroke-dasharray="28 72" stroke-dashoffset="-9"
+                                transform="rotate(-90 18 18)" />
+                        <!-- Voirie 18% -->
+                        <circle cx="18" cy="18" r="15.9" fill="none"
+                                stroke="#f59e0b" stroke-width="3.5"
+                                stroke-dasharray="18 82" stroke-dashoffset="-37"
+                                transform="rotate(-90 18 18)" />
+                        <!-- Propreté 12% -->
+                        <circle cx="18" cy="18" r="15.9" fill="none"
+                                stroke="#8b5cf6" stroke-width="3.5"
+                                stroke-dasharray="12 88" stroke-dashoffset="-55"
+                                transform="rotate(-90 18 18)" />
+                        <!-- Autre 8% -->
+                        <circle cx="18" cy="18" r="15.9" fill="none"
+                                stroke="#f43f5e" stroke-width="3.5"
+                                stroke-dasharray="8 92" stroke-dashoffset="-67"
+                                transform="rotate(-90 18 18)" />
+                        <text x="18" y="20.5" text-anchor="middle"
+                              font-size="4.5" font-weight="700" fill="#0a1628"
+                              font-family="Cairo">68%</text>
+                    </svg>
+                    <div class="donut-legend">
+                        @foreach (var b in BudgetLines)
+                        {
+                            <div class="legend-row">
+                                <div class="legend-dot" style="background:@b.Color;"></div>
+                                <div class="legend-lbl">@b.Label</div>
+                                <div>
+                                    <div class="legend-pct">@(b.Pct)%</div>
+                                    <div class="legend-amt">@b.Amount</div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- جدول آخر أوامر الصرف -->
+        <div class="dcard" style="animation-delay:.15s">
+            <div class="dcard-head">
+                <div class="dcard-title">
+                    <div class="dcard-title-ico" style="background:#dcfce7;color:#15803d;">
+                        <i class="bi bi-file-earmark-text-fill"></i>
+                    </div>
+                    آخر أوامر الصرف
+                </div>
+                <a href="/finance/orders" class="dcard-link">
+                    الكل <i class="bi bi-arrow-left-short"></i>
+                </a>
+            </div>
+            <div class="dcard-body" style="padding-top:.5rem;">
+                <table class="mini-table">
+                    <thead>
+                        <tr>
+                            <th>رقم الأمر</th>
+                            <th>الوصف</th>
+                            <th>المبلغ</th>
+                            <th>الحالة</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var o in Orders)
+                        {
+                            <tr>
+                                <td style="font-weight:700;color:var(--ink);">@o.Num</td>
+                                <td>@o.Desc</td>
+                                <td style="font-weight:700;">@o.Amount</td>
+                                <td><span class="spill @o.StatusCls">@o.Status</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ═══════════════════════ SECTION 3 ═══════════════════════ -->
+    <div class="section-sep">الموارد البشرية والمصالح</div>
+    <div class="main-grid" style="grid-template-columns:1fr 1fr 1fr;">
+
+        <!-- رخص البناء الأخيرة -->
+        <div class="dcard" style="animation-delay:.08s">
+            <div class="dcard-head">
+                <div class="dcard-title">
+                    <div class="dcard-title-ico" style="background:#fff7ed;color:#c2410c;">
+                        <i class="bi bi-building-fill-add"></i>
+                    </div>
+                    رخص البناء
+                </div>
+                <a href="/permits/list" class="dcard-link">
+                    الكل <i class="bi bi-arrow-left-short"></i>
+                </a>
+            </div>
+            <div class="dcard-body">
+                @foreach (var p in Permits)
+                {
+                    <div class="act-item">
+                        <div class="act-dot" style="background:@p.Color;"></div>
+                        <div style="flex:1;">
+                            <div class="act-text" style="font-size:.77rem;">
+                                <strong>@p.Ref</strong> — @p.Owner
+                            </div>
+                            <div class="act-time">@p.Zone · @p.Date</div>
+                        </div>
+                        <span class="spill @p.StatusCls">@p.Status</span>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- الموظفون — سريع -->
+        <div class="dcard" style="animation-delay:.13s">
+            <div class="dcard-head">
+                <div class="dcard-title">
+                    <div class="dcard-title-ico" style="background:#e0f2fe;color:#0369a1;">
+                        <i class="bi bi-person-lines-fill"></i>
+                    </div>
+                    الموارد البشرية
+                </div>
+                <a href="/employes" class="dcard-link">
+                    الكل <i class="bi bi-arrow-left-short"></i>
+                </a>
+            </div>
+            <div class="dcard-body">
+                <!-- Stats row -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:.55rem;margin-bottom:.9rem;">
+                    @foreach (var s in HRStats)
+                    {
+                        <div style="background:#f8fafd;border-radius:10px;padding:.6rem .8rem;
+                                        border:1px solid var(--border);">
+                            <div style="font-size:1.15rem;font-weight:900;color:@s.Color;">@s.Val</div>
+                            <div style="font-size:.67rem;color:var(--muted);font-weight:600;">@s.Label</div>
+                        </div>
+                    }
+                </div>
+                <!-- آخر التحركات -->
+                @foreach (var m in HRMoves)
+                {
+                    <div class="act-item">
+                        <div class="act-dot" style="background:@m.Color;"></div>
+                        <div style="flex:1;">
+                            <div class="act-text" style="font-size:.76rem;"><strong>@m.Name</strong> — @m.Action</div>
+                            <div class="act-time">@m.Date</div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- أحداث وجلسات قادمة -->
+        <div class="dcard" style="animation-delay:.18s">
+            <div class="dcard-head">
+                <div class="dcard-title">
+                    <div class="dcard-title-ico" style="background:#f0fdf4;color:#16a34a;">
+                        <i class="bi bi-calendar3-event-fill"></i>
+                    </div>
+                    المواعيد القادمة
+                </div>
+                <a href="/agenda" class="dcard-link">
+                    الكل <i class="bi bi-arrow-left-short"></i>
+                </a>
+            </div>
+            <div class="dcard-body">
+                @foreach (var ev in Events)
+                {
+                    <div class="ev-item">
+                        <div class="ev-date-box" style="background:@ev.BgColor;color:@ev.TxtColor;">
+                            <div class="ev-day">@ev.Day</div>
+                            <div class="ev-mon">@ev.Month</div>
+                        </div>
+                        <div class="ev-info">
+                            <div class="ev-title">@ev.Title</div>
+                            <div class="ev-meta">
+                                <span><i class="bi bi-clock" style="font-size:.6rem;"></i> @ev.Time</span>
+                                <span><i class="bi bi-geo-alt" style="font-size:.6rem;"></i> @ev.Place</span>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ═══════════════════════ QUICK ACCESS ═══════════════════════ -->
+    <div class="section-sep">الوصول السريع</div>
+    <div class="dcard" style="animation-delay:.1s;margin-bottom:.5rem;">
+        <div class="dcard-body" style="padding:.9rem 1.2rem;">
+            <div class="svc-grid" style="grid-template-columns:repeat(auto-fill,minmax(100px,1fr));">
+                @foreach (var svc in QuickLinks)
+                {
+                    var ss = svc;
+                    <a href="@ss.Href" class="svc-btn">
+                        <div class="svc-ico" style="background:@ss.Bg;color:@ss.Color;">
+                            <i class="bi @ss.Icon"></i>
+                        </div>
+                        <div class="svc-name">@ss.Label</div>
+                    </a>
+                }
             </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card border-0 bg-warning text-dark shadow-sm">
-            <div class="card-body d-flex justify-content-between align-items-center">
-                <div>
-                    <div class="small opacity-75">Postes</div>
-                    <h3 class="fw-bold mb-0">@Stats.Postes</h3>
-                </div>
-                <i class="bi bi-briefcase fs-1 opacity-50"></i>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card border-0 bg-info text-dark shadow-sm">
-            <div class="card-body d-flex justify-content-between align-items-center">
-                <div>
-                    <div class="small opacity-75">Employes</div>
-                    <h3 class="fw-bold mb-0">@Stats.Employes</h3>
-                </div>
-                <i class="bi bi-people fs-1 opacity-50"></i>
-            </div>
-        </div>
-    </div>
+
 </div>
 
 @code {
-    [Inject] private IDepartementApiService DeptService { get; set; } = null!;
-    [Inject] private IServiceApiService SvcService { get; set; } = null!;
-    [Inject] private IPosteApiService PosteService { get; set; } = null!;
-    [Inject] private IEmployeApiService EmpService { get; set; } = null!;
+    [Inject] AuthenticationStateProvider AuthSP { get; set; } = null!;
 
-    private (int Departements, int Services, int Postes, int Employes) Stats;
+    // ── User ───────────────────────────────────────────
+    private string GreetName = "المستخدم";
+
+    // ── Time ───────────────────────────────────────────
+    private string CurrentTime = "";
+    private string TodayDate = "";
+    private string TodayShort = "";
+    private string DayName = "";
+    private System.Threading.Timer? _timer;
 
     protected override async Task OnInitializedAsync()
     {
-        var depts = await DeptService.GetAllAsync();
-        var svcs = await SvcService.GetAllAsync();
-        var postes = await PosteService.GetAllAsync();
-        var emps = await EmpService.GetPagedAsync(new() { PageSize = 1 });
+        var state = await AuthSP.GetAuthenticationStateAsync();
+        var user = state.User;
+        GreetName = user.FindFirst("firstName")?.Value
+                 ?? user.FindFirst(ClaimTypes.Name)?.Value
+                 ?? user.FindFirst("email")?.Value
+                 ?? "المستخدم";
 
-        Stats = (
-            depts?.Data?.Count() ?? 0,
-            svcs?.Data?.Count() ?? 0,
-            postes?.Data?.Count() ?? 0,
-            emps?.Data?.TotalCount ?? 0
-        );
+        UpdateTime();
+        _timer = new System.Threading.Timer(_ =>
+        {
+            UpdateTime();
+            InvokeAsync(StateHasChanged);
+        }, null, 1000, 1000);
     }
+
+    private void UpdateTime()
+    {
+        var now = DateTime.Now;
+        CurrentTime = now.ToString("HH:mm");
+        TodayDate = now.ToString("dd MMMM yyyy");
+        TodayShort = now.ToString("dd/MM/yyyy");
+        DayName = now.DayOfWeek switch
+        {
+            DayOfWeek.Saturday => "السبت",
+            DayOfWeek.Sunday => "الأحد",
+            DayOfWeek.Monday => "الاثنين",
+            DayOfWeek.Tuesday => "الثلاثاء",
+            DayOfWeek.Wednesday => "الأربعاء",
+            DayOfWeek.Thursday => "الخميس",
+            DayOfWeek.Friday => "الجمعة",
+            _ => ""
+        };
+    }
+
+    public void Dispose() => _timer?.Dispose();
+
+    // ══ DATA MODELS ══════════════════════════════════════
+
+    // ── Mail ───────────────────────────────────────────
+    record MailItem(string From, string Subject, string Time, string Status, string StatusCls, string Color);
+    private List<MailItem> MailItems = new()
+    {
+        new("مديرية التعمير",    "طلب تمديد رخصة البناء #1892",    "10:34",  "جديد",     "s-open",  "#0ea5e9"),
+        new("مديرية المالية",    "تقرير التدفقات المالية – مارس",   "09:12",  "قيد المعالجة","s-prog","#f97316"),
+        new("رئاسة البلدية",     "محضر اجتماع 15 أبريل",           "أمس",    "مؤرشف",    "s-done",  "#10b981"),
+        new("مصلحة الحالة المدنية","تحديث إجراءات استخراج الوثائق", "أمس",    "مهم",      "s-pending","#8b5cf6"),
+    };
+
+    // ── Funnel ─────────────────────────────────────────
+    record FunnelItem(string Label, int Count, int Pct, string Color);
+    private List<FunnelItem> FunnelData = new()
+    {
+        new("مفتوحة",      47, 30, "#f43f5e"),
+        new("قيد الحل",    62, 40, "#f97316"),
+        new("محلولة",      38, 24, "#10b981"),
+        new("مرفوضة",       9,  6, "#94a3b8"),
+    };
+
+    // ── Tasks ──────────────────────────────────────────
+    class TaskItem { public string Text = ""; public string Prio = ""; public string PrioCls = ""; public bool Done = false; }
+    private List<TaskItem> Tasks = new()
+    {
+        new(){Text="إعداد التقرير الشهري للمصالح",    Prio="عاجل",  PrioCls="p-high"},
+        new(){Text="متابعة ملف ترقية الموظفين",        Prio="متوسط", PrioCls="p-med"},
+        new(){Text="إرسال محضر اجتماع مجلس البلدية",  Prio="عاجل",  PrioCls="p-high"},
+        new(){Text="مراجعة طلبات الإجازة لشهر مايو",  Prio="عادي",  PrioCls="p-low", Done=true},
+        new(){Text="تحديث قاعدة بيانات المخزون",      Prio="عادي",  PrioCls="p-low"},
+    };
+
+    // ── Budget ─────────────────────────────────────────
+    record BudgetLine(string Label, int Pct, string Amount, string Color);
+    private List<BudgetLine> BudgetLines = new()
+    {
+        new("الموارد البشرية",    34, "12.4 مليار", "#0ea5e9"),
+        new("البنية التحتية",     28, "10.2 مليار", "#10b981"),
+        new("الطرق والأرصفة",    18, "6.6 مليار",  "#f59e0b"),
+        new("النظافة والبيئة",   12, "4.4 مليار",  "#8b5cf6"),
+        new("أخرى",               8, "2.9 مليار",  "#f43f5e"),
+    };
+
+    // ── Orders ─────────────────────────────────────────
+    record OrderItem(string Num, string Desc, string Amount, string Status, string StatusCls);
+    private List<OrderItem> Orders = new()
+    {
+        new("2024-0412", "صيانة الطرق – الحي الجنوبي",    "1.2 م.د",  "معتمد",    "s-done"),
+        new("2024-0411", "توريد معدات نظافة",             "480 ألف",  "قيد الموافقة","s-prog"),
+        new("2024-0410", "أعمال تهيئة الحديقة المركزية",  "750 ألف",  "معتمد",    "s-done"),
+        new("2024-0409", "شراء حواسيب مكتبية",           "320 ألف",  "معلّق",    "s-pending"),
+        new("2024-0408", "صيانة شبكة الإنارة العمومية",  "960 ألف",  "مرفوض",    "s-reject"),
+    };
+
+    // ── Permits ────────────────────────────────────────
+    record PermitItem(string Ref, string Owner, string Zone, string Date,
+                      string Status, string StatusCls, string Color);
+    private List<PermitItem> Permits = new()
+    {
+        new("R-2024-089", "أحمد بن علي",  "المنطقة الشمالية", "15/04",  "موافقة",   "s-done",    "#10b981"),
+        new("R-2024-090", "سارة مسعود",   "وسط المدينة",      "15/04",  "قيد الدراسة","s-prog",  "#f97316"),
+        new("R-2024-091", "شركة البناء",  "المنطقة الصناعية", "14/04",  "جديدة",    "s-open",    "#0ea5e9"),
+        new("R-2024-088", "محمد لعرج",   "الحي الجنوبي",     "13/04",  "مرفوضة",   "s-reject",  "#f43f5e"),
+    };
+
+    // ── HR ─────────────────────────────────────────────
+    record HRStat(string Val, string Label, string Color);
+    private List<HRStat> HRStats = new()
+    {
+        new("1284", "إجمالي الموظفين", "#0369a1"),
+        new("47",   "إجازات هذا الشهر","#f59e0b"),
+        new("12",   "تعيينات جديدة",   "#10b981"),
+        new("5",    "إحالات للتقاعد",  "#8b5cf6"),
+    };
+
+    record HRMove(string Name, string Action, string Date, string Color);
+    private List<HRMove> HRMoves = new()
+    {
+        new("نبيل قاسم",    "ترقية إلى رئيس مصلحة", "اليوم",  "#10b981"),
+        new("فريدة حداد",   "انتهاء عقد عمل",        "أمس",    "#f43f5e"),
+        new("كريم بوزيد",   "تعيين جديد – مالية",    "13/04",  "#0ea5e9"),
+    };
+
+    // ── Events ─────────────────────────────────────────
+    record EventItem(string Day, string Month, string Title, string Time,
+                     string Place, string BgColor, string TxtColor);
+    private List<EventItem> Events = new()
+    {
+        new("18","أبر","اجتماع مجلس البلدية الشهري",  "10:00","قاعة الاجتماعات","#e0f2fe","#0369a1"),
+        new("20","أبر","ورشة تكوين – الموارد البشرية", "09:00","المركز الثقافي", "#dcfce7","#15803d"),
+        new("23","أبر","إغلاق الميزانية الفصلية",      "14:00","مكتب المالية",   "#fef3c7","#b45309"),
+        new("28","أبر","يوم البيئة البلدي",             "08:00","الحديقة المركزية","#f0fdf4","#15803d"),
+    };
+
+    // ── Quick Links ────────────────────────────────────
+    record QuickLink(string Href, string Icon, string Label, string Bg, string Color);
+    private List<QuickLink> QuickLinks = new()
+    {
+        new("/bureau/incoming",  "bi-envelope-arrow-down",    "بريد وارد",      "#e0f2fe","#0369a1"),
+        new("/complaints/add",   "bi-plus-circle-fill",       "شكوى جديدة",     "#ffe4e6","#f43f5e"),
+        new("/permits/add",      "bi-file-earmark-plus-fill", "رخصة بناء",      "#fff7ed","#c2410c"),
+        new("/civil/extract",    "bi-printer-fill",           "استخراج وثيقة",  "#fef3c7","#b45309"),
+        new("/employes",         "bi-person-badge-fill",      "الموظفون",        "#dcfce7","#15803d"),
+        new("/finance/orders",   "bi-cash-stack",             "أوامر الصرف",    "#dcfce7","#047857"),
+        new("/sig",              "bi-globe2",                 "نظام GIS",       "#ecfeff","#0e7490"),
+        new("/stock/inventory",  "bi-box-seam-fill",          "المخزون",         "#f5f3ff","#6d28d9"),
+        new("/rh/leaves",        "bi-calendar-check-fill",    "الإجازات",        "#f0fdf4","#15803d"),
+        new("/clean/schedule",   "bi-recycle",                "النظافة",         "#f7fee7","#3f6212"),
+        new("/reports/dashboard","bi-graph-up-arrow",         "التقارير",        "#fdf4ff","#7e22ce"),
+        new("/admin/users",      "bi-shield-lock-fill",       "المستخدمون",      "#ede9fe","#5b21b6"),
+    };
 }

@@ -199,6 +199,10 @@ public interface IUserApiService
     // ── كلمة المرور ────────────────────────────────────────────
     Task<bool> ResetPasswordAsync(string userId, string newPassword);
 
+    // ── الملف الشخصي ──────────────────────────────────────────────
+    Task<bool> UpdateProfileAsync(UpdateProfileDto dto);
+    Task<bool> ChangePasswordAsync(ChangePasswordDto dto);
+
     // ── الأدوار ────────────────────────────────────────────────
     Task<Result<IEnumerable<string>>?> GetRolesAsync();
     Task<bool> AssignRoleAsync(string userId, string role);
@@ -255,6 +259,20 @@ public class UserApiService : IUserApiService
     {
         var dto = new AssignRoleDto { UserId = userId, Role = role };
         var result = await _api.PostAsync<AssignRoleDto, Result>("api/auth/roles/assign", dto);
+        return result?.Succeeded == true;
+    }
+
+    // PUT api/auth/me/profile
+    public async Task<bool> UpdateProfileAsync(UpdateProfileDto dto)
+    {
+        var result = await _api.PutAsync<UpdateProfileDto, Result>("api/auth/me/profile", dto);
+        return result?.Succeeded == true;
+    }
+
+    // PUT api/auth/me/password
+    public async Task<bool> ChangePasswordAsync(ChangePasswordDto dto)
+    {
+        var result = await _api.PutAsync<ChangePasswordDto, Result>("api/auth/me/password", dto);
         return result?.Succeeded == true;
     }
 

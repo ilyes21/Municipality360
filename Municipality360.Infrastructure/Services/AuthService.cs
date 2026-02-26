@@ -286,4 +286,41 @@ public class AuthService : IAuthService
 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
+
+    // ══════════════════════════════════════════════════
+    //  SELF-UPDATE
+    // ══════════════════════════════════════════════════
+
+    /// <summary>تحديث الاسم واللقب للمستخدم الحالي</summary>
+    public async Task<Result> UpdateProfileAsync(string userId, UpdateProfileDto dto)
+    {
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user is null)
+            return Result.Failure("المستخدم غير موجود.");
+
+        user.FirstName = dto.FirstName.Trim();
+        user.LastName = dto.LastName.Trim();
+
+        var result = await _userManager.UpdateAsync(user);
+        if (!result.Succeeded)
+            return Result.Failure(result.Errors.Select(e => e.Description));
+
+        return Result.Success("تم تحديث الاسم بنجاح.");
+    }
+
+    /// <summary>تغيير كلمة المرور للمستخدم الحالي (يتحقق من القديمة)</summary>
+    public async Task<Result> ChangePasswordAsync(string userId, ChangePasswordDto dto)
+    {
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user is null)
+            return Result.Failure("المستخدم غير موجود.");
+
+        var result = await _userManager.ChangePasswordAsync(
+            user, dto.CurrentPassword, dto.NewPassword);
+
+        if (!result.Succeeded)
+            return Result.Failure(result.Errors.Select(e => e.Description));
+
+        return Result.Success("تم تغيير كلمة المرور بنجاح.");
+    }
 }

@@ -106,3 +106,27 @@ public class ResetPasswordDto
     [Required, MinLength(8)]
     public string NewPassword { get; set; } = string.Empty;
 }
+
+// ════════════════════════════════════════════════════
+//  SELF-UPDATE (كل مستخدم يُحدّث بياناته الشخصية)
+// ════════════════════════════════════════════════════
+
+/// <summary>تغيير الاسم واللقب للمستخدم الحالي</summary>
+public class UpdateProfileDto
+{
+    [Required, MaxLength(50)]
+    public string FirstName { get; set; } = string.Empty;
+
+    [Required, MaxLength(50)]
+    public string LastName { get; set; } = string.Empty;
+}
+
+/// <summary>تغيير كلمة المرور للمستخدم الحالي</summary>
+public class ChangePasswordDto
+{
+    [Required]
+    public string CurrentPassword { get; set; } = string.Empty;
+
+    [Required, MinLength(8)]
+    public string NewPassword { get; set; } = string.Empty;
+}

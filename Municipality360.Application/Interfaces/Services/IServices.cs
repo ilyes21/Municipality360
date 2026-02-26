@@ -25,6 +25,10 @@ public interface IAuthService
     Task<Result<IEnumerable<string>>> GetAllRolesAsync();
     Task<Result> AssignRoleAsync(AssignRoleDto dto);
     Task<Result> RemoveRoleAsync(AssignRoleDto dto);
+    // ── Self-update (كل مستخدم — بياناته الشخصية فقط) ─
+    Task<Result> UpdateProfileAsync(string userId, UpdateProfileDto dto);
+    Task<Result> ChangePasswordAsync(string userId, ChangePasswordDto dto);
+
 }
 
 // ════════════════════════════════════════════════════

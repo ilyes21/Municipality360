@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Municipality360.Application.DTOs.Identity;
 using Municipality360.Application.Interfaces.Services;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 
 namespace Municipality360.API.Controllers;
 
@@ -95,6 +97,35 @@ public class AuthController : ControllerBase
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
         var result = await _authService.ResetPasswordAsync(dto);
+        return result.Succeeded ? Ok(result) : BadRequest(result);
+    }
+    // ══════════════════════════════════════════════════
+    //  SELF-UPDATE  — كل مستخدم مسجّل الدخول
+    // ══════════════════════════════════════════════════
+
+    /// <summary>تحديث الاسم واللقب للمستخدم الحالي</summary>
+    [HttpPut("me/profile")]
+    [Authorize]
+    public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileDto dto)
+    {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                  ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+        if (string.IsNullOrEmpty(userId)) return Unauthorized();
+        var result = await _authService.UpdateProfileAsync(userId, dto);
+        return result.Succeeded ? Ok(result) : BadRequest(result);
+    }
+
+    /// <summary>تغيير كلمة المرور للمستخدم الحالي</summary>
+    [HttpPut("me/password")]
+    [Authorize]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto dto)
+    {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                  ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+        if (string.IsNullOrEmpty(userId)) return Unauthorized();
+        var result = await _authService.ChangePasswordAsync(userId, dto);
         return result.Succeeded ? Ok(result) : BadRequest(result);
     }
 
