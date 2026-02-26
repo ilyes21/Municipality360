@@ -37,7 +37,7 @@ public class AuthApiService : IAuthApiService
 
     public async Task<Result<AuthResponseDto>?> RegisterAsync(RegisterDto dto)
     {
-        try { return await _api.PostAsync<RegisterDto, Result<AuthResponseDto>>("api/auth/register", dto); }
+        try { return await _api.PostAsync<RegisterDto, Result<AuthResponseDto>>("api/auth/users", dto); }
         catch { return null; }
     }
 
@@ -150,7 +150,8 @@ public class EmployeApiService : IEmployeApiService
         var query = $"api/employes?pageNumber={filter.PageNumber}&pageSize={filter.PageSize}";
         if (filter.ServiceId.HasValue) query += $"&serviceId={filter.ServiceId}";
         if (filter.DepartementId.HasValue) query += $"&departementId={filter.DepartementId}";
-        if (!string.IsNullOrEmpty(filter.SearchTerm)) query += $"&searchTerm={Uri.EscapeDataString(filter.SearchTerm)}";
+        if (!string.IsNullOrEmpty(filter.SearchTerm))
+            query += $"&searchTerm={Uri.EscapeDataString(filter.SearchTerm)}";
         return await _api.GetAsync<Result<PagedResult<EmployeDto>>>(query);
     }
 
@@ -166,12 +167,42 @@ public class EmployeApiService : IEmployeApiService
     public async Task<bool> DeleteAsync(int id) => await _api.DeleteAsync($"api/employes/{id}");
 }
 
-// ======================== USERS (Admin Management) ========================
+// ======================== USERS – إدارة كاملة ========================
+
+/// <summary>
+/// واجهة كاملة تغطي جميع Endpoints في AuthController:
+///   GET    api/auth/users              → GetAllDetailAsync
+///   GET    api/auth/users/simple       → GetAllSimpleAsync
+///   GET    api/auth/users/{id}         → GetByIdAsync
+///   POST   api/auth/users              → RegisterAsync
+///   DELETE api/auth/users/{id}         → DeleteAsync
+///   PATCH  api/auth/users/toggle       → ToggleActiveAsync
+///   POST   api/auth/users/reset-pwd    → ResetPasswordAsync
+///   GET    api/auth/roles              → GetRolesAsync
+///   POST   api/auth/roles/assign       → AssignRoleAsync
+///   POST   api/auth/roles/remove       → RemoveRoleAsync
+/// </summary>
 public interface IUserApiService
 {
+    // ── قراءة ──────────────────────────────────────────────────
+    Task<Result<IEnumerable<UserDetailDto>>?> GetAllDetailAsync();
     Task<Result<IEnumerable<UserDto>>?> GetAllAsync();
+    Task<Result<UserDetailDto>?> GetByIdAsync(string userId);
+
+    // ── إنشاء / حذف ────────────────────────────────────────────
     Task<Result<AuthResponseDto>?> RegisterAsync(RegisterDto dto);
     Task<bool> DeleteAsync(string userId);
+
+    // ── تفعيل / إيقاف ──────────────────────────────────────────
+    Task<bool> ToggleActiveAsync(string userId, bool activate);
+
+    // ── كلمة المرور ────────────────────────────────────────────
+    Task<bool> ResetPasswordAsync(string userId, string newPassword);
+
+    // ── الأدوار ────────────────────────────────────────────────
+    Task<Result<IEnumerable<string>>?> GetRolesAsync();
+    Task<bool> AssignRoleAsync(string userId, string role);
+    Task<bool> RemoveRoleAsync(string userId, string role);
 }
 
 public class UserApiService : IUserApiService
@@ -179,12 +210,59 @@ public class UserApiService : IUserApiService
     private readonly ApiService _api;
     public UserApiService(ApiService api) => _api = api;
 
+    // GET api/auth/users  → UserDetailDto (isActive, emailConfirmed, roles)
+    public async Task<Result<IEnumerable<UserDetailDto>>?> GetAllDetailAsync() =>
+        await _api.GetAsync<Result<IEnumerable<UserDetailDto>>>("api/auth/users");
+
+    // GET api/auth/users/simple → UserDto (مبسّط)
     public async Task<Result<IEnumerable<UserDto>>?> GetAllAsync() =>
-        await _api.GetAsync<Result<IEnumerable<UserDto>>>("api/auth/users");
+        await _api.GetAsync<Result<IEnumerable<UserDto>>>("api/auth/users/simple");
 
+    // GET api/auth/users/{id}
+    public async Task<Result<UserDetailDto>?> GetByIdAsync(string userId) =>
+        await _api.GetAsync<Result<UserDetailDto>>($"api/auth/users/{userId}");
+
+    // POST api/auth/users
     public async Task<Result<AuthResponseDto>?> RegisterAsync(RegisterDto dto) =>
-        await _api.PostAsync<RegisterDto, Result<AuthResponseDto>>("api/auth/register", dto);
+        await _api.PostAsync<RegisterDto, Result<AuthResponseDto>>("api/auth/users", dto);
 
+    // DELETE api/auth/users/{id}
     public async Task<bool> DeleteAsync(string userId) =>
         await _api.DeleteAsync($"api/auth/users/{userId}");
+
+    // PATCH api/auth/users/toggle
+    public async Task<bool> ToggleActiveAsync(string userId, bool activate)
+    {
+        var dto = new ToggleUserDto { UserId = userId, IsActive = activate };
+        var result = await _api.PatchAsync<ToggleUserDto, Result>("api/auth/users/toggle", dto);
+        return result?.Succeeded == true;
+    }
+
+    // POST api/auth/users/reset-password
+    public async Task<bool> ResetPasswordAsync(string userId, string newPassword)
+    {
+        var dto = new ResetPasswordDto { UserId = userId, NewPassword = newPassword };
+        var result = await _api.PostAsync<ResetPasswordDto, Result>("api/auth/users/reset-password", dto);
+        return result?.Succeeded == true;
+    }
+
+    // GET api/auth/roles
+    public async Task<Result<IEnumerable<string>>?> GetRolesAsync() =>
+        await _api.GetAsync<Result<IEnumerable<string>>>("api/auth/roles");
+
+    // POST api/auth/roles/assign
+    public async Task<bool> AssignRoleAsync(string userId, string role)
+    {
+        var dto = new AssignRoleDto { UserId = userId, Role = role };
+        var result = await _api.PostAsync<AssignRoleDto, Result>("api/auth/roles/assign", dto);
+        return result?.Succeeded == true;
+    }
+
+    // POST api/auth/roles/remove
+    public async Task<bool> RemoveRoleAsync(string userId, string role)
+    {
+        var dto = new AssignRoleDto { UserId = userId, Role = role };
+        var result = await _api.PostAsync<AssignRoleDto, Result>("api/auth/roles/remove", dto);
+        return result?.Succeeded == true;
+    }
 }

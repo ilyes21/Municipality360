@@ -11,41 +11,123 @@ public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
 
-    public AuthController(IAuthService authService) => _authService = authService;
+    public AuthController(IAuthService authService)
+        => _authService = authService;
 
-    /// <summary>Connexion utilisateur</summary>
+    // ══════════════════════════════════════════════════
+    //  AUTHENTIFICATION
+    // ══════════════════════════════════════════════════
+
+    /// <summary>تسجيل الدخول – متاح للجميع</summary>
     [HttpPost("login")]
     [AllowAnonymous]
     public async Task<IActionResult> Login([FromBody] LoginDto dto)
     {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
         var result = await _authService.LoginAsync(dto);
         return result.Succeeded ? Ok(result) : Unauthorized(result);
     }
 
-    /// <summary>Inscription d'un nouvel utilisateur</summary>
-    [HttpPost("register")]
+    // ══════════════════════════════════════════════════
+    //  إدارة المستخدمين
+    // ══════════════════════════════════════════════════
+
+    /// <summary>إنشاء حساب مستخدم جديد</summary>
+    [HttpPost("users")]
     [Authorize(Roles = "SuperAdmin,Admin")]
     public async Task<IActionResult> Register([FromBody] RegisterDto dto)
     {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
         var result = await _authService.RegisterAsync(dto);
         return result.Succeeded ? Ok(result) : BadRequest(result);
     }
 
-    /// <summary>Liste des utilisateurs</summary>
-    [HttpGet("users")]
+    /// <summary>قائمة مبسّطة (UserDto)</summary>
+    [HttpGet("users/simple")]
     [Authorize(Roles = "SuperAdmin,Admin")]
-    public async Task<IActionResult> GetUsers()
+    public async Task<IActionResult> GetUsersSimple()
     {
         var result = await _authService.GetUsersAsync();
         return Ok(result);
     }
 
-    /// <summary>Supprimer un utilisateur</summary>
+    /// <summary>قائمة تفصيلية مع IsActive و EmailConfirmed و Roles</summary>
+    [HttpGet("users")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    public async Task<IActionResult> GetUsers()
+    {
+        var result = await _authService.GetUsersDetailAsync();
+        return Ok(result);
+    }
+
+    /// <summary>تفاصيل مستخدم واحد بالـ Id</summary>
+    [HttpGet("users/{id}")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    public async Task<IActionResult> GetUser(string id)
+    {
+        var result = await _authService.GetUserByIdAsync(id);
+        return result.Succeeded ? Ok(result) : NotFound(result);
+    }
+
+    /// <summary>حذف حساب مستخدم – SuperAdmin فقط</summary>
     [HttpDelete("users/{id}")]
     [Authorize(Roles = "SuperAdmin")]
     public async Task<IActionResult> DeleteUser(string id)
     {
         var result = await _authService.DeleteUserAsync(id);
+        return result.Succeeded ? Ok(result) : BadRequest(result);
+    }
+
+    /// <summary>تفعيل أو إيقاف حساب – SuperAdmin أو Admin</summary>
+    [HttpPatch("users/toggle")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    public async Task<IActionResult> ToggleActive([FromBody] ToggleUserDto dto)
+    {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+        var result = await _authService.ToggleUserActiveAsync(dto);
+        return result.Succeeded ? Ok(result) : BadRequest(result);
+    }
+
+    /// <summary>إعادة تعيين كلمة المرور – SuperAdmin فقط</summary>
+    [HttpPost("users/reset-password")]
+    [Authorize(Roles = "SuperAdmin")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto dto)
+    {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+        var result = await _authService.ResetPasswordAsync(dto);
+        return result.Succeeded ? Ok(result) : BadRequest(result);
+    }
+
+    // ══════════════════════════════════════════════════
+    //  إدارة الأدوار
+    // ══════════════════════════════════════════════════
+
+    /// <summary>قائمة الأدوار المتاحة في النظام</summary>
+    [HttpGet("roles")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    public async Task<IActionResult> GetRoles()
+    {
+        var result = await _authService.GetAllRolesAsync();
+        return Ok(result);
+    }
+
+    /// <summary>تعيين دور لمستخدم – SuperAdmin فقط</summary>
+    [HttpPost("roles/assign")]
+    [Authorize(Roles = "SuperAdmin")]
+    public async Task<IActionResult> AssignRole([FromBody] AssignRoleDto dto)
+    {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+        var result = await _authService.AssignRoleAsync(dto);
+        return result.Succeeded ? Ok(result) : BadRequest(result);
+    }
+
+    /// <summary>إلغاء دور من مستخدم – SuperAdmin فقط</summary>
+    [HttpPost("roles/remove")]
+    [Authorize(Roles = "SuperAdmin")]
+    public async Task<IActionResult> RemoveRole([FromBody] AssignRoleDto dto)
+    {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+        var result = await _authService.RemoveRoleAsync(dto);
         return result.Succeeded ? Ok(result) : BadRequest(result);
     }
 }

@@ -4,14 +4,32 @@ using Municipality360.Application.DTOs.Structure;
 
 namespace Municipality360.Application.Interfaces.Services;
 
+// ════════════════════════════════════════════════════
+//  AUTH SERVICE
+// ════════════════════════════════════════════════════
 public interface IAuthService
 {
+    // ── Authentification ──────────────────────────────
     Task<Result<AuthResponseDto>> LoginAsync(LoginDto dto);
     Task<Result<AuthResponseDto>> RegisterAsync(RegisterDto dto);
+
+    // ── Gestion des utilisateurs ──────────────────────
     Task<Result<IEnumerable<UserDto>>> GetUsersAsync();
+    Task<Result<IEnumerable<UserDetailDto>>> GetUsersDetailAsync();
+    Task<Result<UserDetailDto>> GetUserByIdAsync(string userId);
     Task<Result> DeleteUserAsync(string userId);
+    Task<Result> ToggleUserActiveAsync(ToggleUserDto dto);
+    Task<Result> ResetPasswordAsync(ResetPasswordDto dto);
+
+    // ── Gestion des rôles ─────────────────────────────
+    Task<Result<IEnumerable<string>>> GetAllRolesAsync();
+    Task<Result> AssignRoleAsync(AssignRoleDto dto);
+    Task<Result> RemoveRoleAsync(AssignRoleDto dto);
 }
 
+// ════════════════════════════════════════════════════
+//  STRUCTURE SERVICES (inchangés)
+// ════════════════════════════════════════════════════
 public interface IDepartementService
 {
     Task<Result<IEnumerable<DepartementDto>>> GetAllAsync();

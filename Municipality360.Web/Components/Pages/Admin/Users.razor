@@ -76,8 +76,26 @@
     .empty i { font-size:2.8rem; opacity:.35; display:block; margin-bottom:.75rem; }
     .empty p { font-size:.9rem; margin:0; }
     .pw-hint { font-size:.75rem; color:var(--text3); margin-top:.3rem; }
+    .btn-success-ghost { background:transparent; border:1.5px solid rgba(16,185,129,.3); color:var(--success); }
+    .btn-success-ghost:hover { background:rgba(16,185,129,.08); }
+    .btn-warning-ghost { background:transparent; border:1.5px solid rgba(245,158,11,.3); color:var(--warning); }
+    .btn-warning-ghost:hover { background:rgba(245,158,11,.08); }
+    .st-active   { display:inline-flex; align-items:center; gap:.3rem; background:rgba(16,185,129,.1); color:#059669; border:1px solid rgba(16,185,129,.25); border-radius:100px; padding:.2rem .6rem; font-size:.72rem; font-weight:600; }
+    .st-inactive { display:inline-flex; align-items:center; gap:.3rem; background:rgba(239,68,68,.08); color:#dc2626; border:1px solid rgba(239,68,68,.2); border-radius:100px; padding:.2rem .6rem; font-size:.72rem; font-weight:600; }
+    tbody tr.row-inactive { opacity:.6; }
+    .role-row  { display:flex; align-items:center; justify-content:space-between; padding:.6rem .75rem; border-radius:10px; border:1px solid var(--border); margin-bottom:.5rem; }
+    .role-row:hover { background:#f8fafc; }
+    .role-dot  { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+    .role-name { font-size:.86rem; font-weight:700; color:var(--text1); }
+    .role-desc { font-size:.73rem; color:var(--text3); margin-top:.1rem; }
+    .ra-add  { background:rgba(16,185,129,.1); color:#059669; border:1px solid rgba(16,185,129,.25); border-radius:8px; padding:.28rem .65rem; font-size:.75rem; font-weight:700; cursor:pointer; font-family:var(--font); transition:background .15s; }
+    .ra-add:hover { background:rgba(16,185,129,.2); }
+    .ra-rem  { background:rgba(239,68,68,.08); color:#dc2626; border:1px solid rgba(239,68,68,.2); border-radius:8px; padding:.28rem .65rem; font-size:.75rem; font-weight:700; cursor:pointer; font-family:var(--font); transition:background .15s; }
+    .ra-rem:hover { background:rgba(239,68,68,.15); }
+    .ra-add:disabled,.ra-rem:disabled { opacity:.5; cursor:not-allowed; }
+    .warn-box { background:rgba(245,158,11,.08); border:1px solid rgba(245,158,11,.25); border-radius:10px; padding:.75rem 1rem; margin-bottom:1rem; font-size:.83rem; color:#92400e; display:flex; align-items:center; gap:.5rem; }
+    .stat-ico.ic-red { background:rgba(239,68,68,.12); color:var(--danger); }
 </style>
-
 <div class="ph">
     <div class="ph-left">
         <h1><i class="bi bi-people"></i> إدارة المستخدمين</h1>
@@ -95,7 +113,8 @@
     <div class="stat"><div class="stat-ico ic-blue"><i class="bi bi-people"></i></div><div><div class="stat-val">@users.Count()</div><div class="stat-lbl">إجمالي المستخدمين</div></div></div>
     <div class="stat"><div class="stat-ico ic-purple"><i class="bi bi-star"></i></div><div><div class="stat-val">@users.Count(u => u.Roles.Contains("SuperAdmin"))</div><div class="stat-lbl">مدراء النظام</div></div></div>
     <div class="stat"><div class="stat-ico ic-amber"><i class="bi bi-person-gear"></i></div><div><div class="stat-val">@users.Count(u => u.Roles.Contains("Admin"))</div><div class="stat-lbl">المسؤولون</div></div></div>
-    <div class="stat"><div class="stat-ico ic-green"><i class="bi bi-person-badge"></i></div><div><div class="stat-val">@users.Count(u => u.Roles.Contains("Employee"))</div><div class="stat-lbl">الأعوان</div></div></div>
+    <div class="stat"><div class="stat-ico ic-green"><i class="bi bi-person-check"></i></div><div><div class="stat-val">@users.Count(u => u.IsActive)</div><div class="stat-lbl">نشطون</div></div></div>
+    <div class="stat"><div class="stat-ico ic-red"><i class="bi bi-person-dash"></i></div><div><div class="stat-val">@users.Count(u => !u.IsActive)</div><div class="stat-lbl">موقوفون</div></div></div>
 </div>
 
 <div class="card">
@@ -120,22 +139,22 @@
         <div class="tbl-wrap">
             <table>
                 <thead>
-                    <tr><th>#</th><th>المستخدم</th><th>البريد الإلكتروني</th><th>الدور</th><th>الإجراءات</th></tr>
+                    <tr><th>#</th><th>المستخدم</th><th>البريد الإلكتروني</th><th>الأدوار</th><th>الحالة</th><th>البريد</th><th>الإجراءات</th></tr>
                 </thead>
                 <tbody>
                     @foreach (var (u, idx) in filtered.Select((u, i) => (u, i + 1)))
                     {
-                        <tr>
+                        <tr class="@(!u.IsActive ? "row-inactive" : "")">
                             <td style="color:var(--text3);font-size:.78rem;">@idx</td>
                             <td>
                                 <div style="display:flex;align-items:center;gap:.65rem;">
                                     <div class="user-avatar" style="background:@AvatarColor(u.Roles);">
                                         <span style="color:#fff;">@(u.FullName?.Length > 0 ? u.FullName[0].ToString() : "؟")</span>
                                     </div>
-                                    <span style="font-weight:600;color:var(--text1);">@(string.IsNullOrEmpty(u.FullName) ? (u.Email?.Split('@')[0] ?? "Utilisateur") : u.FullName)</span>
+                                    <span style="font-weight:600;color:var(--text1);">@(string.IsNullOrEmpty(u.FullName) ? (u.Email?.Split('@')[0] ?? "مستخدم") : u.FullName)</span>
                                 </div>
                             </td>
-                            <td>@u.Email</td>
+                            <td style="font-size:.82rem;">@u.Email</td>
                             <td>
                                 <div style="display:flex;flex-wrap:wrap;gap:.3rem;">
                                     @foreach (var role in u.Roles)
@@ -144,11 +163,42 @@
                                             <i class="bi @RoleIcon(role)"></i>@RoleAr(role)
                                         </span>
                                     }
+                                    @if (!u.Roles.Any()) { <span style="color:var(--text3);font-size:.78rem;">بدون دور</span> }
                                 </div>
                             </td>
                             <td>
+                                @if (u.IsActive)
+                                { <span class="st-active"><i class="bi bi-circle-fill" style="font-size:.4rem;"></i>نشط</span> }
+                                else
+                                { <span class="st-inactive"><i class="bi bi-circle-fill" style="font-size:.4rem;"></i>موقوف</span> }
+                            </td>
+                            <td style="text-align:center;">
+                                @if (u.EmailConfirmed)
+                                { <i class="bi bi-patch-check-fill" style="color:var(--success);font-size:1.1rem;" title="مؤكد"></i> }
+                                else
+                                { <i class="bi bi-patch-question" style="color:var(--text3);font-size:1.1rem;" title="غير مؤكد"></i> }
+                            </td>
+                            <td>
                                 <div class="action-btns">
-                                    <button class="btn btn-danger-ghost btn-sm" @onclick="() => OpenDelete(u)" title="حذف">
+                                    <button class="btn btn-warning-ghost btn-sm" title="إدارة الأدوار" @onclick="() => OpenRoles(u)">
+                                        <i class="bi bi-key"></i>
+                                    </button>
+                                    @if (u.IsActive)
+                                    {
+                                        <button class="btn btn-danger-ghost btn-sm" title="إيقاف الحساب" @onclick="() => ToggleUser(u, false)">
+                                            <i class="bi bi-person-dash"></i>
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-success-ghost btn-sm" title="تفعيل الحساب" @onclick="() => ToggleUser(u, true)">
+                                            <i class="bi bi-person-check"></i>
+                                        </button>
+                                    }
+                                    <button class="btn btn-ghost btn-sm" title="إعادة تعيين كلمة المرور" @onclick="() => OpenResetPwd(u)">
+                                        <i class="bi bi-lock-fill"></i>
+                                    </button>
+                                    <button class="btn btn-danger-ghost btn-sm" title="حذف الحساب" @onclick="() => OpenDelete(u)">
                                         <i class="bi bi-trash"></i>
                                     </button>
                                 </div>
@@ -212,8 +262,109 @@
     </div>
 }
 
+<!-- Modal: Roles Management -->
+@if (showRoles && rolesTarget != null)
+{
+    <div class="backdrop" @onclick="() => showRoles = false">
+        <div class="modal" @onclick:stopPropagation="true">
+            <div class="mh">
+                <h5><i class="bi bi-key"></i>إدارة أدوار — @rolesTarget.FullName</h5>
+                <button class="mbtn-close" @onclick="() => showRoles = false"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="mb">
+                @if (!string.IsNullOrEmpty(rolesMsg))
+                {
+                    <div class="alert @(rolesMsgOk ? "alert-success" : "alert-danger")">
+                        <i class="bi @(rolesMsgOk ? "bi-check-circle" : "bi-exclamation-circle")"></i>@rolesMsg
+                    </div>
+                }
+                <div style="background:#f8fafc;border-radius:10px;padding:.75rem;margin-bottom:1rem;font-size:.82rem;color:var(--text2);">
+                    <i class="bi bi-info-circle" style="color:var(--accent);margin-left:.3rem;"></i>
+                    الأدوار الحالية:
+                    <strong style="color:var(--text1);">@(rolesTarget.Roles.Any() ? string.Join(" · ", rolesTarget.Roles.Select(RoleAr)) : "بدون دور")</strong>
+                </div>
+                @foreach (var role in allRoles)
+                {
+                    var r = role;
+                    var hasIt = rolesTarget.Roles.Contains(r);
+                    <div class="role-row">
+                        <div style="display:flex;align-items:center;gap:.65rem;">
+                            <div class="role-dot" style="background:@RoleDotColor(r);"></div>
+                            <div>
+                                <div class="role-name"><i class="bi @RoleIcon(r)" style="margin-left:.3rem;"></i>@RoleAr(r)</div>
+                                <div class="role-desc">@RoleDesc(r)</div>
+                            </div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:.4rem;">
+                            @if (hasIt)
+                            {
+                                <i class="bi bi-check-circle-fill" style="color:var(--success);font-size:.9rem;"></i>
+                                <button class="ra-rem" @onclick="() => RemoveRole(r)" disabled="@isSaving">
+                                    <i class="bi bi-dash-circle"></i> إلغاء
+                                </button>
+                            }
+                            else
+                            {
+                                <i class="bi bi-circle" style="color:var(--border);font-size:.9rem;"></i>
+                                <button class="ra-add" @onclick="() => AssignRole(r)" disabled="@isSaving">
+                                    <i class="bi bi-plus-circle"></i> تعيين
+                                </button>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+            <div class="mf">
+                <button class="btn btn-ghost" @onclick="() => showRoles = false">إغلاق</button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal: Reset Password -->
+@if (showResetPwd && resetTarget != null)
+{
+    <div class="backdrop" @onclick="() => showResetPwd = false">
+        <div class="modal" style="max-width:440px;" @onclick:stopPropagation="true">
+            <div class="mh">
+                <h5><i class="bi bi-lock-fill"></i>إعادة تعيين كلمة المرور</h5>
+                <button class="mbtn-close" @onclick="() => showResetPwd = false"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="mb">
+                @if (!string.IsNullOrEmpty(pwdMsg))
+                {
+                    <div class="alert @(pwdMsgOk ? "alert-success" : "alert-danger")">
+                        <i class="bi @(pwdMsgOk ? "bi-check-circle" : "bi-exclamation-circle")"></i>@pwdMsg
+                    </div>
+                }
+                <div class="warn-box">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    سيتم تغيير كلمة مرور الحساب: <strong>@resetTarget.Email</strong>
+                </div>
+                <div class="fg">
+                    <label><span class="req">*</span>كلمة المرور الجديدة</label>
+                    <input class="fc" type="password" placeholder="••••••••" @bind="newPwd" />
+                    <p class="pw-hint">8 أحرف على الأقل · حرف كبير · رقم · رمز خاص</p>
+                </div>
+                <div class="fg">
+                    <label><span class="req">*</span>تأكيد كلمة المرور</label>
+                    <input class="fc" type="password" placeholder="••••••••" @bind="newPwd2" />
+                </div>
+            </div>
+            <div class="mf">
+                <button class="btn btn-ghost" @onclick="() => showResetPwd = false">إلغاء</button>
+                <button class="btn btn-danger" @onclick="DoResetPwd" disabled="@isSaving">
+                    @if (isSaving) { <span class="spinner" style="width:16px;height:16px;border-width:2px;margin-left:.4rem;"></span> }
+                    else { <i class="bi bi-lock-fill"></i> }
+                    تأكيد التغيير
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
 <!-- Modal: Confirm Delete -->
-@if (showDelete)
+@if (showDelete && deleteTarget != null)
 {
     <div class="backdrop" @onclick="() => showDelete = false">
         <div class="modal" style="max-width:400px;" @onclick:stopPropagation="true">
@@ -221,7 +372,7 @@
                 <div class="conf-icon"><i class="bi bi-person-x"></i></div>
                 <div class="conf-title">حذف المستخدم</div>
                 <div class="conf-desc">
-                    هل أنت متأكد من حذف حساب <strong>"@deleteTarget?.FullName"</strong>؟<br />
+                    هل أنت متأكد من حذف حساب <strong>"@deleteTarget.FullName"</strong>؟<br />
                     لا يمكن التراجع عن هذه العملية.
                 </div>
             </div>
@@ -243,51 +394,81 @@
 }
 
 @code {
-    private IEnumerable<UserDto> users = Enumerable.Empty<UserDto>();
+    // ── Data ────────────────────────────────────────────────────
+    private IEnumerable<UserDetailDto> users = Enumerable.Empty<UserDetailDto>();
+    private string[] allRoles = { "SuperAdmin", "Admin", "Manager", "Employee" };
     private string searchTerm = "";
-    private bool isLoading = true, showForm, showDelete, isSaving, formSuccess;
-    private UserDto? deleteTarget;
-    private string fFirstName = "", fLastName = "", fEmail = "", fPassword = "", fConfirmPassword = "", fRole = "Employee";
-    private string formMsg = "", toast = "";
+    private bool isLoading = true;
 
-    private IEnumerable<UserDto> filtered =>
+    // ── Modals state ────────────────────────────────────────────
+    private bool showForm, showDelete, showRoles, showResetPwd;
+    private bool isSaving, formSuccess;
+    private UserDetailDto? deleteTarget, rolesTarget, resetTarget;
+
+    // ── Add user form ────────────────────────────────────────────
+    private string fFirstName = "", fLastName = "", fEmail = "",
+                   fPassword = "", fConfirmPassword = "",
+                   fRole = "Employee", formMsg = "";
+
+    // ── Roles modal ──────────────────────────────────────────────
+    private string rolesMsg = ""; private bool rolesMsgOk;
+
+    // ── Reset password modal ─────────────────────────────────────
+    private string newPwd = "", newPwd2 = "", pwdMsg = ""; private bool pwdMsgOk;
+
+    // ── Toast ────────────────────────────────────────────────────
+    private string toast = "";
+
+    // ── Filtered list ─────────────────────────────────────────────
+    private IEnumerable<UserDetailDto> filtered =>
         string.IsNullOrWhiteSpace(searchTerm) ? users
         : users.Where(u =>
-            (u.FullName ?? "").Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
-            (u.Email ?? "").Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
+            u.FullName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+            u.Email.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    // ── Init ─────────────────────────────────────────────────────
+    protected override async Task OnInitializedAsync()
+    {
+        var rolesResult = await UserService.GetRolesAsync();
+        if (rolesResult?.Data?.Any() == true)
+            allRoles = rolesResult.Data.ToArray();
+        await LoadAsync();
+    }
 
     private async Task LoadAsync()
     {
         isLoading = true;
-        var r = await UserService.GetAllAsync();
-        users = r?.Data ?? Enumerable.Empty<UserDto>();
+        var r = await UserService.GetAllDetailAsync();
+        users = r?.Data ?? Enumerable.Empty<UserDetailDto>();
         isLoading = false;
     }
 
-    private void OpenCreate() { fFirstName = fLastName = fEmail = fPassword = fConfirmPassword = formMsg = ""; fRole = "Employee"; formSuccess = false; showForm = true; }
-    private void OpenDelete(UserDto u) { deleteTarget = u; showDelete = true; }
+    // ── Open modals ───────────────────────────────────────────────
+    private void OpenCreate()
+    {
+        fFirstName = fLastName = fEmail = fPassword = fConfirmPassword = formMsg = "";
+        fRole = "Employee"; formSuccess = false; showForm = true;
+    }
     private void CloseForm() { showForm = false; formMsg = ""; }
+    private void OpenDelete(UserDetailDto u)   { deleteTarget = u; showDelete = true; }
+    private void OpenRoles(UserDetailDto u)    { rolesTarget = u; rolesMsg = ""; rolesMsgOk = false; showRoles = true; }
+    private void OpenResetPwd(UserDetailDto u) { resetTarget = u; newPwd = newPwd2 = pwdMsg = ""; pwdMsgOk = false; showResetPwd = true; }
 
+    // ── Actions ───────────────────────────────────────────────────
     private async Task SaveUser()
     {
-        if (string.IsNullOrWhiteSpace(fFirstName) || string.IsNullOrWhiteSpace(fLastName) || string.IsNullOrWhiteSpace(fEmail) || string.IsNullOrWhiteSpace(fPassword))
+        if (string.IsNullOrWhiteSpace(fFirstName) || string.IsNullOrWhiteSpace(fLastName) ||
+            string.IsNullOrWhiteSpace(fEmail)     || string.IsNullOrWhiteSpace(fPassword))
         { formMsg = "يجب تعبئة جميع الحقول."; return; }
         if (fPassword != fConfirmPassword) { formMsg = "كلمتا المرور غير متطابقتان."; return; }
         if (fPassword.Length < 8) { formMsg = "كلمة المرور يجب أن لا تقل عن 8 أحرف."; return; }
 
         isSaving = true; formMsg = "";
-        var dto = new RegisterDto
-        {
-            FirstName = fFirstName, LastName = fLastName,
-            Email = fEmail, Password = fPassword, 
-            Role = fRole
-        };
+        var dto = new RegisterDto { FirstName = fFirstName, LastName = fLastName, Email = fEmail, Password = fPassword, Role = fRole };
         var r = await UserService.RegisterAsync(dto);
         isSaving = false;
         if (r?.Succeeded == true) { formMsg = "تم إنشاء الحساب بنجاح! ✅"; formSuccess = true; await LoadAsync(); ShowToast("تم إنشاء حساب المستخدم بنجاح"); }
-        else formMsg = r?.Message ?? r?.Errors.FirstOrDefault() ?? "فشل إنشاء الحساب.";
+        else formMsg = r?.Message ?? r?.Errors?.FirstOrDefault() ?? "فشل إنشاء الحساب.";
     }
 
     private async Task ConfirmDelete()
@@ -297,8 +478,62 @@
         var ok = await UserService.DeleteAsync(deleteTarget.Id);
         isSaving = false; showDelete = false;
         if (ok) { await LoadAsync(); ShowToast("تم حذف المستخدم بنجاح"); }
+        else ShowToast("❌ فشل الحذف. تأكد من صلاحياتك.");
     }
 
+    private async Task ToggleUser(UserDetailDto u, bool activate)
+    {
+        var ok = await UserService.ToggleActiveAsync(u.Id, activate);
+        if (ok) { await LoadAsync(); ShowToast(activate ? $"تم تفعيل حساب {u.FullName}" : $"تم إيقاف حساب {u.FullName}"); }
+        else ShowToast("❌ فشلت عملية التفعيل/الإيقاف.");
+    }
+
+    private async Task AssignRole(string role)
+    {
+        if (rolesTarget == null) return;
+        isSaving = true; rolesMsg = "";
+        var ok = await UserService.AssignRoleAsync(rolesTarget.Id, role);
+        isSaving = false;
+        if (ok)
+        {
+            rolesMsg = $"✅ تم تعيين دور '{RoleAr(role)}' بنجاح."; rolesMsgOk = true;
+            await LoadAsync();
+            var updated = users.FirstOrDefault(u => u.Id == rolesTarget.Id);
+            if (updated != null) rolesTarget = updated;
+        }
+        else { rolesMsg = "فشل تعيين الدور."; rolesMsgOk = false; }
+    }
+
+    private async Task RemoveRole(string role)
+    {
+        if (rolesTarget == null) return;
+        isSaving = true; rolesMsg = "";
+        var ok = await UserService.RemoveRoleAsync(rolesTarget.Id, role);
+        isSaving = false;
+        if (ok)
+        {
+            rolesMsg = $"✅ تم إلغاء دور '{RoleAr(role)}' بنجاح."; rolesMsgOk = true;
+            await LoadAsync();
+            var updated = users.FirstOrDefault(u => u.Id == rolesTarget.Id);
+            if (updated != null) rolesTarget = updated;
+        }
+        else { rolesMsg = "فشل إلغاء الدور."; rolesMsgOk = false; }
+    }
+
+    private async Task DoResetPwd()
+    {
+        if (resetTarget == null) return;
+        if (string.IsNullOrWhiteSpace(newPwd)) { pwdMsg = "كلمة المرور مطلوبة."; pwdMsgOk = false; return; }
+        if (newPwd.Length < 8)                 { pwdMsg = "8 أحرف على الأقل."; pwdMsgOk = false; return; }
+        if (newPwd != newPwd2)                  { pwdMsg = "كلمتا المرور غير متطابقتين."; pwdMsgOk = false; return; }
+        isSaving = true; pwdMsg = "";
+        var ok = await UserService.ResetPasswordAsync(resetTarget.Id, newPwd);
+        isSaving = false;
+        if (ok) { pwdMsg = "تم تغيير كلمة المرور بنجاح. ✅"; pwdMsgOk = true; ShowToast($"تم إعادة تعيين كلمة مرور {resetTarget.FullName}"); }
+        else    { pwdMsg = "فشلت العملية. تأكد أن كلمة المرور تستوفي المتطلبات."; pwdMsgOk = false; }
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────
     private string AvatarColor(IEnumerable<string> roles)
     {
         if (roles.Contains("SuperAdmin")) return "linear-gradient(135deg,#7c3aed,#a78bfa)";
@@ -332,5 +567,22 @@
         _            => role
     };
 
-    private async void ShowToast(string msg) { toast = msg; StateHasChanged(); await Task.Delay(3000); toast = ""; StateHasChanged(); }
+    private string RoleDesc(string role) => role switch
+    {
+        "SuperAdmin" => "صلاحيات كاملة غير محدودة على كل النظام",
+        "Admin"      => "إدارة المستخدمين، الأقسام والبيانات",
+        "Manager"    => "إدارة الموظفين وعرض التقارير",
+        "Employee"   => "عرض البيانات فقط – بدون تعديل",
+        _            => ""
+    };
+
+    private string RoleDotColor(string role) => role switch
+    {
+        "SuperAdmin" => "#f59e0b",
+        "Admin"      => "#7c3aed",
+        "Manager"    => "#0ea5e9",
+        _            => "#22c55e"
+    };
+
+    private async void ShowToast(string msg) { toast = msg; StateHasChanged(); await Task.Delay(3500); toast = ""; StateHasChanged(); }
 }

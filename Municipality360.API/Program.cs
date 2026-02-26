@@ -15,7 +15,7 @@ builder.Services.AddEndpointsApiExplorer();
 // CORS
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("Municipality360Policy", policy =>
+    options.AddPolicy("Municipality.ELAIN.360Policy", policy =>
     {
         policy.WithOrigins(
             "https://localhost:7173",
