@@ -17,8 +17,6 @@ builder.Services.AddScoped<Municipality360.Web.Services.ILocalStorageService,
                             Municipality360.Web.Services.LocalStorageService>();
 
 // ── Authentication & Authorization ───────────────────────
-// مطلوب لكي يعمل [Authorize] في صفحات Blazor Server
-// نستخدم Cookie كـ scheme افتراضي (الـ JWT يُدار يدوياً عبر CustomAuthStateProvider)
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
@@ -28,9 +26,10 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     });
 
 builder.Services.AddAuthorization();
-
-// AddAuthorizationCore مطلوب أيضاً للـ CascadingAuthenticationState
 builder.Services.AddAuthorizationCore();
+
+// ✅ مطلوب لـ CustomAuthStateProvider لقراءة Cookie قبل JS
+builder.Services.AddHttpContextAccessor();
 
 // ── HTTP Client → API Backend ─────────────────────────────
 var apiBaseUrl = builder.Configuration["ApiSettings:BaseUrl"] ?? "https://localhost:7173";
@@ -68,10 +67,9 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 
-// ── Middleware Order (مهم جداً) ───────────────────────────
-app.UseRouting();           // يجب قبل Authentication
-app.UseAuthentication();    // ← هذا كان ناقصاً — يحل الخطأ
-app.UseAuthorization();     // ← هذا كان ناقصاً
+app.UseRouting();
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseAntiforgery();
 
 app.MapStaticAssets();

@@ -1,7 +1,5 @@
 ﻿@page "/"
-@using Microsoft.AspNetCore.Authorization
 @using System.Security.Claims
-@attribute [Authorize]
 @implements IDisposable
 @layout Municipality360.Web.Components.Layout.MainLayout
 
@@ -923,7 +921,7 @@
             <div class="greet-left">
                 <div class="greet-eyebrow">Municipality 360 · ELAIN · نظام إدارة البلدية</div>
                 <div class="greet-name">
-                    مرحباً، <span>@GreetName</span> 👋
+                    مرحباً، <span>@GreetName</span> 
                 </div>
                 <div class="greet-sub">
                     <span class="pulse"></span>
@@ -1290,7 +1288,7 @@
                     @foreach (var s in HRStats)
                     {
                         <div style="background:#f8fafd;border-radius:10px;padding:.6rem .8rem;
-                                        border:1px solid var(--border);">
+                                            border:1px solid var(--border);">
                             <div style="font-size:1.15rem;font-weight:900;color:@s.Color;">@s.Val</div>
                             <div style="font-size:.67rem;color:var(--muted);font-weight:600;">@s.Label</div>
                         </div>
@@ -1385,6 +1383,7 @@
         var user = state.User;
         GreetName = user.FindFirst("firstName")?.Value
                  ?? user.FindFirst(ClaimTypes.Name)?.Value
+                 ?? user.FindFirst(ClaimTypes.Email)?.Value
                  ?? user.FindFirst("email")?.Value
                  ?? "المستخدم";
 

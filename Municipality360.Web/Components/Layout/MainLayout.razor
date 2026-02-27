@@ -1378,18 +1378,40 @@
         new("تقرير شهري جاهز للتحميل",         "منذ يومين",    "bi-file-earmark-bar-graph",  "blue",  true),
     };
 
+    // ✅ OnInitializedAsync: لا redirect هنا — JS قد لا يكون جاهزاً بعد
+    // نكتفي باستخراج البيانات إذا كان _cachedState موجوداً (بعد Login)
     protected override async Task OnInitializedAsync()
     {
         var state = await AuthStateProvider.GetAuthenticationStateAsync();
         var user = state.User;
 
+        if (user.Identity?.IsAuthenticated == true)
+            LoadUserData(user);
+    }
+
+    // ✅ OnAfterRenderAsync: JS جاهز هنا — آمن للتحقق من LocalStorage
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        var state = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = state.User;
+
         if (!(user.Identity?.IsAuthenticated ?? false))
         {
+            // ✅ JS جاهز الآن — إذا لا توكن نحوّل للـ login
             NavManager.NavigateTo("/login", forceLoad: false);
             return;
         }
 
-        // استخراج بيانات المستخدم
+        // تحديث البيانات بعد قراءة التوكن بنجاح
+        LoadUserData(user);
+        StateHasChanged();
+    }
+
+    // ── استخراج بيانات المستخدم من الـ Claims ──────────
+    private void LoadUserData(System.Security.Claims.ClaimsPrincipal user)
+    {
         UserDisplay = user.FindFirst("firstName")?.Value is { Length: > 0 } fn
                     ? fn + " " + (user.FindFirst("lastName")?.Value ?? "")
                     : user.Identity?.Name
@@ -1399,7 +1421,6 @@
         UserRoles = user.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
         IsSuperAdmin = UserRoles.Contains("SuperAdmin");
 
-        // عرض أهم دور في الـ Footer
         UserRoleDisplay = IsSuperAdmin ? "⭐ مدير النظام الأعلى"
             : UserRoles.Contains("Admin") ? "🛡 مسؤول"
             : UserRoles.Contains("Manager") ? "👤 مشرف"
@@ -1413,7 +1434,7 @@
             : UserRoles.Contains("Stock") ? "📦 المخزون"
             : UserRoles.Contains("RessourcesHumaines") ? "👥 الموارد البشرية"
             : UserRoles.Contains("Employee") ? "🔖 موظف"
-                                                                 : "مستخدم";
+            : "مستخدم";
 
         AutoOpenGroup();
     }
