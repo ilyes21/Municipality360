@@ -3,7 +3,7 @@
 @layout Layout.EmptyLayout
 @attribute [AllowAnonymous]
 
-<PageTitle>تسجيل الدخول - Municipality EL AIN 360</PageTitle>
+<PageTitle>تسجيل الدخول - Municipality360</PageTitle>
 
 <style>
     @@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&family=Cinzel:wght@600;700&display=swap');
@@ -704,8 +704,8 @@
                 </div>
             </div>
 
-            <div class="brand-title-ar">بلدية العين 360</div>
-            <div class="brand-title-en">Municipality ELAIN 360</div>
+            <div class="brand-title-ar">بلدية 360</div>
+            <div class="brand-title-en">Municipality360</div>
             <div class="brand-divider"></div>
             <p class="brand-subtitle">
                 منصة إدارة البلدية الرقمية المتكاملة<br />
@@ -722,18 +722,18 @@
                     <span class="stat-label">بلدية العين</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-number">TN</span>
-                    <span class="stat-label">تونس</span>
+                    <span class="stat-number">DZ</span>
+                    <span class="stat-label">الجزائر</span>
                 </div>
             </div>
         </div>
 
         <div class="brand-footer">
             <div class="alg-flag">
-                <div class="flag-band" style="background:#d4193f;"></div>
+                <div class="flag-band" style="background:#006233;"></div>
                 <div class="flag-band" style="background:#fff;"></div>
             </div>
-            <span class="brand-footer-text">الجمهورية التونسية</span>
+            <span class="brand-footer-text">الجمهورية الجزائرية الديمقراطية الشعبية</span>
         </div>
     </div>
 
@@ -803,7 +803,7 @@
 
             <div class="security-badge">
                 <i class="bi bi-shield-check-fill"></i>
-                <span>اتصال آمن ومشفر · Municipality EL AIN 360 &copy; 2026</span>
+                <span>اتصال آمن ومشفر · Municipality360 &copy; 2025</span>
             </div>
 
         </div>
@@ -855,9 +855,15 @@
         IsLoading = false;
 
         if (result?.Succeeded == true)
-            NavManager.NavigateTo("/");
+        {
+            // ✅ NotifyUserLoggedIn يحفظ التوكن ويُشعر الـ AuthStateProvider
+            // (يتم داخل AuthApiService.LoginAsync تلقائياً)
+            //ننتظر لحظة قصيرة ليكتمل حفظ LocalStorage قبل الانتقال
+            await Task.Delay(50);
+            NavManager.NavigateTo("/", forceLoad: false);
+        }
         else
-            ErrorMessage = result?.Errors.FirstOrDefault() ?? "فشل تسجيل الدخول. تحقق من بياناتك.";
+            ErrorMessage = result?.Errors?.FirstOrDefault() ?? "فشل تسجيل الدخول. تحقق من بياناتك.";
     }
 
     private async Task OnKeyPress(KeyboardEventArgs e)

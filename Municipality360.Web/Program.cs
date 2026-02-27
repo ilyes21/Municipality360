@@ -1,7 +1,8 @@
-using Municipality360.Web.Components;
 using Blazored.LocalStorage;
-using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Authorization;
+using Municipality360.Web.Components;
 using Municipality360.Web.Services;
 using ILocalStorageService = Blazored.LocalStorage.ILocalStorageService;
 
@@ -10,6 +11,16 @@ var builder = WebApplication.CreateBuilder(args);
 // ── Razor Components ──────────────────────────────────────
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+// HttpClient داخلي لتحميل الموارد (AITranslationService يحتاجه)
+builder.Services.AddScoped(sp =>
+{
+    var nav = sp.GetRequiredService<NavigationManager>();
+    return new HttpClient { BaseAddress = new Uri(nav.BaseUri) };
+});
+
+// خدمة الترجمة التلقائية بـ Claude API
+builder.Services.AddScoped<AITranslationService>();
 
 // ── Local Storage ─────────────────────────────────────────
 builder.Services.AddBlazoredLocalStorage();
