@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Municipality360.Domain.Entities;
 using Municipality360.Infrastructure.Data;
 using Municipality360.Infrastructure.Identity;
@@ -10,6 +11,7 @@ public static class DbSeeder
     public static async Task SeedAsync(ApplicationDbContext context, UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager)
     {
         await context.Database.EnsureCreatedAsync();
+        //await context.Database.MigrateAsync(); // ✅ هذا سيطبق الـ Migrations تلقائياً
 
         // Seed Roles
         string[] roles = { "SuperAdmin", "Admin", "Manager", "Employee", "Finances", "Urbanisme", "EtatCivil","SIG", "BureauOrdre", "Reclamations", "Nettoyage", "Stock", "RessourcesHumaines" };

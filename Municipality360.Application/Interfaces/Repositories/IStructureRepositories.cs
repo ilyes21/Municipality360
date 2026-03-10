@@ -1,3 +1,11 @@
+// ═══════════════════════════════════════════════════════════════════
+//  IStructureRepositories.cs  ✅ FIXED
+//  Application/Interfaces/Repositories/IStructureRepositories.cs
+//
+//  الإصلاح: إضافة GetEmployesAsync لـ IServiceRepository
+//           يستخدمها NotificationService.NotifierServiceAsync
+// ═══════════════════════════════════════════════════════════════════
+
 using Municipality360.Application.Common;
 using Municipality360.Application.DTOs.Structure;
 using Municipality360.Domain.Entities;
@@ -16,6 +24,8 @@ public interface IServiceRepository : IGenericRepository<Service>
     Task<IEnumerable<Service>> GetByDepartementAsync(int departementId);
     Task<Service?> GetByIdWithDetailsAsync(int id);
     Task<bool> CodeExistsAsync(string code, int? excludeId = null);
+    // ✅ FIXED: مطلوب بواسطة NotificationService.NotifierServiceAsync
+    Task<List<Employe>> GetEmployesAsync(int serviceId);
 }
 
 public interface IPosteRepository : IGenericRepository<Poste>
@@ -29,6 +39,6 @@ public interface IEmployeRepository : IGenericRepository<Employe>
     Task<PagedResult<Employe>> GetPagedAsync(EmployeFilterDto filter);
     Task<Employe?> GetByIdWithDetailsAsync(int id);
     Task<IEnumerable<Employe>> GetByServiceAsync(int serviceId);
-    Task<bool> CinExistsAsync(string Cin, int? excludeId = null);
-    Task<bool> IdentifiantExistsAsync(string Identifiant, int? excludeId = null);
+    Task<bool> CinExistsAsync(string cin, int? excludeId = null);
+    Task<bool> IdentifiantExistsAsync(string identifiant, int? excludeId = null);
 }

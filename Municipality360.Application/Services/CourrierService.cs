@@ -1,16 +1,15 @@
-﻿// ═══════════════════════════════════════════════════════════════════
-//  CourrierService.cs
-//  Application/Services/CourrierService.cs
-// ═══════════════════════════════════════════════════════════════════
+﻿// Application/Services/CourrierService.cs
+// ✅ FIXED: إزالة using Municipality360.Domain.Entities.BureauOrdre — namespace غير موجود
+// جميع الـ entities في Municipality360.Domain.Entities
 
 using Municipality360.Application.Common;
 using Municipality360.Application.DTOs.BureauOrdre;
 using Municipality360.Application.Interfaces.Repositories;
 using Municipality360.Application.Interfaces.Services;
 using Municipality360.Domain.Entities;
-using Municipality360.Domain.Entities.BureauOrdre;
 
 namespace Municipality360.Application.Services;
+
 
 // ════════════════════════════════════════════════════════════════
 //  COURRIER ENTRANT SERVICE

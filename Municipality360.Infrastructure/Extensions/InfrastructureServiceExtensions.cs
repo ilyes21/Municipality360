@@ -1,3 +1,12 @@
+// ═══════════════════════════════════════════════════════════════════
+//  InfrastructureServiceExtensions.cs  ✅ UPDATED
+//  Infrastructure/Extensions/InfrastructureServiceExtensions.cs
+//
+//  التحديثات:
+//  ✅ إضافة SignalR + تسجيل جميع repositories و services الجديدة
+//  ✅ حذف DependencyInjection.cs من API — كل شيء هنا
+// ═══════════════════════════════════════════════════════════════════
+
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -8,6 +17,7 @@ using Municipality360.Application.Interfaces.Repositories;
 using Municipality360.Application.Interfaces.Services;
 using Municipality360.Application.Services;
 using Municipality360.Infrastructure.Data;
+using Municipality360.Infrastructure.Hubs;
 using Municipality360.Infrastructure.Identity;
 using Municipality360.Infrastructure.Repositories;
 using Municipality360.Infrastructure.Services;
@@ -17,14 +27,17 @@ namespace Municipality360.Infrastructure.Extensions;
 
 public static class InfrastructureServiceExtensions
 {
-    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddInfrastructure(
+        this IServiceCollection services,
+        IConfiguration configuration)
     {
-        // Database
+        // ── Base de données ───────────────────────────────────────────
         services.AddDbContext<ApplicationDbContext>(options =>
-            options.UseSqlServer(configuration.GetConnectionString("DefaultConnection"),
+            options.UseSqlServer(
+                configuration.GetConnectionString("DefaultConnection"),
                 b => b.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName)));
 
-        // Identity
+        // ── Identity ──────────────────────────────────────────────────
         services.AddIdentity<ApplicationUser, IdentityRole>(options =>
         {
             options.Password.RequireDigit = true;
@@ -37,8 +50,10 @@ public static class InfrastructureServiceExtensions
         .AddEntityFrameworkStores<ApplicationDbContext>()
         .AddDefaultTokenProviders();
 
-        // JWT Authentication
-        var jwtKey = configuration["Jwt:Key"] ?? throw new InvalidOperationException("Jwt:Key manquant");
+        // ── JWT Authentication ────────────────────────────────────────
+        var jwtKey = configuration["Jwt:Key"]
+            ?? throw new InvalidOperationException("Jwt:Key manquant dans appsettings.");
+
         services.AddAuthentication(options =>
         {
             options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -56,21 +71,87 @@ public static class InfrastructureServiceExtensions
                 ValidAudience = configuration["Jwt:Audience"],
                 IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
             };
+
+            // ✅ SignalR: lire le token depuis le query string
+            options.Events = new JwtBearerEvents
+            {
+                OnMessageReceived = ctx =>
+                {
+                    var accessToken = ctx.Request.Query["access_token"];
+                    var path = ctx.HttpContext.Request.Path;
+                    if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+                        ctx.Token = accessToken;
+                    return Task.CompletedTask;
+                }
+            };
         });
 
-        // Repositories
+        // ── SignalR ───────────────────────────────────────────────────
+        services.AddSignalR(options =>
+        {
+            options.EnableDetailedErrors = true;
+            options.MaximumReceiveMessageSize = 102400;
+        });
+
+        // ── Repositories — Structure (existant) ───────────────────────
         services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
         services.AddScoped<IDepartementRepository, DepartementRepository>();
         services.AddScoped<IServiceRepository, ServiceRepository>();
         services.AddScoped<IPosteRepository, PosteRepository>();
         services.AddScoped<IEmployeRepository, EmployeRepository>();
 
-        // Application Services
+        // ── Repositories — Nouveaux modules ───────────────────────────
+        services.AddScoped<ISequenceRepository, SequenceRepository>();
+
+        // Bureau d'Ordre
+        services.AddScoped<IBOContactRepository, BOContactRepository>();
+        services.AddScoped<IBOCategorieCourrierRepository, BOCategorieCourrierRepository>();
+        services.AddScoped<IBODossierRepository, BODossierRepository>();
+        services.AddScoped<IBOCourrierEntrantRepository, BOCourrierEntrantRepository>();
+        services.AddScoped<IBOCircuitTraitementRepository, BOCircuitTraitementRepository>();
+        services.AddScoped<IBOCourrierSortantRepository, BOCourrierSortantRepository>();
+        services.AddScoped<IBOArchiveRepository, BOArchiveRepository>();
+
+        // Réclamations
+        services.AddScoped<ICitoyenRepository, CitoyenRepository>();
+        services.AddScoped<ITypeReclamationRepository, TypeReclamationRepository>();
+        services.AddScoped<ICategorieReclamationRepository, CategorieReclamationRepository>();
+        services.AddScoped<IReclamationRepository, ReclamationRepository>();
+
+        // Permis de Bâtir
+        services.AddScoped<IDemandeurRepository, DemandeurRepository>();
+        services.AddScoped<IArchitecteRepository, ArchitecteRepository>();
+        services.AddScoped<ICommissionExamenRepository, CommissionExamenRepository>();
+        services.AddScoped<IDemandePermisBatirRepository, DemandePermisBatirRepository>();
+
+        // Notifications
+        services.AddScoped<INotificationRepository, NotificationRepository>();
+
+        // ── Services — Structure (existant) ───────────────────────────
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IDepartementService, DepartementService>();
         services.AddScoped<IServiceService, ServiceService>();
         services.AddScoped<IPosteService, PosteService>();
         services.AddScoped<IEmployeService, EmployeService>();
+
+        // ── Services — Notifications (en premier — dépendance) ────────
+        services.AddScoped<INotificationService, NotificationService>();
+
+        // ── Services — Bureau d'Ordre ──────────────────────────────────
+        services.AddScoped<ICourrierEntrantService, CourrierEntrantService>();
+        services.AddScoped<ICourrierSortantService, CourrierSortantService>();
+        services.AddScoped<IBODossierService, BODossierService>();
+        services.AddScoped<IBOContactService, BOContactService>();
+        services.AddScoped<IBOArchiveService, BOArchiveService>();
+
+        // ── Services — Réclamations ────────────────────────────────────
+        services.AddScoped<ICitoyenService, CitoyenService>();
+        services.AddScoped<IReclamationService, ReclamationService>();
+
+        // ── Services — Permis de Bâtir ─────────────────────────────────
+        services.AddScoped<IDemandeurService, DemandeurService>();
+        services.AddScoped<IArchitecteService, ArchitecteService>();
+        services.AddScoped<IDemandePermisBatirService, DemandePermisBatirService>();
 
         return services;
     }

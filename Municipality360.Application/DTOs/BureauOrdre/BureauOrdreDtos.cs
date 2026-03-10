@@ -1,4 +1,19 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿// ═══════════════════════════════════════════════════════════════════
+//  BureauOrdreDtos.cs  ✅ FINAL
+//  Application/DTOs/BureauOrdre/BureauOrdreDtos.cs
+//
+//  يحتوي على جميع DTOs لوحدة البريد والأرشيف:
+//  Contact · CategorieCourrier · Dossier
+//  CourrierEntrant · CourrierSortant
+//  CircuitTraitement · PieceJointe · Archive
+//  Stats
+//
+//  ⚠️ تنبيه التزامن — BOStatsDto:
+//    الحقول تطابق BOCourrierEntrantRepository.GetStatsAsync()
+//    TotalEntrants · Enregistres · EnCours · Traites · Archives · EnRetard · Urgents
+// ═══════════════════════════════════════════════════════════════════
+
+using System.ComponentModel.DataAnnotations;
 
 namespace Municipality360.Application.DTOs.BureauOrdre;
 
@@ -84,12 +99,12 @@ public class BODossierDto
 public class CreateBODossierDto
 {
     [Required, MaxLength(300)] public string Intitule { get; set; } = string.Empty;
-    public string? Description { get; set; }
+    [MaxLength(1000)] public string? Description { get; set; }
     public int? ServiceResponsableId { get; set; }
 }
 
 // ══════════════════════════════════════════════════════════════
-//  COURRIER ENTRANT
+//  COURRIER ENTRANT — DTO liste (court)
 // ══════════════════════════════════════════════════════════════
 
 public class CourrierEntrantDto
@@ -127,6 +142,7 @@ public class CourrierEntrantDto
     public DateTime CreatedAt { get; set; }
 }
 
+/// <summary>DTO détaillé — inclut circuit complet, pièces jointes et réponses sortantes</summary>
 public class CourrierEntrantDetailDto : CourrierEntrantDto
 {
     public List<BOCircuitTraitementDto> Circuit { get; set; } = new();
@@ -150,7 +166,7 @@ public class CreateCourrierEntrantDto
     public int? CategorieId { get; set; }
     public int? DossierId { get; set; }
 
-    // Expéditeur (contact enregistré OU nom libre)
+    // Expéditeur — contact enregistré OU saisie libre
     public int? ExpediteurContactId { get; set; }
 
     [MaxLength(300)]
@@ -170,6 +186,8 @@ public class CreateCourrierEntrantDto
     public bool EstConfidentiel { get; set; } = false;
     public DateTime? DelaiReponse { get; set; }
     public bool NecessiteReponse { get; set; } = false;
+
+    [MaxLength(1000)]
     public string? Observation { get; set; }
 
     [MaxLength(100)]
@@ -187,7 +205,7 @@ public class UpdateCourrierEntrantDto
     public string Priorite { get; set; } = "Normal";
     public DateTime? DelaiReponse { get; set; }
     public bool NecessiteReponse { get; set; }
-    public string? Observation { get; set; }
+    [MaxLength(1000)] public string? Observation { get; set; }
 }
 
 public class CourrierEntrantFilterDto
@@ -207,7 +225,9 @@ public class CourrierEntrantFilterDto
     public int PageSize { get; set; } = 10;
 }
 
-// ── Circuit de traitement ─────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+//  CIRCUIT DE TRAITEMENT
+// ══════════════════════════════════════════════════════════════
 
 public class BOCircuitTraitementDto
 {
@@ -239,6 +259,7 @@ public class AcheminerCourrierDto
     [Required]
     public string TypeAction { get; set; } = "PourAction";
 
+    [MaxLength(500)]
     public string? InstructionTransmission { get; set; }
 
     public DateTime? DelaiTraitement { get; set; }
@@ -249,6 +270,7 @@ public class TraiterEtapeCircuitDto
     [Required, MaxLength(500)]
     public string ActionEffectuee { get; set; } = string.Empty;
 
+    [MaxLength(500)]
     public string? CommentaireTraitement { get; set; }
 
     public bool EstRetour { get; set; } = false;
@@ -262,11 +284,12 @@ public class ChangerStatutEntrantDto
     [Required]
     public string NouveauStatut { get; set; } = string.Empty;
 
+    [MaxLength(500)]
     public string? Commentaire { get; set; }
 }
 
 // ══════════════════════════════════════════════════════════════
-//  COURRIER SORTANT
+//  COURRIER SORTANT — DTO liste (court)
 // ══════════════════════════════════════════════════════════════
 
 public class CourrierSortantDto
@@ -294,15 +317,17 @@ public class CourrierSortantDto
     public string? NumeroRecommande { get; set; }
     public string Priorite { get; set; } = string.Empty;
     public string Statut { get; set; } = string.Empty;
+    public bool EstConfidentiel { get; set; }
     public bool AccuseReceptionRecu { get; set; }
     public int NombrePiecesJointes { get; set; }
     public DateTime CreatedAt { get; set; }
 }
 
+/// <summary>DTO détaillé — inclut pièces jointes et observation</summary>
 public class CourrierSortantDetailDto : CourrierSortantDto
 {
-    public List<BOPieceJointeDto> PiecesJointes { get; set; } = new();
     public string? Observation { get; set; }
+    public List<BOPieceJointeDto> PiecesJointes { get; set; } = new();
 }
 
 public class CreateCourrierSortantDto
@@ -322,7 +347,7 @@ public class CreateCourrierSortantDto
     // Émetteur
     public int? ServiceEmetteurId { get; set; }
 
-    // Destinataire (contact enregistré OU nom libre)
+    // Destinataire — contact enregistré OU saisie libre
     public int? DestinataireContactId { get; set; }
 
     [MaxLength(300)]
@@ -340,6 +365,8 @@ public class CreateCourrierSortantDto
     public short NombrePages { get; set; } = 1;
     public bool EstConfidentiel { get; set; } = false;
     public string Priorite { get; set; } = "Normal";
+
+    [MaxLength(1000)]
     public string? Observation { get; set; }
 }
 
@@ -358,7 +385,29 @@ public class CourrierSortantFilterDto
     public int PageSize { get; set; } = 10;
 }
 
-// ── Pièce jointe commune ──────────────────────────────────────
+// DTOs actions spécifiques aux courriers sortants
+// (utilisés dans CourriersSortantsController)
+
+public class SignerCourrierDto
+{
+    [Required, MaxLength(200)]
+    public string FonctionSignataire { get; set; } = string.Empty;
+}
+
+public class AnnulerCourrierDto
+{
+    [Required, MaxLength(500)]
+    public string Motif { get; set; } = string.Empty;
+}
+
+public class EnvoyerCourrierDto
+{
+    public DateTime? DateEnvoi { get; set; }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  PIÈCE JOINTE (commune entrant + sortant)
+// ══════════════════════════════════════════════════════════════
 
 public class BOPieceJointeDto
 {
@@ -372,7 +421,9 @@ public class BOPieceJointeDto
     public bool EstVersionFinale { get; set; }
 }
 
-// ── Archive ───────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+//  ARCHIVE
+// ══════════════════════════════════════════════════════════════
 
 public class BOArchiveDto
 {
@@ -386,7 +437,9 @@ public class BOArchiveDto
     public short DureeConservationAns { get; set; }
     public DateTime DateDebutConservation { get; set; }
     public DateTime? DateFinConservation { get; set; }
+    public string? CheminArchiveNumerique { get; set; }
     public bool EstDetruit { get; set; }
+    public string? Observation { get; set; }
     public DateTime DateArchivage { get; set; }
 }
 
@@ -398,17 +451,27 @@ public class ArchiversCourrierDto
     public string Classification { get; set; } = "Courant";
     public short DureeConservationAns { get; set; } = 10;
     [MaxLength(1000)] public string? CheminArchiveNumerique { get; set; }
-    public string? Observation { get; set; }
+    [MaxLength(500)] public string? Observation { get; set; }
 }
 
-// ── Statistiques ──────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+//  STATISTIQUES BUREAU D'ORDRE
+//  ⚠️ Synchronisé avec BOCourrierEntrantRepository.GetStatsAsync()
+// ══════════════════════════════════════════════════════════════
 
 public class BOStatsDto
 {
-    public int TotalEntrantsAujourdhui { get; set; }
-    public int TotalSortantsAujourdhui { get; set; }
-    public int EnAttente { get; set; }
+    // Entrants — par statut
+    public int TotalEntrants { get; set; }
+    public int Enregistres { get; set; }
+    public int EnCours { get; set; }
+    public int Traites { get; set; }
+    public int Archives { get; set; }
+    // Alertes
     public int EnRetard { get; set; }
     public int Urgents { get; set; }
-    public int NonTraites { get; set; }
+    // Sortants (agrégats optionnels)
+    public int TotalSortants { get; set; }
+    public int SortantsEnValidation { get; set; }
+    public int SortantsSigne { get; set; }
 }

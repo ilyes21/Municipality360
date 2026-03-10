@@ -1,9 +1,30 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿// ═══════════════════════════════════════════════════════════════════
+//  PermisBatirDtos.cs  ✅ FINAL
+//  Application/DTOs/PermisBatir/PermisBatirDtos.cs
+//
+//  يحتوي على جميع DTOs لوحدة رخص البناء:
+//  ZonageUrbanisme · TypeDemandePermis · TypeTaxe
+//  Demandeur · Architecte · CommissionExamen
+//  DemandePermisBatir · DocumentPermis · TaxePermis
+//  PermisDelivre · SuiviPermis · InspectionPermis
+//  Stats
+//
+//  ⚠️ تنبيه التزامن — PermisStatsDto:
+//    الحقول تطابق DemandePermisBatirRepository.GetStatsAsync():
+//    TotalDemandes · Deposees · EnExamen · Approuvees
+//    Rejetees · TotalPermisDelivres
+//
+//  ⚠️ تنبيه — CreateInspectionDto:
+//    الملف الأصلي يحتوي على حقول خاطئة (نسخ من FilterDto).
+//    تم الإصلاح: الحقول الصحيحة لعملية الإضافة.
+// ═══════════════════════════════════════════════════════════════════
+
+using System.ComponentModel.DataAnnotations;
 
 namespace Municipality360.Application.DTOs.PermisBatir;
 
 // ══════════════════════════════════════════════════════════════
-//  ENTITÉS DE RÉFÉRENCE
+//  ZONAGE URBANISME
 // ══════════════════════════════════════════════════════════════
 
 public class ZonageUrbanismeDto
@@ -22,11 +43,15 @@ public class CreateZonageDto
 {
     [Required, MaxLength(50)] public string Code { get; set; } = string.Empty;
     [Required, MaxLength(200)] public string Libelle { get; set; } = string.Empty;
-    public string? Description { get; set; }
+    [MaxLength(1000)] public string? Description { get; set; }
     public decimal? CoefficientOccupationSol { get; set; }
     public decimal? CoefficientUtilisationSol { get; set; }
     public decimal? HauteurMaximale { get; set; }
 }
+
+// ══════════════════════════════════════════════════════════════
+//  TYPE DEMANDE PERMIS
+// ══════════════════════════════════════════════════════════════
 
 public class TypeDemandePermisDto
 {
@@ -47,6 +72,28 @@ public class CreateTypeDemandePermisDto
 }
 
 // ══════════════════════════════════════════════════════════════
+//  TYPE TAXE
+// ══════════════════════════════════════════════════════════════
+
+public class TypeTaxeDto
+{
+    public int Id { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public string Libelle { get; set; } = string.Empty;
+    public decimal? TauxCalcul { get; set; }
+    public string? UniteCalcul { get; set; }
+    public bool IsActive { get; set; }
+}
+
+public class CreateTypeTaxeDto
+{
+    [Required, MaxLength(50)] public string Code { get; set; } = string.Empty;
+    [Required, MaxLength(200)] public string Libelle { get; set; } = string.Empty;
+    public decimal? TauxCalcul { get; set; }
+    [MaxLength(50)] public string? UniteCalcul { get; set; }
+}
+
+// ══════════════════════════════════════════════════════════════
 //  DEMANDEUR
 // ══════════════════════════════════════════════════════════════
 
@@ -62,6 +109,7 @@ public class DemandeurDto
     public string Adresse { get; set; } = string.Empty;
     public string Telephone { get; set; } = string.Empty;
     public string? Email { get; set; }
+    public bool IsActive { get; set; }
     public int NombreDemandes { get; set; }
 }
 
@@ -144,29 +192,7 @@ public class CreateCommissionExamenDto
 }
 
 // ══════════════════════════════════════════════════════════════
-//  TYPE TAXE
-// ══════════════════════════════════════════════════════════════
-
-public class TypeTaxeDto
-{
-    public int Id { get; set; }
-    public string Code { get; set; } = string.Empty;
-    public string Libelle { get; set; } = string.Empty;
-    public decimal? TauxCalcul { get; set; }
-    public string? UniteCalcul { get; set; }
-    public bool IsActive { get; set; }
-}
-
-public class CreateTypeTaxeDto
-{
-    [Required, MaxLength(50)] public string Code { get; set; } = string.Empty;
-    [Required, MaxLength(200)] public string Libelle { get; set; } = string.Empty;
-    public decimal? TauxCalcul { get; set; }
-    [MaxLength(50)] public string? UniteCalcul { get; set; }
-}
-
-// ══════════════════════════════════════════════════════════════
-//  DEMANDE DE PERMIS DE BÂTIR
+//  DEMANDE PERMIS DE BÂTIR — DTO liste (court)
 // ══════════════════════════════════════════════════════════════
 
 public class DemandePermisDto
@@ -218,6 +244,7 @@ public class DemandePermisDto
     public DateTime CreatedAt { get; set; }
 }
 
+/// <summary>DTO détaillé — inclut documents, taxes, suivis, inspections et permis délivré</summary>
 public class DemandePermisDetailDto : DemandePermisDto
 {
     public string? MotifRejet { get; set; }
@@ -230,7 +257,7 @@ public class DemandePermisDetailDto : DemandePermisDto
     public PermisDelivreDto? PermisDelivre { get; set; }
 }
 
-/// <summary>Vue publique pour Flutter (citoyen)</summary>
+/// <summary>Vue publique pour Flutter — citoyen sans données sensibles</summary>
 public class DemandePermisSuiviPublicDto
 {
     public string NumeroDemande { get; set; } = string.Empty;
@@ -269,6 +296,8 @@ public class CreateDemandePermisDto
     public int? ZonageId { get; set; }
     public decimal? Longitude { get; set; }
     public decimal? Latitude { get; set; }
+
+    [MaxLength(2000)]
     public string? Observations { get; set; }
 }
 
@@ -276,21 +305,32 @@ public class AssignerInstructeurDto
 {
     public int? ServiceInstructeurId { get; set; }
     public string? AgentInstructeurId { get; set; }
+
+    [MaxLength(500)]
     public string? Commentaire { get; set; }
 }
 
 public class AssignerCommissionDto
 {
     [Required] public int CommissionExamenId { get; set; }
+
+    [MaxLength(500)]
     public string? Commentaire { get; set; }
 }
 
 public class ChangerStatutPermisDto
 {
     [Required] public string NouveauStatut { get; set; } = string.Empty;
+
+    [MaxLength(500)]
     public string? Commentaire { get; set; }
+
     public bool VisibleCitoyen { get; set; } = false;
+
+    [MaxLength(1000)]
     public string? MotifRejet { get; set; }
+
+    [MaxLength(1000)]
     public string? ConditionsSpeciales { get; set; }
 }
 
@@ -305,6 +345,7 @@ public class DelivrerPermisDto
     [Required]
     public DateTime DateValidite { get; set; }
 
+    [MaxLength(2000)]
     public string? Conditions { get; set; }
 
     [MaxLength(1000)]
@@ -314,13 +355,15 @@ public class DelivrerPermisDto
 public class AjouterTaxeDto
 {
     [Required] public int TypeTaxeId { get; set; }
-    [Required] public decimal Montant { get; set; }
+    [Required, Range(0.01, double.MaxValue)] public decimal Montant { get; set; }
 }
 
 public class PayerTaxeDto
 {
     [Required] public int TaxeId { get; set; }
-    [MaxLength(100)] public string? NumeroRecu { get; set; }
+
+    [MaxLength(100)]
+    public string? NumeroRecu { get; set; }
 }
 
 public class DemandePermisFilterDto
@@ -337,23 +380,35 @@ public class DemandePermisFilterDto
     public int PageNumber { get; set; } = 1;
     public int PageSize { get; set; } = 10;
 }
+
+/// <summary>
+/// ✅ FIXED — Le fichier original contenait les champs de DemandePermisFilterDto (copier/coller erroné).
+/// Voici les vrais champs utilisés par PermisBatirService.AjouterInspectionAsync()
+/// et DemandePermisBatirRepository.
+/// </summary>
 public class CreateInspectionDto
 {
-    public string? Statut { get; set; }
-    public int? TypeDemandeId { get; set; }
-    public string? TypeConstruction { get; set; }
-    public int? ServiceInstructeurId { get; set; }
-    public int? CommissionExamenId { get; set; }
-    public bool? TaxesPayees { get; set; }
-    public DateTime? DateDebut { get; set; }
-    public DateTime? DateFin { get; set; }
-    public string? SearchTerm { get; set; }
-    public int PageNumber { get; set; } = 1;
-    public int PageSize { get; set; } = 10;
+    [Required, MaxLength(300)]
+    public string Objet { get; set; } = string.Empty;
+
+    [Required]
+    public DateTime DateInspection { get; set; }
+
+    [MaxLength(200)]
+    public string? NomInspecteur { get; set; }
+
+    [MaxLength(2000)]
+    public string? Observations { get; set; }
+
+    [MaxLength(1000)]
+    public string? ReservesEmises { get; set; }
+
+    public bool Conforme { get; set; } = true;
 }
 
-
-// ── Sous-DTOs ──────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+//  SOUS-DTOs
+// ══════════════════════════════════════════════════════════════
 
 public class DocumentPermisDto
 {
@@ -411,15 +466,20 @@ public class InspectionPermisDto
     public bool Conforme { get; set; }
 }
 
-// ── Stats ──────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+//  STATISTIQUES PERMIS DE BÂTIR
+//  ⚠️ Synchronisé avec DemandePermisBatirRepository.GetStatsAsync()
+// ══════════════════════════════════════════════════════════════
 
 public class PermisStatsDto
 {
-    public int TotalDeposees { get; set; }
-    public int TotalEnExamen { get; set; }
-    public int TotalApprouvees { get; set; }
-    public int TotalRejetees { get; set; }
-    public int TotalDelivrés { get; set; }
+    public int TotalDemandes { get; set; }
+    public int Deposees { get; set; }
+    public int EnExamen { get; set; }
+    public int Approuvees { get; set; }
+    public int Rejetees { get; set; }
+    public int TotalPermisDelivres { get; set; }
+    // Indicateurs supplémentaires (calculés côté service si nécessaire)
     public int EnRetard { get; set; }
     public double DelaiMoyenJours { get; set; }
     public decimal MontantTaxesEnAttente { get; set; }

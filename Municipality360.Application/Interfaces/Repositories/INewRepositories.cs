@@ -9,49 +9,38 @@ using Municipality360.Application.DTOs.Notifications;
 using Municipality360.Application.DTOs.PermisBatir;
 using Municipality360.Application.DTOs.Reclamations;
 using Municipality360.Domain.Entities;
-using Municipality360.Domain.Entities.BureauOrdre;
-using Municipality360.Domain.Entities.Reclamations;
-using System.Runtime.InteropServices;
 
 namespace Municipality360.Application.Interfaces.Repositories;
 
-// ════════════════════════════════════════════════════════════════
-//  SÉQUENCES
-// ════════════════════════════════════════════════════════════════
-
-public interface ISequenceRepository : IGenericRepository<Sequence>
+public interface ISequenceRepository
 {
-    /// <summary>Génère le prochain numéro : ex. ENT-2025-00001</summary>
     Task<string> GenererNumeroAsync(string prefixe);
 }
 
-// ════════════════════════════════════════════════════════════════
-//  BUREAU D'ORDRE
-// ════════════════════════════════════════════════════════════════
+// ── Bureau d'Ordre ────────────────────────────────────────────────
 
 public interface IBOContactRepository : IGenericRepository<BOContact>
 {
-    Task<PagedResult<BOContactDto>> GetPagedAsync(string? searchTerm, string? typeContact, int page, int pageSize);
-    Task<List<BOContactDto>> SearchAsync(string term, int limit = 10);
+    Task<List<BOContact>> SearchAsync(string? term, bool activeOnly = true);
 }
 
 public interface IBOCategorieCourrierRepository : IGenericRepository<BOCategorieCourrier>
 {
-    Task<List<BOCategorieCourrierDto>> GetAllActiveAsync();
-    Task<BOCategorieCourrier?> GetByCodeAsync(string code);
+    Task<List<BOCategorieCourrier>> GetAllActiveAsync();
+    Task<bool> CodeExistsAsync(string code, int? excludeId = null);
 }
 
 public interface IBODossierRepository : IGenericRepository<BODossier>
 {
-    Task<BODossier?> GetByIdWithDetailsAsync(int id);
-    Task<PagedResult<BODossierDto>> GetPagedAsync(string? statut, int? serviceId, string? searchTerm, int page, int pageSize);
+    Task<PagedResult<BODossierDto>> GetPagedAsync(int page, int size);
+    Task<BODossier?> GetByNumeroAsync(string numero);
 }
 
 public interface IBOCourrierEntrantRepository : IGenericRepository<BOCourrierEntrant>
 {
+    Task<PagedResult<CourrierEntrantDto>> GetPagedAsync(CourrierEntrantFilterDto filter);
     Task<BOCourrierEntrant?> GetByIdWithDetailsAsync(int id);
     Task<BOCourrierEntrant?> GetByNumeroAsync(string numero);
-    Task<PagedResult<CourrierEntrantDto>> GetPagedAsync(CourrierEntrantFilterDto filter);
     Task<List<CourrierEntrantDto>> GetEnRetardAsync();
     Task<List<CourrierEntrantDto>> GetNonTraitesParServiceAsync(int serviceId);
     Task<BOStatsDto> GetStatsAsync(int? serviceId = null);
@@ -62,95 +51,82 @@ public interface IBOCircuitTraitementRepository : IGenericRepository<BOCircuitTr
     Task<List<BOCircuitTraitementDto>> GetByCourrierAsync(int courrierEntrantId);
     Task<BOCircuitTraitement?> GetEtapeActiveAsync(int courrierEntrantId);
     Task<short> GetProchaineNumeroEtapeAsync(int courrierEntrantId);
-    Task<List<BOCircuitTraitementDto>> GetEnAttenteParServiceAsync(int serviceId);
 }
 
 public interface IBOCourrierSortantRepository : IGenericRepository<BOCourrierSortant>
 {
+    Task<PagedResult<CourrierSortantDto>> GetPagedAsync(CourrierSortantFilterDto filter);
     Task<BOCourrierSortant?> GetByIdWithDetailsAsync(int id);
     Task<BOCourrierSortant?> GetByNumeroAsync(string numero);
-    Task<PagedResult<CourrierSortantDto>> GetPagedAsync(CourrierSortantFilterDto filter);
     Task<List<CourrierSortantDto>> GetBrouillonsAsync(string redacteurId);
 }
 
 public interface IBOArchiveRepository : IGenericRepository<BOArchive>
 {
-    Task<BOArchiveDto?> GetByCourrierEntrantIdAsync(int courrierEntrantId);
-    Task<BOArchiveDto?> GetByCourrierSortantIdAsync(int courrierSortantId);
-    Task<PagedResult<BOArchiveDto>> GetPagedAsync(string? classification, string? searchTerm, int page, int pageSize);
-    Task<List<BOArchiveDto>> GetExpirantAsync(int joursAvantEcheance = 30);
+    Task<BOArchiveDto?> GetByCourrierEntrantIdAsync(int id);
+    Task<BOArchiveDto?> GetByCourrierSortantIdAsync(int id);
 }
 
-// ════════════════════════════════════════════════════════════════
-//  RÉCLAMATIONS
-// ════════════════════════════════════════════════════════════════
+// ── Réclamations ──────────────────────────────────────────────────
 
 public interface ICitoyenRepository : IGenericRepository<Citoyen>
 {
-    Task<Citoyen?> GetByCINAsync(string cin);
-    Task<Citoyen?> GetByUserIdAsync(string userId);
     Task<PagedResult<CitoyenDto>> GetPagedAsync(CitoyenFilterDto filter);
+    Task<Citoyen?> GetByCINAsync(string cin);
     Task<bool> CINExistsAsync(string cin, int? excludeId = null);
 }
 
 public interface ITypeReclamationRepository : IGenericRepository<TypeReclamation>
 {
-    Task<List<TypeReclamationDto>> GetAllActiveAsync();
-    Task<TypeReclamation?> GetByCodeAsync(string code);
+    Task<List<TypeReclamation>> GetAllActiveAsync();
+    Task<bool> CodeExistsAsync(string code, int? excludeId = null);
 }
 
 public interface ICategorieReclamationRepository : IGenericRepository<CategorieReclamation>
 {
-    Task<List<CategorieReclamationDto>> GetAllActiveWithHierarchyAsync();
-    Task<List<CategorieReclamationDto>> GetByNiveauAsync(int niveau);
+    Task<List<CategorieReclamation>> GetHierarchieAsync();
+    Task<bool> CodeExistsAsync(string code, int? excludeId = null);
 }
 
 public interface IReclamationRepository : IGenericRepository<Reclamation>
 {
+    Task<PagedResult<ReclamationDto>> GetPagedAsync(ReclamationFilterDto filter);
     Task<Reclamation?> GetByIdWithDetailsAsync(int id);
     Task<Reclamation?> GetByNumeroAsync(string numero);
-    Task<PagedResult<ReclamationDto>> GetPagedAsync(ReclamationFilterDto filter);
     Task<List<ReclamationDto>> GetByCitoyenAsync(int citoyenId);
     Task<List<ReclamationDto>> GetEnRetardAsync();
     Task<ReclamationStatsDto> GetStatsAsync(int? serviceId = null);
 }
 
-// ════════════════════════════════════════════════════════════════
-//  PERMIS DE BÂTIR
-// ════════════════════════════════════════════════════════════════
+// ── Permis de Bâtir ──────────────────────────────────────────────
 
 public interface IDemandeurRepository : IGenericRepository<Demandeur>
 {
-    Task<PagedResult<DemandeurDto>> GetPagedAsync(string? searchTerm, string? type, int page, int pageSize);
-    Task<Demandeur?> GetByCINAsync(string cin);
+    Task<List<Demandeur>> SearchAsync(string? term);
 }
 
 public interface IArchitecteRepository : IGenericRepository<Architecte>
 {
-    Task<PagedResult<ArchitecteDto>> GetPagedAsync(string? searchTerm, int page, int pageSize);
-    Task<Architecte?> GetByNumeroOrdreAsync(string numeroOrdre);
-    Task<bool> NumeroOrdreExistsAsync(string numeroOrdre, int? excludeId = null);
+    Task<Architecte?> GetByNumeroOrdreAsync(string numero);
+    Task<bool> NumeroOrdreExistsAsync(string numero, int? excludeId = null);
 }
 
 public interface ICommissionExamenRepository : IGenericRepository<CommissionExamen>
 {
-    Task<PagedResult<CommissionExamenDto>> GetPagedAsync(string? statut, int page, int pageSize);
-    Task<CommissionExamen?> GetByIdWithDemandesAsync(int id);
+    Task<List<CommissionExamen>> GetActiveAsync();
 }
 
 public interface IDemandePermisBatirRepository : IGenericRepository<DemandePermisBatir>
 {
+    Task<PagedResult<DemandePermisDto>> GetPagedAsync(DemandePermisFilterDto filter);
     Task<DemandePermisBatir?> GetByIdWithDetailsAsync(int id);
     Task<DemandePermisBatir?> GetByNumeroAsync(string numero);
-    Task<PagedResult<DemandePermisDto>> GetPagedAsync(DemandePermisFilterDto filter);
     Task<List<DemandePermisDto>> GetByDemandeurAsync(int demandeurId);
     Task<List<DemandePermisDto>> GetEnRetardAsync();
     Task<PermisStatsDto> GetStatsAsync(int? serviceId = null);
 }
 
-// ════════════════════════════════════════════════════════════════
-//  NOTIFICATIONS
-// ════════════════════════════════════════════════════════════════
+// ── Notifications ─────────────────────────────────────────────────
 
 public interface INotificationRepository : IGenericRepository<Notification>
 {

@@ -1,4 +1,22 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿// ═══════════════════════════════════════════════════════════════════
+//  ReclamationsDtos.cs  ✅ FINAL
+//  Application/DTOs/Reclamations/ReclamationsDtos.cs
+//
+//  يحتوي على جميع DTOs لوحدة الشكاوى:
+//  Citoyen · TypeReclamation · CategorieReclamation
+//  Reclamation · SuiviReclamation · PieceJointeReclamation
+//  Stats
+//
+//  ⚠️ تنبيه التزامن — ReclamationStatsDto:
+//    الحقول تطابق ReclamationRepository.GetStatsAsync():
+//    Total · Nouvelles · EnCours · Traitees · Rejetees
+//    Critiques · SatisfactionMoyenne
+//
+//  ⚠️ تنبيه التزامن — CitoyenFilterDto:
+//    يحتوي على IsActive? مطلوب في CitoyenRepository.GetPagedAsync()
+// ═══════════════════════════════════════════════════════════════════
+
+using System.ComponentModel.DataAnnotations;
 
 namespace Municipality360.Application.DTOs.Reclamations;
 
@@ -17,6 +35,7 @@ public class CitoyenDto
     public string? Sexe { get; set; }
     public string? Adresse { get; set; }
     public string? Ville { get; set; }
+    public string? CodePostal { get; set; }
     public string Telephone { get; set; } = string.Empty;
     public string? TelephoneMobile { get; set; }
     public string? Email { get; set; }
@@ -64,10 +83,15 @@ public class CreateCitoyenDto
     public string? SituationFamiliale { get; set; }
 }
 
+/// <summary>
+/// Filtre liste citoyens.
+/// ⚠️ IsActive requis par CitoyenRepository.GetPagedAsync()
+/// </summary>
 public class CitoyenFilterDto
 {
     public string? SearchTerm { get; set; }
     public string? Ville { get; set; }
+    public bool? IsActive { get; set; }
     public int PageNumber { get; set; } = 1;
     public int PageSize { get; set; } = 10;
 }
@@ -98,7 +122,7 @@ public class CreateTypeReclamationDto
 }
 
 // ══════════════════════════════════════════════════════════════
-//  CATÉGORIE RÉCLAMATION (hiérarchique)
+//  CATÉGORIE RÉCLAMATION (hiérarchique — 3 niveaux)
 // ══════════════════════════════════════════════════════════════
 
 public class CategorieReclamationDto
@@ -125,7 +149,7 @@ public class CreateCategorieReclamationDto
 }
 
 // ══════════════════════════════════════════════════════════════
-//  RÉCLAMATION
+//  RÉCLAMATION — DTO liste (court)
 // ══════════════════════════════════════════════════════════════
 
 public class ReclamationDto
@@ -164,6 +188,7 @@ public class ReclamationDto
     public DateTime CreatedAt { get; set; }
 }
 
+/// <summary>DTO détaillé — inclut suivis, pièces jointes et solution</summary>
 public class ReclamationDetailDto : ReclamationDto
 {
     public string? SolutionApportee { get; set; }
@@ -171,7 +196,7 @@ public class ReclamationDetailDto : ReclamationDto
     public List<PieceJointeReclamationDto> PiecesJointes { get; set; } = new();
 }
 
-/// <summary>Vue publique pour Flutter (sans données sensibles)</summary>
+/// <summary>Vue publique pour Flutter — aucune donnée sensible</summary>
 public class ReclamationPublicDto
 {
     public string NumeroReclamation { get; set; } = string.Empty;
@@ -216,7 +241,6 @@ public class CreateReclamationDto
 
     public decimal? Longitude { get; set; }
     public decimal? Latitude { get; set; }
-
     public DateTime? DateIncident { get; set; }
     public bool EstAnonyme { get; set; } = false;
 }
@@ -235,6 +259,7 @@ public class ChangerStatutReclamationDto
     [Required]
     public string NouveauStatut { get; set; } = string.Empty;
 
+    [MaxLength(500)]
     public string? Commentaire { get; set; }
 
     [MaxLength(500)]
@@ -242,8 +267,10 @@ public class ChangerStatutReclamationDto
 
     public bool VisibleCitoyen { get; set; } = false;
 
+    [MaxLength(1000)]
     public string? SolutionApportee { get; set; }
 
+    [Range(1, 5)]
     public int? SatisfactionCitoyen { get; set; }
 }
 
@@ -263,7 +290,9 @@ public class ReclamationFilterDto
     public int PageSize { get; set; } = 10;
 }
 
-// ── Sous-DTOs ──────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+//  SOUS-DTOs
+// ══════════════════════════════════════════════════════════════
 
 public class SuiviReclamationDto
 {
@@ -286,16 +315,18 @@ public class PieceJointeReclamationDto
     public bool AjouteeParCitoyen { get; set; }
 }
 
-// ── Stats ──────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════
+//  STATISTIQUES RÉCLAMATIONS
+//  ⚠️ Synchronisé avec ReclamationRepository.GetStatsAsync()
+// ══════════════════════════════════════════════════════════════
 
 public class ReclamationStatsDto
 {
-    public int TotalNouvelles { get; set; }
-    public int TotalEnCours { get; set; }
-    public int TotalTraitees { get; set; }
-    public int TotalEnRetard { get; set; }
-    public double TauxResolution { get; set; }
-    public double DelaiMoyenTraitementJours { get; set; }
-    public Dictionary<string, int> ParCategorie { get; set; } = new();
-    public Dictionary<string, int> ParCanal { get; set; } = new();
+    public int Total { get; set; }
+    public int Nouvelles { get; set; }
+    public int EnCours { get; set; }
+    public int Traitees { get; set; }
+    public int Rejetees { get; set; }
+    public int Critiques { get; set; }
+    public double SatisfactionMoyenne { get; set; }
 }

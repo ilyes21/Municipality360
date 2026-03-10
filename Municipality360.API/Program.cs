@@ -1,40 +1,50 @@
+// ═══════════════════════════════════════════════════════════════════
+//  Program.cs  ✅ UPDATED
+//  Municipality360.API/Program.cs
+//
+//  التحديثات:
+//  ✅ حذف DependencyInjection.cs القديم — AddInfrastructure() يفعل كل شيء
+//  ✅ إضافة app.MapHub<NotificationHub>("/hubs/notifications")
+//  ✅ using صحيح: Municipality360.Infrastructure.Hubs
+// ═══════════════════════════════════════════════════════════════════
+
 using Microsoft.AspNetCore.Identity;
 using Microsoft.OpenApi.Models;
 using Municipality360.Infrastructure.Data;
 using Municipality360.Infrastructure.Extensions;
+using Municipality360.Infrastructure.Hubs;          // ✅ FIXED: Infrastructure لا API
 using Municipality360.Infrastructure.Identity;
 using Municipality360.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services
+// ── Infrastructure (DB · Identity · JWT · SignalR · tous les services) ──
 builder.Services.AddInfrastructure(builder.Configuration);
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
-// CORS
+// ── CORS ──────────────────────────────────────────────────────────
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Municipality.ELAIN.360Policy", policy =>
-    {
         policy.WithOrigins(
-            "https://localhost:7173",
-            "http://localhost:5155"
-        )
-        .AllowAnyHeader()
-        .AllowAnyMethod()
-        .AllowCredentials();
-    });
+                "https://localhost:7173",
+                "http://localhost:5155",
+                "http://localhost:3000")
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials());   // obligatoire pour SignalR
 });
 
-// Swagger with JWT
+// ── Swagger avec JWT ──────────────────────────────────────────────
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo
     {
         Title = "Municipality ELAIN.360 API",
         Version = "v1",
-        Description = "API pour le systeme de gestion municipale Municipality ELAIN.360"
+        Description = "API pour le système de gestion municipale Municipality ELAIN.360"
     });
 
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -44,7 +54,7 @@ builder.Services.AddSwaggerGen(c =>
         Scheme = "Bearer",
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
-        Description = "Entrez 'Bearer {votre_token}'"
+        Description = "Entrez : Bearer {votre_token}"
     });
 
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -52,19 +62,21 @@ builder.Services.AddSwaggerGen(c =>
         {
             new OpenApiSecurityScheme
             {
-                Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+                Reference = new OpenApiReference
+                    { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
             },
             Array.Empty<string>()
         }
     });
 });
 
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
+// ═════════════════════════════════════════════════════════════════
 var app = builder.Build();
+// ═════════════════════════════════════════════════════════════════
 
-// Seed database
+// ── Seed ──────────────────────────────────────────────────────────
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -73,13 +85,14 @@ using (var scope = app.Services.CreateScope())
     await DbSeeder.SeedAsync(context, userManager, roleManager);
 }
 
+// ── Middleware ────────────────────────────────────────────────────
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "Municipality ELAIN.360 API v1");
-        c.RoutePrefix = string.Empty; // Swagger at root
+        c.RoutePrefix = string.Empty;
     });
 }
 
@@ -88,5 +101,8 @@ app.UseCors("Municipality.ELAIN.360Policy");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
+// ✅ SignalR Hub
+app.MapHub<NotificationHub>("/hubs/notifications");
 
 app.Run();

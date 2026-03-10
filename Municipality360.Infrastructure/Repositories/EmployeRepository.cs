@@ -1,3 +1,12 @@
+// ═══════════════════════════════════════════════════════════════════
+//  EmployeRepository.cs  ✅ FIXED
+//  Infrastructure/Repositories/EmployeRepository.cs
+//
+//  الإصلاحات:
+//  ✅ CinExistsAsync        → كانت تُلقي NotImplementedException
+//  ✅ IdentifiantExistsAsync → كانت تُلقي NotImplementedException
+// ═══════════════════════════════════════════════════════════════════
+
 using Microsoft.EntityFrameworkCore;
 using Municipality360.Application.Common;
 using Municipality360.Application.DTOs.Structure;
@@ -68,16 +77,11 @@ public class EmployeRepository : GenericRepository<Employe>, IEmployeRepository
             .Where(e => e.ServiceId == serviceId)
             .OrderBy(e => e.Nom).ToListAsync();
 
-    public async Task<bool> MatriculeExistsAsync(string Identifiant, int? excludeId = null) =>
-        await _dbSet.AnyAsync(e => e.Identifiant == Identifiant && (excludeId == null || e.Id != excludeId));
+    // ✅ FIXED: كانت تُلقي NotImplementedException
+    public async Task<bool> CinExistsAsync(string cin, int? excludeId = null) =>
+        await _dbSet.AnyAsync(e => e.Cin == cin && (excludeId == null || e.Id != excludeId));
 
-    public Task<bool> CinExistsAsync(string Cin, int? excludeId = null)
-    {
-        throw new NotImplementedException();
-    }
-
-    public Task<bool> IdentifiantExistsAsync(string Identifiant, int? excludeId = null)
-    {
-        throw new NotImplementedException();
-    }
+    // ✅ FIXED: كانت تُلقي NotImplementedException
+    public async Task<bool> IdentifiantExistsAsync(string identifiant, int? excludeId = null) =>
+        await _dbSet.AnyAsync(e => e.Identifiant == identifiant && (excludeId == null || e.Id != excludeId));
 }
