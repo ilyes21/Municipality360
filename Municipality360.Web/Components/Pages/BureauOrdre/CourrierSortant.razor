@@ -1,0 +1,470 @@
+@page "/bureau/outgoing"
+@page "/bureau/outgoing/{Id:int}"
+@page "/bureau/outgoing/new"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "SuperAdmin,Admin,Manager,BureauOrdre")]
+@layout Municipality360.Web.Components.Layout.MainLayout
+@inject ICourrierSortantApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>البريد الصادر — مكتب الضبط</PageTitle>
+
+<style>
+    .page-header   { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem; }
+    .page-title    { font-size:1.3rem; font-weight:800; color:#0f172a; margin:0; }
+    .page-sub      { font-size:.8rem; color:#94a3b8; margin-top:.2rem; }
+    .btn           { display:inline-flex; align-items:center; gap:.4rem; padding:.45rem .95rem; border-radius:9px; border:none; cursor:pointer; font-family:'Tajawal',sans-serif; font-size:.85rem; font-weight:600; transition:all .2s; }
+    .btn-primary   { background:linear-gradient(135deg,#7c3aed,#a78bfa); color:#fff; box-shadow:0 3px 10px rgba(124,58,237,.3); }
+    .btn-primary:hover { transform:translateY(-1px); }
+    .btn-secondary { background:#f1f5f9; color:#374151; }
+    .btn-secondary:hover { background:#e2e8f0; }
+    .btn-success   { background:#dcfce7; color:#15803d; }
+    .btn-warning   { background:#fef3c7; color:#b45309; }
+    .btn-danger    { background:#fee2e2; color:#dc2626; }
+    .btn-blue      { background:#e0f2fe; color:#0369a1; }
+
+    .filters-bar { display:flex; gap:.75rem; flex-wrap:wrap; margin-bottom:1.2rem; align-items:center; }
+    .search-wrap { position:relative; flex:1; min-width:200px; }
+    .search-input { width:100%; height:38px; padding:0 1rem 0 2.5rem; border:1.5px solid #e2e8f0; border-radius:9px; font-family:'Tajawal',sans-serif; font-size:.86rem; outline:none; transition:border-color .2s; background:#fff; }
+    .search-input:focus { border-color:#7c3aed; box-shadow:0 0 0 3px rgba(124,58,237,.1); }
+    .search-icon { position:absolute; right:10px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size:.9rem; pointer-events:none; }
+    select.filter-sel { height:38px; padding:0 .75rem; border:1.5px solid #e2e8f0; border-radius:9px; font-family:'Tajawal',sans-serif; font-size:.85rem; outline:none; background:#fff; cursor:pointer; }
+    .filter-date  { height:38px; padding:0 .6rem; border:1.5px solid #e2e8f0; border-radius:9px; font-family:'Tajawal',sans-serif; font-size:.85rem; outline:none; background:#fff; }
+
+    .table-card  { background:#fff; border-radius:14px; box-shadow:0 1px 8px rgba(0,0,0,.07); border:1px solid #f1f5f9; overflow:hidden; }
+    .table-inner { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; }
+    thead tr { background:#f8fafc; border-bottom:1px solid #e2e8f0; }
+    th { padding:.65rem 1rem; text-align:right; font-size:.73rem; font-weight:700; color:#64748b; white-space:nowrap; }
+    td { padding:.8rem 1rem; font-size:.85rem; color:#374151; border-bottom:1px solid #f8fafc; vertical-align:middle; }
+    tbody tr { cursor:pointer; }
+    tbody tr:hover { background:#faf5ff; }
+    tbody tr:last-child td { border-bottom:none; }
+
+    .badge { display:inline-flex; align-items:center; gap:.3rem; border-radius:99px; padding:.2rem .65rem; font-size:.72rem; font-weight:600; white-space:nowrap; }
+    .badge-brouillon    { background:#f3f4f6; color:#6b7280; }
+    .badge-envalidation { background:#fef3c7; color:#b45309; }
+    .badge-signe        { background:#dcfce7; color:#15803d; }
+    .badge-envoye       { background:#dbeafe; color:#1d4ed8; }
+    .badge-archive      { background:#e0f2fe; color:#0369a1; }
+    .badge-annule       { background:#fee2e2; color:#dc2626; }
+    .badge-urgent       { background:#fee2e2; color:#dc2626; }
+    .badge-normal       { background:#e0f2fe; color:#0369a1; }
+    .badge-confidentiel { background:#fdf4ff; color:#9333ea; }
+
+    .pagination { display:flex; align-items:center; justify-content:center; gap:.4rem; padding:1rem; }
+    .pg-btn { width:34px; height:34px; border-radius:8px; border:1.5px solid #e2e8f0; background:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:.82rem; color:#374151; transition:all .2s; }
+    .pg-btn:hover { border-color:#7c3aed; color:#7c3aed; }
+    .pg-btn.active { background:#7c3aed; border-color:#7c3aed; color:#fff; }
+    .pg-btn:disabled { opacity:.4; cursor:not-allowed; }
+    .pg-info { font-size:.82rem; color:#64748b; margin:0 .5rem; }
+
+    .overlay  { position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:500; display:flex; align-items:flex-start; justify-content:flex-end; }
+    .drawer   { width:min(600px,95vw); height:100vh; background:#fff; box-shadow:-6px 0 40px rgba(0,0,0,.15); display:flex; flex-direction:column; overflow:hidden; }
+    .drawer-header { padding:1.2rem 1.5rem; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between; background:#faf5ff; flex-shrink:0; }
+    .drawer-title  { font-size:1rem; font-weight:700; color:#0f172a; }
+    .drawer-body   { flex:1; overflow-y:auto; padding:1.5rem; display:flex; flex-direction:column; gap:1.25rem; }
+    .close-btn { background:none; border:none; font-size:1.2rem; cursor:pointer; color:#64748b; padding:.25rem; }
+    .close-btn:hover { color:#0f172a; }
+    .detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:.75rem 1.5rem; }
+    .detail-item label { display:block; font-size:.72rem; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:.2rem; }
+    .detail-item span  { font-size:.88rem; color:#0f172a; }
+    .detail-item.full  { grid-column:1/-1; }
+    .divider { border:none; border-top:1px solid #f1f5f9; }
+    .section-sub { font-size:.82rem; font-weight:700; color:#374151; margin-bottom:.5rem; display:flex; align-items:center; gap:.4rem; }
+    .action-row { display:flex; gap:.6rem; flex-wrap:wrap; }
+
+    .form-card { background:#fff; border-radius:14px; box-shadow:0 1px 8px rgba(0,0,0,.07); border:1px solid #f1f5f9; padding:1.5rem; }
+    .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:.9rem 1.25rem; }
+    .form-group { display:flex; flex-direction:column; gap:.3rem; }
+    .form-group.full { grid-column:1/-1; }
+    .form-label { font-size:.8rem; font-weight:700; color:#374151; }
+    .form-label .req { color:#ef4444; }
+    .form-control { height:38px; padding:0 .85rem; border:1.5px solid #e2e8f0; border-radius:9px; font-family:'Tajawal',sans-serif; font-size:.88rem; outline:none; transition:border-color .2s; background:#fff; }
+    .form-control:focus { border-color:#7c3aed; box-shadow:0 0 0 3px rgba(124,58,237,.1); }
+    .form-control.invalid { border-color:#ef4444; }
+    textarea.form-control { height:80px; resize:vertical; padding:.6rem .85rem; }
+    .form-check { display:flex; align-items:center; gap:.5rem; cursor:pointer; font-size:.88rem; }
+    .form-check input { width:16px; height:16px; cursor:pointer; accent-color:#7c3aed; }
+    .form-footer { display:flex; gap:.75rem; justify-content:flex-end; margin-top:1.25rem; padding-top:1rem; border-top:1px solid #f1f5f9; }
+    .alert-err { background:#fef2f2; border:1px solid #fca5a5; border-radius:9px; padding:.75rem 1rem; font-size:.85rem; color:#dc2626; margin-bottom:1rem; }
+    .alert-ok  { background:#f0fdf4; border:1px solid #86efac; border-radius:9px; padding:.75rem 1rem; font-size:.85rem; color:#15803d; margin-bottom:1rem; }
+
+    .skeleton { background:linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%); background-size:200% 100%; animation:shimmer 1.4s infinite; border-radius:8px; }
+    @@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+    /* Brouillons tab */
+    .tab-row { display:flex; gap:.5rem; margin-bottom:1rem; }
+    .tab-btn { padding:.4rem 1rem; border-radius:8px; border:1.5px solid #e2e8f0; background:#fff; font-family:'Tajawal',sans-serif; font-size:.85rem; cursor:pointer; }
+    .tab-btn.active { background:#7c3aed; color:#fff; border-color:#7c3aed; }
+</style>
+
+@if (_showForm)
+{
+    <div class="page-header">
+        <div>
+            <div class="page-title"><i class="bi bi-envelope-arrow-up" style="color:#7c3aed"></i> @(_editId.HasValue ? "تعديل بريد صادر" : "إنشاء بريد صادر جديد")</div>
+            <div class="page-sub">البريد الصادر / @(_editId.HasValue ? "تعديل" : "جديد")</div>
+        </div>
+        <button class="btn btn-secondary" @onclick="BackToList"><i class="bi bi-arrow-right"></i> رجوع</button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_formError))   { <div class="alert-err"><i class="bi bi-exclamation-triangle"></i> @_formError</div> }
+    @if (!string.IsNullOrEmpty(_formSuccess)) { <div class="alert-ok"><i class="bi bi-check-circle"></i> @_formSuccess</div> }
+
+    <div class="form-card">
+        <div class="form-grid">
+            <div class="form-group full">
+                <label class="form-label">موضوع البريد <span class="req">*</span></label>
+                <input type="text" class="form-control @(_v && string.IsNullOrEmpty(_dto.ObjetCourrier) ? "invalid" : "")"
+                       placeholder="موضوع البريد الصادر…" @bind="_dto.ObjetCourrier" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">نوع الوثيقة</label>
+                <select class="form-control" @bind="_dto.TypeDocument">
+                    <option>Lettre</option><option>Décision</option><option>Note</option>
+                    <option>Rapport</option><option>Circulaire</option><option>Autre</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">طريقة الإرسال</label>
+                <select class="form-control" @bind="_dto.ModeEnvoi">
+                    <option>Guichet</option><option>Courrier</option><option>Email</option>
+                    <option>Recommandé</option><option>Fax</option><option>Main propre</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">اسم المرسل إليه</label>
+                <input type="text" class="form-control" placeholder="اسم المرسل إليه" @bind="_dto.DestinataireLibreNom" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">وظيفة الموقِّع</label>
+                <input type="text" class="form-control" placeholder="رئيس البلدية، الأمين العام…" @bind="_dto.FonctionSignataire" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">الأولوية</label>
+                <select class="form-control" @bind="_dto.Priorite">
+                    <option>Normal</option><option>Urgent</option><option>TresUrgent</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">الرقم المضمون</label>
+                <input type="text" class="form-control" placeholder="رقم الإرسال المضمون" @bind="_dto.NumeroRecommande" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">عدد الصفحات</label>
+                <input type="number" class="form-control" min="1" @bind="_dto.NombrePages" />
+            </div>
+            <div class="form-group full">
+                <label class="form-label">ملاحظات</label>
+                <textarea class="form-control" placeholder="ملاحظات…" @bind="_dto.Observation"></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-check"><input type="checkbox" @bind="_dto.EstConfidentiel"/> سري</label>
+            </div>
+        </div>
+        <div class="form-footer">
+            <button class="btn btn-secondary" @onclick="BackToList">إلغاء</button>
+            <button class="btn btn-primary" @onclick="SaveAsync" disabled="@_saving">
+                @if(_saving){ <text><i class="bi bi-hourglass-split"></i> جارٍ الحفظ…</text> }
+                else { <text><i class="bi bi-floppy"></i> حفظ كمسودة</text> }
+            </button>
+        </div>
+    </div>
+}
+else
+{
+    <div class="page-header">
+        <div>
+            <div class="page-title"><i class="bi bi-envelope-arrow-up" style="color:#7c3aed"></i> البريد الصادر</div>
+            <div class="page-sub">@(_paged?.TotalCount ?? 0) وثيقة</div>
+        </div>
+        <button class="btn btn-primary" @onclick="OpenNew"><i class="bi bi-plus-lg"></i> إنشاء بريد صادر</button>
+    </div>
+
+    <div class="tab-row">
+        <button class="tab-btn @(_tab=="all"?"active":"")"         @onclick='()=>{_tab="all";    _filter.Statut=null;       _ = LoadAsync();}'>الكل</button>
+        <button class="tab-btn @(_tab=="brouillon"?"active":"")"   @onclick='()=>{_tab="brouillon";   _filter.Statut="Brouillon";    _ = LoadAsync();}'>المسودات</button>
+        <button class="tab-btn @(_tab=="validation"?"active":"")"  @onclick='()=>{_tab="validation";  _filter.Statut="EnValidation"; _ = LoadAsync();}'>في انتظار التوقيع</button>
+        <button class="tab-btn @(_tab=="signe"?"active":"")"       @onclick='()=>{_tab="signe";        _filter.Statut="Signe";        _ = LoadAsync();}'>موقّع</button>
+        <button class="tab-btn @(_tab=="envoye"?"active":"")"      @onclick='()=>{_tab="envoye";       _filter.Statut="Envoye";       _ = LoadAsync();}'>مُرسَل</button>
+    </div>
+
+    <div class="filters-bar">
+        <div class="search-wrap">
+            <i class="bi bi-search search-icon"></i>
+            <input class="search-input" placeholder="بحث بالرقم أو الموضوع…" @bind="_filter.SearchTerm" @bind:event="oninput" @onkeyup="OnSearch" />
+        </div>
+        <select class="filter-sel" @bind="_filter.Priorite" @bind:after="LoadAsync">
+            <option value="">كل الأولويات</option>
+            <option value="Normal">عادي</option><option value="Urgent">عاجل</option>
+        </select>
+        <input type="date" class="filter-date" @bind="_filter.DateDebut" @bind:after="LoadAsync" title="من" />
+        <input type="date" class="filter-date" @bind="_filter.DateFin"   @bind:after="LoadAsync" title="إلى" />
+        <button class="btn btn-secondary" @onclick="ResetFilter"><i class="bi bi-x-circle"></i></button>
+    </div>
+
+    <div class="table-card">
+        <div class="table-inner">
+            <table>
+                <thead><tr>
+                    <th>رقم الترتيب</th><th>تاريخ التحرير</th><th>الموضوع</th>
+                    <th>المرسل إليه</th><th>طريقة الإرسال</th>
+                    <th>تاريخ الإرسال</th><th>الحالة</th><th></th>
+                </tr></thead>
+                <tbody>
+                    @if(_loading)
+                    {
+                        @for(int i=0;i<5;i++){ <tr><td colspan="8"><div class="skeleton" style="height:18px;margin:.4rem 0"></div></td></tr> }
+                    }
+                    else if(_paged?.Items?.Any() == true)
+                    {
+                        @foreach(var s in _paged.Items)
+                        {
+                            <tr @onclick="()=>OpenDetail(s.Id)">
+                                <td><strong style="color:#7c3aed">@s.NumeroOrdre</strong></td>
+                                <td>@s.DateRedaction.ToString("dd/MM/yyyy")</td>
+                                <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="@s.ObjetCourrier">
+                                    @s.ObjetCourrier
+                                    @if(s.EstConfidentiel){ <span class="badge badge-confidentiel" style="margin-right:.4rem"><i class="bi bi-lock-fill"></i></span> }
+                                </td>
+                                <td>@(s.DestinataireNom ?? "—")</td>
+                                <td>@s.ModeEnvoi</td>
+                                <td>@(s.DateEnvoi.HasValue ? s.DateEnvoi.Value.ToString("dd/MM/yyyy") : "—")</td>
+                                <td><span class="badge @StatutBadge(s.Statut)">@StatutLabel(s.Statut)</span></td>
+                                <td @onclick:stopPropagation="true">
+                                    <button class="btn btn-secondary" style="padding:.3rem .65rem;font-size:.78rem" @onclick="()=>OpenEdit(s.Id)">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:3rem">
+                            <i class="bi bi-send" style="font-size:2rem;display:block;margin-bottom:.5rem"></i>
+                            لا يوجد بريد صادر
+                        </td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        @if(_paged != null && _paged.TotalPages > 1)
+        {
+            <div class="pagination">
+                <button class="pg-btn" disabled="@(_filter.PageNumber==1)" @onclick="()=>GoPage(_filter.PageNumber-1)"><i class="bi bi-chevron-right"></i></button>
+                @for(int p=Math.Max(1,_filter.PageNumber-2);p<=Math.Min(_paged.TotalPages,_filter.PageNumber+2);p++){
+                    int pp=p; <button class="pg-btn @(pp==_filter.PageNumber?"active":"")" @onclick="()=>GoPage(pp)">@pp</button>
+                }
+                <button class="pg-btn" disabled="@(_filter.PageNumber==_paged.TotalPages)" @onclick="()=>GoPage(_filter.PageNumber+1)"><i class="bi bi-chevron-left"></i></button>
+                <span class="pg-info">@_filter.PageNumber / @_paged.TotalPages</span>
+            </div>
+        }
+    </div>
+}
+
+@* DRAWER Detail *@
+@if(_detail != null)
+{
+    <div class="overlay" @onclick="CloseDetail">
+        <div class="drawer" @onclick:stopPropagation="true">
+            <div class="drawer-header">
+                <div class="drawer-title"><i class="bi bi-envelope-arrow-up" style="color:#7c3aed"></i> @_detail.NumeroOrdre — @_detail.ObjetCourrier</div>
+                <button class="close-btn" @onclick="CloseDetail"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="drawer-body">
+                <div class="detail-grid">
+                    <div class="detail-item"><label>الرقم</label><span style="font-weight:700;color:#7c3aed">@_detail.NumeroOrdre</span></div>
+                    <div class="detail-item"><label>الحالة</label><span class="badge @StatutBadge(_detail.Statut)">@StatutLabel(_detail.Statut)</span></div>
+                    <div class="detail-item"><label>تاريخ التحرير</label><span>@_detail.DateRedaction.ToString("dd/MM/yyyy")</span></div>
+                    <div class="detail-item"><label>تاريخ التوقيع</label><span>@(_detail.DateSignature.HasValue ? _detail.DateSignature.Value.ToString("dd/MM/yyyy") : "—")</span></div>
+                    <div class="detail-item"><label>تاريخ الإرسال</label><span>@(_detail.DateEnvoi.HasValue ? _detail.DateEnvoi.Value.ToString("dd/MM/yyyy") : "—")</span></div>
+                    <div class="detail-item"><label>الأولوية</label><span class="badge @(_detail.Priorite=="Urgent"?"badge-urgent":"badge-normal")">@_detail.Priorite</span></div>
+                    <div class="detail-item full"><label>الموضوع</label><span>@_detail.ObjetCourrier</span></div>
+                    <div class="detail-item"><label>المرسل إليه</label><span>@(_detail.DestinataireNom ?? "—")</span></div>
+                    <div class="detail-item"><label>طريقة الإرسال</label><span>@_detail.ModeEnvoi</span></div>
+                    <div class="detail-item"><label>الموقِّع</label><span>@(_detail.FonctionSignataire ?? "—")</span></div>
+                    @if(!string.IsNullOrEmpty(_detail.Observation)){ <div class="detail-item full"><label>ملاحظات</label><span>@_detail.Observation</span></div> }
+                </div>
+                <hr class="divider"/>
+                <div class="section-sub"><i class="bi bi-lightning"></i> الإجراءات</div>
+                <div class="action-row">
+                    @if(_detail.Statut == "Brouillon")
+                    {
+                        <button class="btn btn-warning" @onclick="()=>SoumettreAsync(_detail.Id)"><i class="bi bi-send"></i> إرسال للتوقيع</button>
+                        <button class="btn btn-secondary" @onclick="()=>OpenEdit(_detail.Id)"><i class="bi bi-pencil"></i> تعديل</button>
+                    }
+                    @if(_detail.Statut == "EnValidation")
+                    {
+                        <button class="btn btn-success" @onclick="()=>OpenSigner(_detail.Id)"><i class="bi bi-pen"></i> توقيع</button>
+                    }
+                    @if(_detail.Statut == "Signe")
+                    {
+                        <button class="btn btn-blue" @onclick="()=>MarquerEnvoyeAsync(_detail.Id)"><i class="bi bi-send-fill"></i> تأكيد الإرسال</button>
+                    }
+                    @if(_detail.Statut == "Envoye" && !_detail.AccuseReceptionRecu)
+                    {
+                        <button class="btn btn-success" @onclick="()=>AccuserAsync(_detail.Id)"><i class="bi bi-check-all"></i> وصول الاستلام</button>
+                    }
+                    @if(_detail.Statut != "Archive" && _detail.Statut != "Annule")
+                    {
+                        <button class="btn btn-secondary" @onclick="()=>OpenArchiver(_detail.Id)"><i class="bi bi-archive"></i> أرشفة</button>
+                    }
+                    @if(_detail.Statut is "Brouillon" or "EnValidation")
+                    {
+                        <button class="btn btn-danger" @onclick="()=>OpenAnnuler(_detail.Id)"><i class="bi bi-x-circle"></i> إلغاء</button>
+                    }
+                </div>
+
+                @* Signer *@
+                @if(_showSigner)
+                {
+                    <div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:1rem;margin-top:.5rem">
+                        <div class="section-sub"><i class="bi bi-pen"></i> تسجيل التوقيع</div>
+                        <label class="form-label">وظيفة الموقِّع <span class="req">*</span></label>
+                        <input type="text" class="form-control" @bind="_signerFonction" />
+                        <div style="display:flex;gap:.5rem;justify-content:flex-end;margin-top:.75rem">
+                            <button class="btn btn-secondary" @onclick="()=>_showSigner=false">إلغاء</button>
+                            <button class="btn btn-success" @onclick="ConfirmSigner" disabled="@_saving">@(_saving?"جارٍ…":"تأكيد")</button>
+                        </div>
+                    </div>
+                }
+
+                @* Annuler *@
+                @if(_showAnnuler)
+                {
+                    <div style="background:#fef2f2;border:1.5px solid #fca5a5;border-radius:10px;padding:1rem;margin-top:.5rem">
+                        <div class="section-sub"><i class="bi bi-x-circle"></i> إلغاء البريد</div>
+                        <label class="form-label">سبب الإلغاء <span class="req">*</span></label>
+                        <input type="text" class="form-control" @bind="_annulerMotif" />
+                        <div style="display:flex;gap:.5rem;justify-content:flex-end;margin-top:.75rem">
+                            <button class="btn btn-secondary" @onclick="()=>_showAnnuler=false">رجوع</button>
+                            <button class="btn btn-danger" @onclick="ConfirmAnnuler" disabled="@_saving">@(_saving?"جارٍ…":"تأكيد الإلغاء")</button>
+                        </div>
+                    </div>
+                }
+
+                @* Archiver *@
+                @if(_showArchiver)
+                {
+                    <div style="background:#fafafa;border:1.5px solid #e2e8f0;border-radius:10px;padding:1rem;margin-top:.5rem">
+                        <div class="section-sub"><i class="bi bi-archive"></i> أرشفة البريد الصادر</div>
+                        <div style="display:flex;flex-direction:column;gap:.65rem">
+                            <div><label class="form-label">القاعة</label><input type="text" class="form-control" @bind="_archiverDto.SalleArchive"/></div>
+                            <div><label class="form-label">الرف</label><input type="text" class="form-control" @bind="_archiverDto.Rayon"/></div>
+                            <div><label class="form-label">الصندوق</label><input type="text" class="form-control" @bind="_archiverDto.Boite"/></div>
+                            <div style="display:flex;gap:.5rem;justify-content:flex-end">
+                                <button class="btn btn-secondary" @onclick="()=>_showArchiver=false">إلغاء</button>
+                                <button class="btn btn-primary" @onclick="ConfirmArchiver" disabled="@_saving">@(_saving?"جارٍ…":"أرشفة")</button>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    private PagedResult<CourrierSortantDto>?  _paged;
+    private CourrierSortantDetailDto?         _detail;
+    private CourrierSortantFilterDto          _filter = new() { PageNumber=1, PageSize=10 };
+    private CreateCourrierSortantDto          _dto    = new();
+    private ArchiversCourrierDto              _archiverDto = new() { DureeConservationAns=10, Classification="Courant" };
+    private bool _loading, _saving, _showForm, _v;
+    private bool _showSigner, _showAnnuler, _showArchiver;
+    private int? _editId;
+    private int  _targetId;
+    private string? _formError, _formSuccess, _signerFonction, _annulerMotif;
+    private string _tab = "all";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Id.HasValue && !_showForm) await OpenDetail(Id.Value);
+        else if (Nav.Uri.EndsWith("/new")) OpenNew();
+        else await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true; StateHasChanged();
+        _paged = await Api.GetPagedAsync(_filter);
+        _loading = false;
+    }
+
+    private void OpenNew()
+    {
+        _dto = new CreateCourrierSortantDto(); _editId = null; _showForm = true;
+        _formError = _formSuccess = null; _v = false; _detail = null;
+    }
+
+    private async Task OpenEdit(int id)
+    {
+        var d = await Api.GetByIdAsync(id);
+        if (d == null) return;
+        _dto = new CreateCourrierSortantDto
+        {
+            ObjetCourrier = d.ObjetCourrier, TypeDocument = d.TypeDocument,
+            ModeEnvoi = d.ModeEnvoi, DestinataireLibreNom = d.DestinataireNom,
+            FonctionSignataire = d.FonctionSignataire, Priorite = d.Priorite,
+            EstConfidentiel = d.EstConfidentiel, Observation = d.Observation,
+            NombrePages = d.NombrePiecesJointes > 0 ? (short)d.NombrePiecesJointes : (short)1
+        };
+        _editId = id; _showForm = true; _v = false; _formError = _formSuccess = null; _detail = null;
+    }
+
+    private void BackToList() { _showForm = false; _editId = null; }
+
+    private async Task OpenDetail(int id)
+    {
+        _detail = await Api.GetByIdAsync(id);
+        _showSigner = _showAnnuler = _showArchiver = false;
+    }
+
+    private void CloseDetail() => _detail = null;
+
+    private async Task SaveAsync()
+    {
+        _v = true;
+        if (string.IsNullOrEmpty(_dto.ObjetCourrier)) { _formError = "موضوع البريد مطلوب."; return; }
+        _saving = true; _formError = null;
+        try
+        {
+            object? res = _editId.HasValue ? await Api.ModifierAsync(_editId.Value, _dto) : await Api.CreerBrouillonAsync(_dto);
+            if (res != null) { _formSuccess = "تم الحفظ بنجاح."; _showForm = false; await LoadAsync(); }
+            else _formError = "حدث خطأ أثناء الحفظ.";
+        }
+        finally { _saving = false; }
+    }
+
+    private async Task SoumettreAsync(int id) { _saving=true; await Api.SoumettreEnValidationAsync(id); await OpenDetail(id); await LoadAsync(); _saving=false; }
+    private void OpenSigner(int id)   { _targetId=id; _signerFonction=_detail?.FonctionSignataire; _showSigner=true; }
+    private async Task ConfirmSigner(){ if(string.IsNullOrEmpty(_signerFonction))return; _saving=true; await Api.MarquerSigneAsync(_targetId,_signerFonction!); _showSigner=false; await OpenDetail(_targetId); await LoadAsync(); _saving=false; }
+    private async Task MarquerEnvoyeAsync(int id){ _saving=true; await Api.MarquerEnvoyeAsync(id,DateTime.Today); await OpenDetail(id); await LoadAsync(); _saving=false; }
+    private async Task AccuserAsync(int id)      { _saving=true; await Api.AccuserReceptionAsync(id,DateTime.Today); await OpenDetail(id); _saving=false; }
+    private void OpenAnnuler(int id)  { _targetId=id; _annulerMotif=null; _showAnnuler=true; }
+    private async Task ConfirmAnnuler(){ if(string.IsNullOrEmpty(_annulerMotif))return; _saving=true; await Api.AnnulerAsync(_targetId,_annulerMotif!); _showAnnuler=false; await OpenDetail(_targetId); await LoadAsync(); _saving=false; }
+    private void OpenArchiver(int id) { _targetId=id; _archiverDto=new(){DureeConservationAns=10,Classification="Courant"}; _showArchiver=true; _showSigner=_showAnnuler=false; }
+    private async Task ConfirmArchiver(){ _saving=true; await Api.ArchiverAsync(_targetId,_archiverDto); _showArchiver=false; await OpenDetail(_targetId); await LoadAsync(); _saving=false; }
+
+    private System.Threading.CancellationTokenSource? _cts;
+    private async Task OnSearch() { _cts?.Cancel(); _cts=new(); try{await Task.Delay(400,_cts.Token);await LoadAsync();}catch{} }
+    private async Task GoPage(int p){ _filter.PageNumber=p; await LoadAsync(); }
+    private async Task ResetFilter(){ _tab="all"; _filter=new(){PageNumber=1,PageSize=10}; await LoadAsync(); }
+
+    private static string StatutBadge(string s) => s switch
+    {
+        "Brouillon"=>"badge-brouillon","EnValidation"=>"badge-envalidation",
+        "Signe"=>"badge-signe","Envoye"=>"badge-envoye",
+        "Archive"=>"badge-archive","Annule"=>"badge-annule", _=>"badge-brouillon"
+    };
+    private static string StatutLabel(string s) => s switch
+    {
+        "Brouillon"=>"مسودة","EnValidation"=>"في انتظار التوقيع",
+        "Signe"=>"موقّع","Envoye"=>"مُرسَل",
+        "Archive"=>"مؤرشف","Annule"=>"ملغى", _=>s
+    };
+}

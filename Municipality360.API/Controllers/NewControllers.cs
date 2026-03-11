@@ -543,7 +543,7 @@ public class DemandeursController : ControllerBase
 
 [ApiController]
 [Route("api/architectes")]
-[Authorize]
+
 public class ArchitectesController : ControllerBase
 {
     private readonly IArchitecteService _service;

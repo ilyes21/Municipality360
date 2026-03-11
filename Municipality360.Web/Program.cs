@@ -57,6 +57,12 @@ builder.Services.AddScoped<IPosteApiService, PosteApiService>();
 builder.Services.AddScoped<IEmployeApiService, EmployeApiService>();
 builder.Services.AddScoped<IUserApiService, UserApiService>();
 
+// ── Bureau d'Ordre Services ───────────────────────────────
+builder.Services.AddScoped<ICourrierEntrantApiService, CourrierEntrantApiService>();
+builder.Services.AddScoped<ICourrierSortantApiService, CourrierSortantApiService>();
+builder.Services.AddScoped<IBODossierApiService, BODossierApiService>();
+builder.Services.AddScoped<IBOContactApiService, BOContactApiService>();
+
 // ── Auth State Provider ───────────────────────────────────
 builder.Services.AddScoped<CustomAuthStateProvider>();
 builder.Services.AddScoped<AuthenticationStateProvider>(

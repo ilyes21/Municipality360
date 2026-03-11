@@ -1,0 +1,653 @@
+@page "/bureau"
+@page "/bureau/dashboard"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = "SuperAdmin,Admin,Manager,BureauOrdre")]
+@layout Municipality360.Web.Components.Layout.MainLayout
+@inject ICourrierEntrantApiService EntrantApi
+@inject ICourrierSortantApiService SortantApi
+@inject NavigationManager Nav
+
+<PageTitle>لوحة القيادة — مكتب الضبط</PageTitle>
+
+<style>
+    .bo-dashboard {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit,minmax(170px,1fr));
+        gap: 1rem;
+    }
+
+    .kpi-card {
+        background: #fff;
+        border-radius: 14px;
+        padding: 1.1rem 1.25rem;
+        box-shadow: 0 1px 8px rgba(0,0,0,.07);
+        border: 1px solid #f1f5f9;
+        display: flex;
+        flex-direction: column;
+        gap: .3rem;
+        position: relative;
+        overflow: hidden;
+        transition: transform .2s, box-shadow .2s;
+    }
+
+        .kpi-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 18px rgba(0,0,0,.1);
+        }
+
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 4px;
+            height: 100%;
+            border-radius: 0 14px 14px 0;
+        }
+
+    .kpi-blue::before {
+        background: #0ea5e9;
+    }
+
+    .kpi-green::before {
+        background: #22c55e;
+    }
+
+    .kpi-orange::before {
+        background: #f59e0b;
+    }
+
+    .kpi-red::before {
+        background: #ef4444;
+    }
+
+    .kpi-purple::before {
+        background: #8b5cf6;
+    }
+
+    .kpi-teal::before {
+        background: #14b8a6;
+    }
+
+    .kpi-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.15rem;
+        margin-bottom: .2rem;
+    }
+
+    .bg-blue {
+        background: #e0f2fe;
+        color: #0369a1;
+    }
+
+    .bg-green {
+        background: #dcfce7;
+        color: #15803d;
+    }
+
+    .bg-orange {
+        background: #fef3c7;
+        color: #d97706;
+    }
+
+    .bg-red {
+        background: #fee2e2;
+        color: #dc2626;
+    }
+
+    .bg-purple {
+        background: #ede9fe;
+        color: #7c3aed;
+    }
+
+    .bg-teal {
+        background: #ccfbf1;
+        color: #0f766e;
+    }
+
+    .kpi-val {
+        font-size: 1.75rem;
+        font-weight: 800;
+        color: #0f172a;
+        line-height: 1;
+    }
+
+    .kpi-lbl {
+        font-size: .78rem;
+        color: #64748b;
+        font-weight: 500;
+    }
+
+    .kpi-sub {
+        font-size: .72rem;
+        color: #94a3b8;
+    }
+
+    .alert-banner {
+        background: linear-gradient(135deg,#fef2f2,#fff7ed);
+        border: 1px solid #fca5a5;
+        border-radius: 12px;
+        padding: .85rem 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+        .alert-banner i {
+            font-size: 1.35rem;
+            color: #ef4444;
+        }
+
+    .section-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: .85rem;
+    }
+
+    .section-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #0f172a;
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+    }
+
+        .section-title i {
+            color: #0ea5e9;
+        }
+
+    .btn-link {
+        background: none;
+        border: none;
+        color: #0ea5e9;
+        font-family: 'Tajawal',sans-serif;
+        font-size: .82rem;
+        cursor: pointer;
+    }
+
+        .btn-link:hover {
+            text-decoration: underline;
+        }
+
+    .table-card {
+        background: #fff;
+        border-radius: 14px;
+        box-shadow: 0 1px 8px rgba(0,0,0,.06);
+        border: 1px solid #f1f5f9;
+        overflow: hidden;
+    }
+
+    .table-inner {
+        overflow-x: auto;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    thead tr {
+        background: #f8fafc;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    th {
+        padding: .65rem 1rem;
+        text-align: right;
+        font-size: .73rem;
+        font-weight: 700;
+        color: #64748b;
+        white-space: nowrap;
+    }
+
+    td {
+        padding: .75rem 1rem;
+        font-size: .85rem;
+        color: #374151;
+        border-bottom: 1px solid #f8fafc;
+        vertical-align: middle;
+    }
+
+    tbody tr:hover {
+        background: #f8fafc;
+    }
+
+    tbody tr:last-child td {
+        border-bottom: none;
+    }
+
+    .badge {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 99px;
+        padding: .2rem .65rem;
+        font-size: .72rem;
+        font-weight: 600;
+    }
+
+    .badge-enregistre {
+        background: #dbeafe;
+        color: #1d4ed8;
+    }
+
+    .badge-encours {
+        background: #fef3c7;
+        color: #b45309;
+    }
+
+    .badge-traite {
+        background: #dcfce7;
+        color: #15803d;
+    }
+
+    .badge-archive {
+        background: #f3f4f6;
+        color: #6b7280;
+    }
+
+    .badge-urgent {
+        background: #fee2e2;
+        color: #dc2626;
+    }
+
+    .badge-normal {
+        background: #e0f2fe;
+        color: #0369a1;
+    }
+
+    .badge-brouillon {
+        background: #f3f4f6;
+        color: #6b7280;
+    }
+
+    .badge-envalidation {
+        background: #fef3c7;
+        color: #b45309;
+    }
+
+    .badge-signe {
+        background: #dcfce7;
+        color: #15803d;
+    }
+
+    .badge-envoye {
+        background: #dbeafe;
+        color: #1d4ed8;
+    }
+
+    .btn-action {
+        display: inline-flex;
+        align-items: center;
+        gap: .4rem;
+        padding: .45rem .95rem;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        font-family: 'Tajawal',sans-serif;
+        font-size: .85rem;
+        font-weight: 600;
+        transition: all .2s;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg,#0369a1,#0ea5e9);
+        color: #fff;
+        box-shadow: 0 3px 10px rgba(14,165,233,.3);
+    }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+        }
+
+    .two-col {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.25rem;
+    }
+
+    @@media(max-width:900px) {
+        .two-col {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .progress-wrap {
+        margin-top: .5rem;
+    }
+
+    .progress-row {
+        display: flex;
+        align-items: center;
+        gap: .75rem;
+        margin-bottom: .6rem;
+    }
+
+    .progress-lbl {
+        font-size: .8rem;
+        color: #374151;
+        min-width: 100px;
+    }
+
+    .progress-bar {
+        flex: 1;
+        height: 8px;
+        background: #f1f5f9;
+        border-radius: 99px;
+        overflow: hidden;
+    }
+
+    .progress-fill {
+        height: 100%;
+        border-radius: 99px;
+    }
+
+    .progress-val {
+        font-size: .75rem;
+        font-weight: 700;
+        color: #64748b;
+        min-width: 28px;
+        text-align: left;
+    }
+
+    .skeleton {
+        background: linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%);
+        background-size: 200% 100%;
+        animation: shimmer 1.4s infinite;
+        border-radius: 8px;
+    }
+
+    @@keyframes shimmer {
+        0% {
+            background-position: 200% 0
+        }
+
+        100% {
+            background-position: -200% 0
+        }
+    }
+</style>
+
+@if (_loading)
+{
+    <div class="kpi-grid">
+        @for (int i = 0; i < 6; i++)
+        {
+            <div class="kpi-card"><div class="skeleton" style="height:90px"></div></div>
+        }
+    </div>
+}
+else
+{
+    <div class="bo-dashboard">
+
+        @if (_stats != null && (_stats.EnRetard > 0 || _stats.Urgents > 0))
+        {
+            <div class="alert-banner">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+                <div>
+                    <strong style="color:#991b1b;font-size:.9rem">تنبيه!</strong><br />
+                    <span style="font-size:.82rem;color:#b91c1c">
+                        @if (_stats.EnRetard > 0)
+                        {
+                            <text>@_stats.EnRetard بريد متأخر عن الموعد. </text>
+                        }
+                        @if (_stats.Urgents > 0)
+                        {
+                            <text>@_stats.Urgents بريد عاجل ينتظر المعالجة.</text>
+                        }
+                    </span>
+                </div>
+            </div>
+        }
+
+        <div class="kpi-grid">
+            <div class="kpi-card kpi-blue">
+                <div class="kpi-icon bg-blue"><i class="bi bi-inbox-fill"></i></div>
+                <div class="kpi-val">@(_stats?.TotalEntrants ?? 0)</div>
+                <div class="kpi-lbl">إجمالي البريد الوارد</div>
+                <div class="kpi-sub">@(_stats?.EnCours ?? 0) قيد المعالجة</div>
+            </div>
+            <div class="kpi-card kpi-green">
+                <div class="kpi-icon bg-green"><i class="bi bi-check-circle-fill"></i></div>
+                <div class="kpi-val">@(_stats?.Traites ?? 0)</div>
+                <div class="kpi-lbl">تمت المعالجة</div>
+                <div class="kpi-sub">@(_stats?.Archives ?? 0) مؤرشف</div>
+            </div>
+            <div class="kpi-card kpi-orange">
+                <div class="kpi-icon bg-orange"><i class="bi bi-clock-history"></i></div>
+                <div class="kpi-val">@(_stats?.EnRetard ?? 0)</div>
+                <div class="kpi-lbl">متأخر</div>
+                <div class="kpi-sub">يستوجب تدخلاً فورياً</div>
+            </div>
+            <div class="kpi-card kpi-red">
+                <div class="kpi-icon bg-red"><i class="bi bi-lightning-fill"></i></div>
+                <div class="kpi-val">@(_stats?.Urgents ?? 0)</div>
+                <div class="kpi-lbl">عاجل</div>
+                <div class="kpi-sub">أولوية قصوى</div>
+            </div>
+            <div class="kpi-card kpi-teal">
+                <div class="kpi-icon bg-teal"><i class="bi bi-send-fill"></i></div>
+                <div class="kpi-val">@(_stats?.TotalSortants ?? 0)</div>
+                <div class="kpi-lbl">البريد الصادر</div>
+                <div class="kpi-sub">@(_stats?.SortantsEnValidation ?? 0) ينتظر التوقيع</div>
+            </div>
+            <div class="kpi-card kpi-purple">
+                <div class="kpi-icon bg-purple"><i class="bi bi-archive-fill"></i></div>
+                <div class="kpi-val">@(_stats?.Archives ?? 0)</div>
+                <div class="kpi-lbl">الأرشيف الإجمالي</div>
+                <div class="kpi-sub">وارد + صادر</div>
+            </div>
+        </div>
+
+        <div class="two-col">
+            <div class="table-card" style="padding:1.25rem">
+                <div class="section-header">
+                    <div class="section-title"><i class="bi bi-bar-chart-fill"></i> توزيع حالات البريد الوارد</div>
+                </div>
+                @if (_stats != null && _stats.TotalEntrants > 0)
+                {
+                    int tot = _stats.TotalEntrants;
+                    var rows = new[]
+                    {
+                        ("مسجّل",        _stats.Enregistres, "#3b82f6"),
+                        ("قيد المعالجة", _stats.EnCours,     "#f59e0b"),
+                        ("تمت المعالجة", _stats.Traites,     "#22c55e"),
+                        ("مؤرشف",        _stats.Archives,    "#8b5cf6"),
+                        ("متأخر",        _stats.EnRetard,    "#ef4444"),
+                        };
+                    <div class="progress-wrap">
+                        @foreach (var (label, count, color) in rows)
+                        {
+                            double pct = tot > 0 ? Math.Round((double)count / tot * 100, 1) : 0;
+                            <div class="progress-row">
+                                <span class="progress-lbl">@label</span>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width:@(pct)%;background:@color"></div>
+                                </div>
+                                <span class="progress-val">@count</span>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p style="color:#94a3b8;font-size:.85rem;text-align:center;padding:1.5rem 0">لا توجد بيانات</p>
+                }
+            </div>
+
+            <div>
+                <div class="section-header">
+                    <div class="section-title"><i class="bi bi-envelope-arrow-down"></i> آخر البريد الوارد</div>
+                    <button class="btn-link" @onclick='() => Nav.NavigateTo("/bureau/incoming")'><i class="bi bi-arrow-left"></i> الكل</button>
+                </div>
+                <div class="table-card">
+                    <div class="table-inner">
+                        <table>
+                            <thead><tr><th>الرقم</th><th>الموضوع</th><th>الأولوية</th><th>الحالة</th></tr></thead>
+                            <tbody>
+                                @if (_recentEntrants?.Any() == true)
+                                {
+                                    @foreach (var c in _recentEntrants.Take(6))
+                                    {
+                                        <tr style="cursor:pointer" @onclick='() => Nav.NavigateTo($"/bureau/incoming/{c.Id}")'>
+                                            <td><strong style="color:#0369a1;font-size:.8rem">@c.NumeroOrdre</strong></td>
+                                            <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="@c.ObjetCourrier">@c.ObjetCourrier</td>
+                                            <td><span class="badge @PrioriteBadge(c.Priorite)">@c.Priorite</span></td>
+                                            <td><span class="badge @StatutEntrantBadge(c.Statut)">@StatutEntrantLabel(c.Statut)</span></td>
+                                        </tr>
+                                    }
+                                }
+                                else
+                                {
+                                    <tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:2rem">لا يوجد بريد وارد</td></tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <div class="section-header">
+                <div class="section-title"><i class="bi bi-envelope-arrow-up"></i> آخر البريد الصادر</div>
+                <button class="btn-link" @onclick='() => Nav.NavigateTo("/bureau/outgoing")'><i class="bi bi-arrow-left"></i> الكل</button>
+            </div>
+            <div class="table-card">
+                <div class="table-inner">
+                    <table>
+                        <thead><tr><th>الرقم</th><th>الموضوع</th><th>المرسل إليه</th><th>تاريخ الإرسال</th><th>الحالة</th></tr></thead>
+                        <tbody>
+                            @if (_recentSortants?.Any() == true)
+                            {
+                                @foreach (var s in _recentSortants.Take(6))
+                                {
+                                    <tr style="cursor:pointer" @onclick='() => Nav.NavigateTo($"/bureau/outgoing/{s.Id}")'>
+                                        <td><strong style="color:#7c3aed;font-size:.8rem">@s.NumeroOrdre</strong></td>
+                                        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="@s.ObjetCourrier">@s.ObjetCourrier</td>
+                                        <td>@(s.DestinataireNom ?? "—")</td>
+                                        <td>@(s.DateEnvoi.HasValue? s.DateEnvoi.Value.ToString("dd/MM/yyyy") : "—")</td>
+                                        <td><span class="badge @StatutSortantBadge(s.Statut)">@StatutSortantLabel(s.Statut)</span></td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:2rem">لا يوجد بريد صادر</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div style="display:flex;gap:.75rem;flex-wrap:wrap">
+            <button class="btn-action btn-primary" @onclick='() => Nav.NavigateTo("/bureau/incoming/new")'>
+                <i class="bi bi-plus-lg"></i> تسجيل بريد وارد جديد
+            </button>
+            <button class="btn-action" style="background:#ede9fe;color:#7c3aed;font-family:'Tajawal',sans-serif" @onclick='() => Nav.NavigateTo("/bureau/outgoing/new")'>
+                <i class="bi bi-pencil-square"></i> إنشاء بريد صادر
+            </button>
+            <button class="btn-action" style="background:#f0fdf4;color:#15803d;font-family:'Tajawal',sans-serif" @onclick='() => Nav.NavigateTo("/bureau/search")'>
+                <i class="bi bi-search"></i> البحث
+            </button>
+            <button class="btn-action" style="background:#f8fafc;color:#374151;font-family:'Tajawal',sans-serif" @onclick='() => Nav.NavigateTo("/bureau/archive")'>
+                <i class="bi bi-archive"></i> الأرشيف
+            </button>
+            <button class="btn-action" style="background:#f0f9ff;color:#0369a1;font-family:'Tajawal',sans-serif" @onclick='() => Nav.NavigateTo("/bureau/follow")'>
+                <i class="bi bi-clock-history"></i> المتابعة
+            </button>
+        </div>
+
+    </div>
+}
+
+@code {
+    private BOStatsDto? _stats;
+    private List<CourrierEntrantDto>? _recentEntrants;
+    private List<CourrierSortantDto>? _recentSortants;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _stats = await EntrantApi.GetStatsAsync();
+        }
+        catch { _stats = null; }
+
+        try
+        {
+            var entPaged = await EntrantApi.GetPagedAsync(
+                new CourrierEntrantFilterDto { PageNumber = 1, PageSize = 6 });
+            _recentEntrants = entPaged?.Items?.ToList() ?? new();
+        }
+        catch { _recentEntrants = new(); }
+
+        try
+        {
+            var srtPaged = await SortantApi.GetPagedAsync(
+                new CourrierSortantFilterDto { PageNumber = 1, PageSize = 6 });
+            _recentSortants = srtPaged?.Items?.ToList() ?? new();
+        }
+        catch { _recentSortants = new(); }
+
+        _loading = false;
+    }
+
+
+
+    private static string PrioriteBadge(string p) => p switch
+    {
+        "Urgent" => "badge-urgent",
+        _ => "badge-normal"
+    };
+    private static string StatutEntrantBadge(string s) => s switch
+    {
+        "Enregistre" => "badge-enregistre",
+        "EnCours" => "badge-encours",
+        "Traite" => "badge-traite",
+        "Archive" => "badge-archive",
+        _ => "badge-enregistre"
+    };
+    private static string StatutEntrantLabel(string s) => s switch
+    {
+        "Enregistre" => "مسجّل",
+        "EnCours" => "قيد المعالجة",
+        "Traite" => "تمت المعالجة",
+        "Archive" => "مؤرشف",
+        _ => s
+    };
+    private static string StatutSortantBadge(string s) => s switch
+    {
+        "Brouillon" => "badge-brouillon",
+        "EnValidation" => "badge-envalidation",
+        "Signe" => "badge-signe",
+        "Envoye" => "badge-envoye",
+        "Archive" => "badge-archive",
+        _ => "badge-brouillon"
+    };
+    private static string StatutSortantLabel(string s) => s switch
+    {
+        "Brouillon" => "مسودة",
+        "EnValidation" => "في انتظار التوقيع",
+        "Signe" => "موقّع",
+        "Envoye" => "مُرسَل",
+        "Archive" => "مؤرشف",
+        "Annule" => "ملغى",
+        _ => s
+    };
+}

@@ -1,0 +1,739 @@
+@page "/bureau/incoming"
+@page "/bureau/incoming/{Id:int}"
+@using Microsoft.AspNetCore.Authorization
+
+@inject ICourrierEntrantApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>البريد الوارد — مكتب الضبط</PageTitle>
+
+<style>
+    /* ── shared base ── */
+    .page-header   { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem; }
+    .page-title    { font-size:1.3rem; font-weight:800; color:#0f172a; margin:0; }
+    .page-sub      { font-size:.8rem; color:#94a3b8; margin-top:.2rem; }
+    .btn           { display:inline-flex; align-items:center; gap:.4rem; padding:.45rem .95rem; border-radius:9px; border:none; cursor:pointer; font-family:'Tajawal',sans-serif; font-size:.85rem; font-weight:600; transition:all .2s; }
+    .btn-primary   { background:linear-gradient(135deg,#0369a1,#0ea5e9); color:#fff; box-shadow:0 3px 10px rgba(14,165,233,.3); }
+    .btn-primary:hover { transform:translateY(-1px); }
+    .btn-secondary { background:#f1f5f9; color:#374151; }
+    .btn-secondary:hover { background:#e2e8f0; }
+    .btn-danger    { background:#fee2e2; color:#dc2626; }
+    .btn-danger:hover { background:#fecaca; }
+    .btn-warning   { background:#fef3c7; color:#b45309; }
+    .btn-success   { background:#dcfce7; color:#15803d; }
+    .btn-purple    { background:#ede9fe; color:#7c3aed; }
+
+    /* ── filters ── */
+    .filters-bar { display:flex; gap:.75rem; flex-wrap:wrap; margin-bottom:1.2rem; align-items:center; }
+    .search-wrap { position:relative; flex:1; min-width:200px; }
+    .search-input { width:100%; height:38px; padding:0 1rem 0 2.5rem; border:1.5px solid #e2e8f0; border-radius:9px; font-family:'Tajawal',sans-serif; font-size:.86rem; outline:none; transition:border-color .2s; background:#fff; }
+    .search-input:focus { border-color:#0ea5e9; box-shadow:0 0 0 3px rgba(14,165,233,.1); }
+    .search-icon { position:absolute; right:10px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size:.9rem; pointer-events:none; }
+    select.filter-sel { height:38px; padding:0 .75rem; border:1.5px solid #e2e8f0; border-radius:9px; font-family:'Tajawal',sans-serif; font-size:.85rem; outline:none; background:#fff; cursor:pointer; }
+    select.filter-sel:focus { border-color:#0ea5e9; }
+    .filter-date { height:38px; padding:0 .6rem; border:1.5px solid #e2e8f0; border-radius:9px; font-family:'Tajawal',sans-serif; font-size:.85rem; outline:none; background:#fff; }
+
+    /* ── table ── */
+    .table-card  { background:#fff; border-radius:14px; box-shadow:0 1px 8px rgba(0,0,0,.07); border:1px solid #f1f5f9; overflow:hidden; }
+    .table-inner { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; }
+    thead tr { background:#f8fafc; border-bottom:1px solid #e2e8f0; }
+    th { padding:.65rem 1rem; text-align:right; font-size:.73rem; font-weight:700; color:#64748b; white-space:nowrap; }
+    td { padding:.8rem 1rem; font-size:.85rem; color:#374151; border-bottom:1px solid #f8fafc; vertical-align:middle; }
+    tbody tr { cursor:pointer; }
+    tbody tr:hover { background:#f0f9ff; }
+    tbody tr:last-child td { border-bottom:none; }
+    .tr-urgent { border-right:3px solid #ef4444; }
+    .tr-retard { background:#fff7ed !important; }
+
+    /* ── badges ── */
+    .badge { display:inline-flex; align-items:center; gap:.3rem; border-radius:99px; padding:.2rem .65rem; font-size:.72rem; font-weight:600; white-space:nowrap; }
+    .badge-enregistre   { background:#dbeafe; color:#1d4ed8; }
+    .badge-encours      { background:#fef3c7; color:#b45309; }
+    .badge-traite       { background:#dcfce7; color:#15803d; }
+    .badge-archive      { background:#f3f4f6; color:#6b7280; }
+    .badge-urgent       { background:#fee2e2; color:#dc2626; }
+    .badge-normal       { background:#e0f2fe; color:#0369a1; }
+    .badge-confidentiel { background:#fdf4ff; color:#9333ea; }
+
+    /* ── pagination ── */
+    .pagination { display:flex; align-items:center; justify-content:center; gap:.4rem; padding:1rem; }
+    .pg-btn { width:34px; height:34px; border-radius:8px; border:1.5px solid #e2e8f0; background:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:.82rem; color:#374151; transition:all .2s; }
+    .pg-btn:hover { border-color:#0ea5e9; color:#0ea5e9; }
+    .pg-btn.active { background:#0ea5e9; border-color:#0ea5e9; color:#fff; }
+    .pg-btn:disabled { opacity:.4; cursor:not-allowed; }
+    .pg-info { font-size:.82rem; color:#64748b; margin: 0 .5rem; }
+
+    /* ── detail panel / modal ── */
+    .overlay  { position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:500; display:flex; align-items:flex-start; justify-content:flex-end; }
+    .drawer   { width:min(600px,95vw); height:100vh; background:#fff; box-shadow:-6px 0 40px rgba(0,0,0,.15); display:flex; flex-direction:column; overflow:hidden; }
+    .drawer-header { padding:1.2rem 1.5rem; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between; background:#f8fafc; flex-shrink:0; }
+    .drawer-title  { font-size:1rem; font-weight:700; color:#0f172a; }
+    .drawer-body   { flex:1; overflow-y:auto; padding:1.5rem; display:flex; flex-direction:column; gap:1.25rem; }
+    .close-btn { background:none; border:none; font-size:1.2rem; cursor:pointer; color:#64748b; line-height:1; padding:.25rem; }
+    .close-btn:hover { color:#0f172a; }
+    .detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:.75rem 1.5rem; }
+    .detail-item label { display:block; font-size:.72rem; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:.2rem; }
+    .detail-item span  { font-size:.88rem; color:#0f172a; }
+    .detail-item.full  { grid-column:1/-1; }
+    .divider { border:none; border-top:1px solid #f1f5f9; margin:.25rem 0; }
+    .section-sub { font-size:.82rem; font-weight:700; color:#374151; margin-bottom:.5rem; display:flex; align-items:center; gap:.4rem; }
+    .circuit-step { display:flex; gap:.85rem; padding:.6rem 0; border-bottom:1px dashed #f1f5f9; }
+    .step-num { width:26px; height:26px; border-radius:50%; background:#e0f2fe; color:#0369a1; display:flex; align-items:center; justify-content:center; font-size:.75rem; font-weight:700; flex-shrink:0; }
+    .step-done .step-num { background:#dcfce7; color:#15803d; }
+    .action-row { display:flex; gap:.6rem; flex-wrap:wrap; padding-top:.5rem; }
+
+    /* ── form ── */
+    .form-card { background:#fff; border-radius:14px; box-shadow:0 1px 8px rgba(0,0,0,.07); border:1px solid #f1f5f9; padding:1.5rem; }
+    .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:.9rem 1.25rem; }
+    .form-group { display:flex; flex-direction:column; gap:.3rem; }
+    .form-group.full { grid-column:1/-1; }
+    .form-label { font-size:.8rem; font-weight:700; color:#374151; }
+    .form-label .req { color:#ef4444; }
+    .form-control { height:38px; padding:0 .85rem; border:1.5px solid #e2e8f0; border-radius:9px; font-family:'Tajawal',sans-serif; font-size:.88rem; outline:none; transition:border-color .2s; background:#fff; }
+    .form-control:focus { border-color:#0ea5e9; box-shadow:0 0 0 3px rgba(14,165,233,.1); }
+    .form-control.invalid { border-color:#ef4444; }
+    textarea.form-control { height:80px; resize:vertical; padding:.6rem .85rem; }
+    .form-check { display:flex; align-items:center; gap:.5rem; cursor:pointer; font-size:.88rem; }
+    .form-check input { width:16px; height:16px; cursor:pointer; accent-color:#0ea5e9; }
+    .form-footer { display:flex; gap:.75rem; justify-content:flex-end; margin-top:1.25rem; padding-top:1rem; border-top:1px solid #f1f5f9; }
+    .alert-err { background:#fef2f2; border:1px solid #fca5a5; border-radius:9px; padding:.75rem 1rem; font-size:.85rem; color:#dc2626; margin-bottom:1rem; }
+    .alert-ok  { background:#f0fdf4; border:1px solid #86efac; border-radius:9px; padding:.75rem 1rem; font-size:.85rem; color:#15803d; margin-bottom:1rem; }
+
+    /* ── loading ── */
+    .skeleton { background:linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%); background-size:200% 100%; animation:shimmer 1.4s infinite; border-radius:8px; }
+    @@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+    .loading-row td { padding:.5rem 1rem; }
+</style>
+
+@* ══════════════════════════════════════════════════════ *@
+@* VIEW: FORM (new/edit)                                  *@
+@* ══════════════════════════════════════════════════════ *@
+@if (_showForm)
+{
+    <div class="page-header">
+        <div>
+            <div class="page-title"><i class="bi bi-envelope-arrow-down" style="color:#0ea5e9"></i> @(_editId.HasValue ? "تعديل بريد وارد" : "تسجيل بريد وارد جديد")</div>
+            <div class="page-sub">البريد الوارد / @(_editId.HasValue ? "تعديل" : "جديد")</div>
+        </div>
+        <button class="btn btn-secondary" @onclick="BackToList"><i class="bi bi-arrow-right"></i> رجوع</button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_formError))   { <div class="alert-err"><i class="bi bi-exclamation-triangle"></i> @_formError</div> }
+    @if (!string.IsNullOrEmpty(_formSuccess)) { <div class="alert-ok"><i class="bi bi-check-circle"></i> @_formSuccess</div> }
+
+    <div class="form-card">
+        <div class="form-grid">
+            <div class="form-group">
+                <label class="form-label">تاريخ الوثيقة <span class="req">*</span></label>
+                <input type="date" class="form-control @(_v && _dto.DateCourrier == default ? "invalid" : "")" @bind="_dto.DateCourrier" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">تاريخ الاستلام <span class="req">*</span></label>
+                <input type="date" class="form-control" @bind="_dto.DateReception" />
+            </div>
+            <div class="form-group full">
+                <label class="form-label">موضوع البريد <span class="req">*</span></label>
+                <input type="text" class="form-control @(_v && string.IsNullOrEmpty(_dto.ObjetCourrier) ? "invalid" : "")"
+                       placeholder="أدخل موضوع البريد…" @bind="_dto.ObjetCourrier" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">نوع الوثيقة</label>
+                <select class="form-control" @bind="_dto.TypeDocument">
+                    <option>Lettre</option><option>Décision</option><option>Note</option>
+                    <option>Rapport</option><option>Circulaire</option><option>Autre</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">طريقة الاستلام</label>
+                <select class="form-control" @bind="_dto.ModeReception">
+                    <option>Guichet</option><option>Courrier</option><option>Email</option>
+                    <option>Recommandé</option><option>Fax</option><option>Main propre</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">اسم المرسل (حر)</label>
+                <input type="text" class="form-control" placeholder="اسم المرسل" @bind="_dto.ExpediteurLibreNom" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">الأولوية</label>
+                <select class="form-control" @bind="_dto.Priorite">
+                    <option>Normal</option><option>Urgent</option><option>TresUrgent</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">الرقم الخارجي</label>
+                <input type="text" class="form-control" placeholder="رقم مرجعي خارجي" @bind="_dto.NumeroExterne" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">الرقم المضمون</label>
+                <input type="text" class="form-control" placeholder="رقم الاستلام المضمون" @bind="_dto.NumeroRecommande" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">أجل الرد</label>
+                <input type="date" class="form-control" @bind="_dto.DelaiReponse" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">عدد الصفحات</label>
+                <input type="number" class="form-control" min="1" @bind="_dto.NombrePages" />
+            </div>
+            <div class="form-group full">
+                <label class="form-label">ملاحظات</label>
+                <textarea class="form-control" placeholder="ملاحظات إضافية…" @bind="_dto.Observation"></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-check">
+                    <input type="checkbox" @bind="_dto.NecessiteReponse" />
+                    يستوجب رداً
+                </label>
+            </div>
+            <div class="form-group">
+                <label class="form-check">
+                    <input type="checkbox" @bind="_dto.EstConfidentiel" />
+                    سري
+                </label>
+            </div>
+        </div>
+        <div class="form-footer">
+            <button class="btn btn-secondary" @onclick="BackToList">إلغاء</button>
+            <button class="btn btn-primary" @onclick="SaveAsync" disabled="@_saving">
+                @if(_saving){ <text><i class="bi bi-hourglass-split"></i> جارٍ الحفظ…</text> }
+                else { <text><i class="bi bi-floppy"></i> حفظ</text> }
+            </button>
+        </div>
+    </div>
+}
+@* ══════════════════════════════════════════════════════ *@
+@* VIEW: LIST                                             *@
+@* ══════════════════════════════════════════════════════ *@
+else
+{
+    <div class="page-header">
+        <div>
+            <div class="page-title"><i class="bi bi-envelope-arrow-down" style="color:#0ea5e9"></i> البريد الوارد</div>
+            <div class="page-sub">@(_paged?.TotalCount ?? 0) وثيقة</div>
+        </div>
+        <button class="btn btn-primary" @onclick="OpenNew"><i class="bi bi-plus-lg"></i> تسجيل بريد وارد</button>
+    </div>
+
+    <div class="filters-bar">
+        <div class="search-wrap">
+            <i class="bi bi-search search-icon"></i>
+            <input class="search-input" placeholder="بحث بالرقم أو الموضوع أو المرسل…" @bind="_filter.SearchTerm" @bind:event="oninput" @onkeyup="OnSearch" />
+        </div>
+        <select class="filter-sel" @bind="_filter.Statut" @bind:after="LoadAsync">
+            <option value="">جميع الحالات</option>
+            <option value="Enregistre">مسجّل</option>
+            <option value="EnCours">قيد المعالجة</option>
+            <option value="Traite">تمت المعالجة</option>
+            <option value="Archive">مؤرشف</option>
+        </select>
+        <select class="filter-sel" @bind="_filter.Priorite" @bind:after="LoadAsync">
+            <option value="">كل الأولويات</option>
+            <option value="Normal">عادي</option>
+            <option value="Urgent">عاجل</option>
+            <option value="TresUrgent">عاجل جداً</option>
+        </select>
+        <select class="filter-sel" @bind="_filter.TypeDocument" @bind:after="LoadAsync">
+            <option value="">كل الأنواع</option>
+            <option value="Lettre">رسالة</option>
+            <option value="Décision">قرار</option>
+            <option value="Note">مذكرة</option>
+            <option value="Rapport">تقرير</option>
+            <option value="Circulaire">منشور</option>
+        </select>
+        <input type="date" class="filter-date" @bind="_filter.DateDebut" @bind:after="LoadAsync" title="من تاريخ" />
+        <input type="date" class="filter-date" @bind="_filter.DateFin"   @bind:after="LoadAsync" title="إلى تاريخ" />
+        <button class="btn btn-secondary" @onclick="ResetFilter"><i class="bi bi-x-circle"></i> إعادة تعيين</button>
+    </div>
+
+    <div class="table-card">
+        <div class="table-inner">
+            <table>
+                <thead>
+                    <tr>
+                        <th>رقم الترتيب</th>
+                        <th>تاريخ الاستلام</th>
+                        <th>الموضوع</th>
+                        <th>المرسل</th>
+                        <th>النوع</th>
+                        <th>الأولوية</th>
+                        <th>الحالة</th>
+                        <th>أجل الرد</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (_loading)
+                    {
+                        @for(int i = 0; i < 6; i++)
+                        {
+                            <tr class="loading-row">
+                                @for(int j = 0; j < 9; j++){
+                                    <td><div class="skeleton" style="height:18px;width:@(j==2?"140px":"80px")"></div></td>
+                                }
+                            </tr>
+                        }
+                    }
+                    else if (_paged?.Items?.Any() == true)
+                    {
+                        @foreach (var c in _paged.Items)
+                        {
+                            bool retard = c.DelaiReponse.HasValue && c.DelaiReponse.Value < DateTime.Today && c.Statut != "Traite" && c.Statut != "Archive";
+                            <tr class="@(c.Priorite=="Urgent"?"tr-urgent":"") @(retard?"tr-retard":"")" @onclick="()=>OpenDetail(c.Id)">
+                                <td><strong style="color:#0369a1">@c.NumeroOrdre</strong></td>
+                                <td>@c.DateReception.ToString("dd/MM/yyyy")</td>
+                                <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="@c.ObjetCourrier">
+                                    @c.ObjetCourrier
+                                    @if(c.EstConfidentiel){ <span class="badge badge-confidentiel" style="margin-right:.4rem"><i class="bi bi-lock-fill"></i></span> }
+                                </td>
+                                <td>@(c.ExpediteurNom ?? "—")</td>
+                                <td>@c.TypeDocument</td>
+                                <td><span class="badge @PrioriteBadge(c.Priorite)">@c.Priorite</span></td>
+                                <td><span class="badge @StatutBadge(c.Statut)">@StatutLabel(c.Statut)</span></td>
+                                <td>
+                                    @if(c.DelaiReponse.HasValue)
+                                    {
+                                        <span style="color:@(retard?"#dc2626":"#374151");font-size:.82rem">
+                                            @if(retard){ <i class="bi bi-exclamation-triangle" style="color:#ef4444"></i> }
+                                            @c.DelaiReponse.Value.ToString("dd/MM/yyyy")
+                                        </span>
+                                    }
+                                    else { <text>—</text> }
+                                </td>
+                                <td @onclick:stopPropagation="true">
+                                    <button class="btn btn-secondary" style="padding:.3rem .65rem;font-size:.78rem" @onclick="()=>OpenEdit(c.Id)">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:3rem">
+                            <i class="bi bi-inbox" style="font-size:2rem;display:block;margin-bottom:.5rem"></i>
+                            لا يوجد بريد وارد مطابق للتصفية
+                        </td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @* Pagination *@
+        @if (_paged != null && _paged.TotalPages > 1)
+        {
+            <div class="pagination">
+                <button class="pg-btn" disabled="@(_filter.PageNumber==1)" @onclick="()=>GoPage(_filter.PageNumber-1)"><i class="bi bi-chevron-right"></i></button>
+                @for(int p = Math.Max(1,_filter.PageNumber-2); p <= Math.Min(_paged.TotalPages, _filter.PageNumber+2); p++)
+                {
+                    int pp = p;
+                    <button class="pg-btn @(pp==_filter.PageNumber?"active":"")" @onclick="()=>GoPage(pp)">@pp</button>
+                }
+                <button class="pg-btn" disabled="@(_filter.PageNumber==_paged.TotalPages)" @onclick="()=>GoPage(_filter.PageNumber+1)"><i class="bi bi-chevron-left"></i></button>
+                <span class="pg-info">@_filter.PageNumber / @_paged.TotalPages</span>
+            </div>
+        }
+    </div>
+}
+
+@* ══════════════════════════════════════════════════════ *@
+@* DRAWER — Detail                                        *@
+@* ══════════════════════════════════════════════════════ *@
+@if (_detail != null)
+{
+    <div class="overlay" @onclick="CloseDetail">
+        <div class="drawer" @onclick:stopPropagation="true">
+            <div class="drawer-header">
+                <div class="drawer-title">
+                    <i class="bi bi-envelope-arrow-down" style="color:#0ea5e9"></i>
+                    @_detail.NumeroOrdre — @_detail.ObjetCourrier
+                </div>
+                <button class="close-btn" @onclick="CloseDetail"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="drawer-body">
+                @* Info principale *@
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <label>رقم الترتيب</label>
+                        <span style="font-weight:700;color:#0369a1">@_detail.NumeroOrdre</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>الحالة</label>
+                        <span class="badge @StatutBadge(_detail.Statut)">@StatutLabel(_detail.Statut)</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>تاريخ الوثيقة</label>
+                        <span>@_detail.DateCourrier.ToString("dd/MM/yyyy")</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>تاريخ الاستلام</label>
+                        <span>@_detail.DateReception.ToString("dd/MM/yyyy")</span>
+                    </div>
+                    <div class="detail-item full">
+                        <label>الموضوع</label>
+                        <span>@_detail.ObjetCourrier</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>المرسل</label>
+                        <span>@(_detail.ExpediteurNom ?? "—")</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>طريقة الاستلام</label>
+                        <span>@_detail.ModeReception</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>الأولوية</label>
+                        <span class="badge @PrioriteBadge(_detail.Priorite)">@_detail.Priorite</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>النوع</label>
+                        <span>@_detail.TypeDocument</span>
+                    </div>
+                    @if(_detail.NecessiteReponse)
+                    {
+                        <div class="detail-item">
+                            <label>أجل الرد</label>
+                            <span style="color:@(_detail.DelaiReponse.HasValue && _detail.DelaiReponse.Value < DateTime.Today ? "#dc2626" : "#374151")">
+                                @(_detail.DelaiReponse.HasValue ? _detail.DelaiReponse.Value.ToString("dd/MM/yyyy") : "غير محدد")
+                            </span>
+                        </div>
+                    }
+                    @if(!string.IsNullOrEmpty(_detail.Observation))
+                    {
+                        <div class="detail-item full">
+                            <label>ملاحظات</label>
+                            <span>@_detail.Observation</span>
+                        </div>
+                    }
+                    @if(_detail.NombrePiecesJointes > 0)
+                    {
+                        <div class="detail-item">
+                            <label>المرفقات</label>
+                            <span><i class="bi bi-paperclip"></i> @_detail.NombrePiecesJointes ملف(ات)</span>
+                        </div>
+                    }
+                </div>
+
+                @* Circuit de traitement *@
+                @if (_detail.Circuit?.Any() == true)
+                {
+                    <hr class="divider"/>
+                    <div class="section-sub"><i class="bi bi-diagram-3"></i> مسار التوجيه</div>
+                    @foreach(var step in _detail.Circuit.OrderBy(s=>s.NumeroEtape))
+                    {
+                        <div class="circuit-step @(step.DateTraitement.HasValue ? "step-done" : "")">
+                            <div class="step-num">@step.NumeroEtape</div>
+                            <div style="flex:1">
+                                <div style="font-size:.86rem;font-weight:600;color:#0f172a">@step.ServiceRecepteurNom</div>
+                                <div style="font-size:.78rem;color:#64748b">
+                                    @step.TypeAction — @step.DateTransmission.ToString("dd/MM/yyyy")
+                                    @if(step.DateTraitement.HasValue){ <text> ✓ @step.DateTraitement.Value.ToString("dd/MM/yyyy")</text> }
+                                </div>
+                                @if(!string.IsNullOrEmpty(step.CommentaireTraitement))
+                                {
+                                    <div style="font-size:.8rem;color:#374151;margin-top:.2rem;background:#f8fafc;padding:.3rem .6rem;border-radius:6px">@step.CommentaireTraitement</div>
+                                }
+                            </div>
+                            <span class="badge @(step.DateTraitement.HasValue ? "badge-traite" : "badge-encours")">
+                                @(step.DateTraitement.HasValue ? "تمت" : "جارٍ")
+                            </span>
+                        </div>
+                    }
+                }
+
+                @* Actions *@
+                <hr class="divider"/>
+                <div class="section-sub"><i class="bi bi-lightning"></i> الإجراءات</div>
+                <div class="action-row">
+                    <button class="btn btn-warning" @onclick="()=>OpenAcheminer(_detail.Id)">
+                        <i class="bi bi-diagram-3"></i> توجيه
+                    </button>
+                    @if(_detail.Statut != "Traite" && _detail.Statut != "Archive")
+                    {
+                        <button class="btn btn-success" @onclick="()=>MarquerTraite(_detail.Id)">
+                            <i class="bi bi-check-circle"></i> تمت المعالجة
+                        </button>
+                    }
+                    @if(_detail.Statut != "Archive")
+                    {
+                        <button class="btn btn-secondary" @onclick="()=>OpenArchiver(_detail.Id)">
+                            <i class="bi bi-archive"></i> أرشفة
+                        </button>
+                    }
+                    <button class="btn btn-purple" @onclick="()=>OpenEdit(_detail.Id)">
+                        <i class="bi bi-pencil"></i> تعديل
+                    </button>
+                </div>
+
+                @* Mini-modal Acheminer *@
+                @if (_showAcheminer)
+                {
+                    <div style="background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:10px;padding:1rem;margin-top:.5rem">
+                        <div class="section-sub"><i class="bi bi-send"></i> توجيه البريد</div>
+                        <div style="display:flex;flex-direction:column;gap:.65rem">
+                            <div>
+                                <label class="form-label">معرف الخدمة المستقبلة <span class="req">*</span></label>
+                                <input type="number" class="form-control" @bind="_acheminerDto.ServiceRecepteurId" />
+                            </div>
+                            <div>
+                                <label class="form-label">نوع الإجراء</label>
+                                <select class="form-control" @bind="_acheminerDto.TypeAction">
+                                    <option value="PourAction">Pour Action</option>
+                                    <option value="PourInfo">Pour Info</option>
+                                    <option value="PourAvis">Pour Avis</option>
+                                    <option value="PourValidation">Pour Validation</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="form-label">تعليمات التوجيه</label>
+                                <input type="text" class="form-control" @bind="_acheminerDto.InstructionTransmission" />
+                            </div>
+                            <div style="display:flex;gap:.5rem;justify-content:flex-end">
+                                <button class="btn btn-secondary" @onclick="()=>_showAcheminer=false">إلغاء</button>
+                                <button class="btn btn-primary" @onclick="ConfirmAcheminer" disabled="@_saving">
+                                    @(_saving ? "جارٍ…" : "تأكيد التوجيه")
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                @* Mini-modal Archiver *@
+                @if (_showArchiver)
+                {
+                    <div style="background:#fafafa;border:1.5px solid #e2e8f0;border-radius:10px;padding:1rem;margin-top:.5rem">
+                        <div class="section-sub"><i class="bi bi-archive"></i> أرشفة البريد الوارد</div>
+                        <div style="display:flex;flex-direction:column;gap:.65rem">
+                            <div><label class="form-label">القاعة</label><input type="text" class="form-control" @bind="_archiverDto.SalleArchive" /></div>
+                            <div><label class="form-label">الرف</label><input type="text" class="form-control" @bind="_archiverDto.Rayon" /></div>
+                            <div><label class="form-label">الصندوق</label><input type="text" class="form-control" @bind="_archiverDto.Boite" /></div>
+                            <div>
+                                <label class="form-label">التصنيف</label>
+                                <select class="form-control" @bind="_archiverDto.Classification">
+                                    <option value="Courant">جارٍ</option><option value="Intermediaire">وسيط</option><option value="Historique">تاريخي</option>
+                                </select>
+                            </div>
+                            <div><label class="form-label">مدة الحفظ (سنوات)</label><input type="number" class="form-control" @bind="_archiverDto.DureeConservationAns" /></div>
+                            <div style="display:flex;gap:.5rem;justify-content:flex-end">
+                                <button class="btn btn-secondary" @onclick="()=>_showArchiver=false">إلغاء</button>
+                                <button class="btn btn-primary" @onclick="ConfirmArchiver" disabled="@_saving">
+                                    @(_saving ? "جارٍ…" : "تأكيد الأرشفة")
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    // ── State ────────────────────────────────────────────
+    private PagedResult<CourrierEntrantDto>? _paged;
+    private CourrierEntrantDetailDto?        _detail;
+    private CourrierEntrantFilterDto         _filter   = new() { PageNumber = 1, PageSize = 10 };
+    private CreateCourrierEntrantDto         _dto      = new() { DateCourrier = DateTime.Today, DateReception = DateTime.Today };
+    private AcheminerCourrierDto             _acheminerDto = new();
+    private ArchiversCourrierDto             _archiverDto  = new() { DureeConservationAns = 10, Classification = "Courant" };
+    private bool _loading, _saving, _showForm, _v;
+    private int? _editId;
+    private int  _targetId;
+    private bool _showAcheminer, _showArchiver;
+    private string? _formError, _formSuccess;
+
+    // ── Init ─────────────────────────────────────────────
+    private bool _initialized = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Id.HasValue)
+            await OpenDetail(Id.Value);
+        else
+            await LoadAsync();
+        _initialized = true;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!_initialized) return;
+        if (Id.HasValue && (_detail == null || _detail.Id != Id.Value))
+            await OpenDetail(Id.Value);
+        else if (!Id.HasValue && _detail != null)
+        {
+            _detail = null;
+            await LoadAsync();
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+        _paged = await Api.GetPagedAsync(_filter);
+        _loading = false;
+    }
+
+    // ── Navigation / forms ───────────────────────────────
+    private void OpenNew()
+    {
+        _dto       = new() { DateCourrier = DateTime.Today, DateReception = DateTime.Today };
+        _editId    = null;
+        _showForm  = true;
+        _formError = _formSuccess = null;
+        _v         = false;
+        _detail    = null;
+        _showAcheminer = false;
+        _showArchiver  = false;
+    }
+
+    private async Task OpenEdit(int id)
+    {
+        var detail = await Api.GetByIdAsync(id);
+        if (detail == null) return;
+        _dto = new CreateCourrierEntrantDto
+        {
+            DateCourrier          = detail.DateCourrier,
+            DateReception         = detail.DateReception,
+            ObjetCourrier         = detail.ObjetCourrier,
+            TypeDocument          = detail.TypeDocument,
+            ModeReception         = detail.ModeReception,
+            ExpediteurLibreNom    = detail.ExpediteurNom,
+            Priorite              = detail.Priorite,
+            NecessiteReponse      = detail.NecessiteReponse,
+            EstConfidentiel       = detail.EstConfidentiel,
+            DelaiReponse          = detail.DelaiReponse,
+            Observation           = detail.Observation,
+            NumeroExterne         = detail.NumeroExterne,
+            NombrePages           = detail.NombrePages
+        };
+        _editId   = id;
+        _showForm = true;
+        _v        = false;
+        _formError = _formSuccess = null;
+        _detail   = null;
+    }
+
+    private void BackToList()
+    {
+        _showForm  = false;
+        _editId    = null;
+        _formError = _formSuccess = null;
+        // إذا كنا قادمين من URL /bureau/incoming/{id} نرجع للقائمة
+        if (Id.HasValue)
+            Nav.NavigateTo("/bureau/incoming");
+    }
+
+    private async Task OpenDetail(int id)
+    {
+        _detail        = await Api.GetByIdAsync(id);
+        _showAcheminer = false;
+        _showArchiver  = false;
+    }
+
+    private void CloseDetail() => _detail = null;
+
+    // ── Save ─────────────────────────────────────────────
+    private async Task SaveAsync()
+    {
+        _v = true;
+        if (_dto.DateCourrier == default || string.IsNullOrEmpty(_dto.ObjetCourrier))
+        {
+            _formError = "الرجاء ملء الحقول الإلزامية.";
+            return;
+        }
+        _saving = true;
+        _formError = null;
+        try
+        {
+            if (_editId.HasValue)
+            {
+                var upd = new UpdateCourrierEntrantDto
+                {
+                    ObjetCourrier        = _dto.ObjetCourrier,
+                    TypeDocument         = _dto.TypeDocument,
+                    Priorite             = _dto.Priorite,
+                    NecessiteReponse     = _dto.NecessiteReponse,
+                    DelaiReponse         = _dto.DelaiReponse,
+                    Observation          = _dto.Observation,
+                    ServiceDestinataireId = _dto.ServiceDestinataireId
+                };
+                var res = await Api.ModifierAsync(_editId.Value, upd);
+                if (res != null) { _formSuccess = "تم التعديل بنجاح."; _showForm = false; await LoadAsync(); }
+                else _formError = "حدث خطأ أثناء التعديل.";
+            }
+            else
+            {
+                var res = await Api.EnregistrerAsync(_dto);
+                if (res != null) { _formSuccess = "تم تسجيل البريد الوارد بنجاح."; _showForm = false; await LoadAsync(); }
+                else _formError = "حدث خطأ أثناء الحفظ.";
+            }
+        }
+        finally { _saving = false; }
+    }
+
+    // ── Actions ──────────────────────────────────────────
+    private async Task MarquerTraite(int id)
+    {
+        await Api.ChangerStatutAsync(id, new ChangerStatutEntrantDto { NouveauStatut = "Traite" });
+        await OpenDetail(id);
+        await LoadAsync();
+    }
+
+    private void OpenAcheminer(int id) { _targetId = id; _acheminerDto = new(); _showAcheminer = true; _showArchiver = false; }
+    private async Task ConfirmAcheminer()
+    {
+        _saving = true;
+        await Api.AcheminerAsync(_targetId, _acheminerDto);
+        _showAcheminer = false;
+        await OpenDetail(_targetId);
+        _saving = false;
+    }
+
+    private void OpenArchiver(int id) { _targetId = id; _archiverDto = new() { DureeConservationAns = 10, Classification = "Courant" }; _showArchiver = true; _showAcheminer = false; }
+    private async Task ConfirmArchiver()
+    {
+        _saving = true;
+        await Api.ArchiverAsync(_targetId, _archiverDto);
+        _showArchiver = false;
+        await OpenDetail(_targetId);
+        await LoadAsync();
+        _saving = false;
+    }
+
+    // ── Filter / Pagination ──────────────────────────────
+    private System.Threading.CancellationTokenSource? _cts;
+    private async Task OnSearch()
+    {
+        _cts?.Cancel();
+        _cts = new();
+        try { await Task.Delay(400, _cts.Token); await LoadAsync(); } catch { }
+    }
+
+    private async Task GoPage(int p) { _filter.PageNumber = p; await LoadAsync(); }
+
+    private async Task ResetFilter()
+    {
+        _filter = new() { PageNumber = 1, PageSize = 10 };
+        await LoadAsync();
+    }
+
+    // ── Helpers ──────────────────────────────────────────
+    private static string PrioriteBadge(string p) => p switch { "Urgent" => "badge-urgent", "TresUrgent" => "badge-urgent", _ => "badge-normal" };
+    private static string StatutBadge(string s) => s switch
+    {
+        "Enregistre" => "badge-enregistre", "EnCours" => "badge-encours",
+        "Traite"     => "badge-traite",     "Archive" => "badge-archive",
+        _ => "badge-enregistre"
+    };
+    private static string StatutLabel(string s) => s switch
+    {
+        "Enregistre" => "مسجّل", "EnCours" => "قيد المعالجة",
+        "Traite"     => "تمت المعالجة", "Archive" => "مؤرشف",
+        _ => s
+    };
+}
