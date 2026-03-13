@@ -12,11 +12,144 @@ using Municipality360.Application.DTOs.BureauOrdre;
 using Municipality360.Application.DTOs.Notifications;
 using Municipality360.Application.DTOs.PermisBatir;
 using Municipality360.Application.DTOs.Reclamations;
+using Municipality360.Application.DTOs.Structure;
 using Municipality360.Application.Interfaces.Repositories;
 using Municipality360.Domain.Entities;
 using Municipality360.Infrastructure.Data;
 
 namespace Municipality360.Infrastructure.Repositories;
+// ════════════════════════════════════════════════════════════════
+//  Departement
+// ════════════════════════════════════════════════════════════════
+public class DepartementRepository : GenericRepository<Departement>, IDepartementRepository
+{
+    public DepartementRepository(ApplicationDbContext context) : base(context) { }
+
+    public async Task<IEnumerable<Departement>> GetAllWithServicesAsync() =>
+        await _dbSet.Include(d => d.Services).OrderBy(d => d.Nom).ToListAsync();
+
+    public async Task<Departement?> GetByIdWithServicesAsync(int id) =>
+        await _dbSet.Include(d => d.Services).FirstOrDefaultAsync(d => d.Id == id);
+
+    public async Task<bool> CodeExistsAsync(string code, int? excludeId = null) =>
+        await _dbSet.AnyAsync(d => d.Code == code && (excludeId == null || d.Id != excludeId));
+}
+//
+// ════════════════════════════════════════════════════════════════
+//  Service
+// ════════════════════════════════════════════════════════════════
+public class ServiceRepository : GenericRepository<Domain.Entities.Service>, IServiceRepository
+{
+    public ServiceRepository(ApplicationDbContext context) : base(context) { }
+
+    public async Task<IEnumerable<Domain.Entities.Service>> GetByDepartementAsync(int departementId)
+    {
+        var query = _dbSet.Include(s => s.Departement).Include(s => s.Employes);
+        return departementId == 0
+            ? await query.OrderBy(s => s.Nom).ToListAsync()
+            : await query.Where(s => s.DepartementId == departementId).OrderBy(s => s.Nom).ToListAsync();
+    }
+
+    public async Task<Domain.Entities.Service?> GetByIdWithDetailsAsync(int id) =>
+        await _dbSet.Include(s => s.Departement).Include(s => s.Employes)
+                    .FirstOrDefaultAsync(s => s.Id == id);
+
+    public async Task<bool> CodeExistsAsync(string code, int? excludeId = null) =>
+        await _dbSet.AnyAsync(s => s.Code == code && (excludeId == null || s.Id != excludeId));
+
+    // ✅ FIXED: مطلوب بواسطة NotificationService.NotifierServiceAsync
+    public async Task<List<Employe>> GetEmployesAsync(int serviceId) =>
+        await _context.Set<Employe>()
+            .Where(e => e.ServiceId == serviceId && !e.IsDeleted)
+            .ToListAsync();
+}
+
+// ════════════════════════════════════════════════════════════════
+//  Employee
+// ════════════════════════════════════════════════════════════════
+public class EmployeRepository : GenericRepository<Employe>, IEmployeRepository
+{
+    public EmployeRepository(ApplicationDbContext context) : base(context) { }
+
+    public async Task<PagedResult<Employe>> GetPagedAsync(EmployeFilterDto filter)
+    {
+        var query = _dbSet
+            .Include(e => e.Service).ThenInclude(s => s.Departement)
+            .Include(e => e.Poste)
+            .AsQueryable();
+
+        if (filter.ServiceId.HasValue)
+            query = query.Where(e => e.ServiceId == filter.ServiceId);
+
+        if (filter.DepartementId.HasValue)
+            query = query.Where(e => e.Service.DepartementId == filter.DepartementId);
+
+        if (filter.PosteId.HasValue)
+            query = query.Where(e => e.PosteId == filter.PosteId);
+
+        if (!string.IsNullOrEmpty(filter.Statut) && Enum.TryParse<StatutEmploye>(filter.Statut, true, out var statut))
+            query = query.Where(e => e.Statut == statut);
+
+        if (!string.IsNullOrEmpty(filter.SearchTerm))
+        {
+            var term = filter.SearchTerm.ToLower();
+            query = query.Where(e =>
+                e.Nom.ToLower().Contains(term) ||
+                e.Prenom.ToLower().Contains(term) ||
+                e.Identifiant.ToLower().Contains(term) ||
+                e.Cin.ToLower().Contains(term) ||
+                (e.Email != null && e.Email.ToLower().Contains(term)));
+        }
+
+        var totalCount = await query.CountAsync();
+        var items = await query
+            .OrderBy(e => e.Nom).ThenBy(e => e.Prenom)
+            .Skip((filter.PageNumber - 1) * filter.PageSize)
+            .Take(filter.PageSize)
+            .ToListAsync();
+
+        return new PagedResult<Employe>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            PageNumber = filter.PageNumber,
+            PageSize = filter.PageSize
+        };
+    }
+
+    public async Task<Employe?> GetByIdWithDetailsAsync(int id) =>
+        await _dbSet
+            .Include(e => e.Service).ThenInclude(s => s.Departement)
+            .Include(e => e.Poste)
+            .FirstOrDefaultAsync(e => e.Id == id);
+
+    public async Task<IEnumerable<Employe>> GetByServiceAsync(int serviceId) =>
+        await _dbSet.Include(e => e.Poste)
+            .Where(e => e.ServiceId == serviceId)
+            .OrderBy(e => e.Nom).ToListAsync();
+
+    // ✅ FIXED: كانت تُلقي NotImplementedException
+    public async Task<bool> CinExistsAsync(string cin, int? excludeId = null) =>
+        await _dbSet.AnyAsync(e => e.Cin == cin && (excludeId == null || e.Id != excludeId));
+
+    // ✅ FIXED: كانت تُلقي NotImplementedException
+    public async Task<bool> IdentifiantExistsAsync(string identifiant, int? excludeId = null) =>
+        await _dbSet.AnyAsync(e => e.Identifiant == identifiant && (excludeId == null || e.Id != excludeId));
+}
+// ════════════════════════════════════════════════════════════════
+//  Poste
+// ════════════════════════════════════════════════════════════════
+public class PosteRepository : GenericRepository<Poste>, IPosteRepository
+{
+    public PosteRepository(ApplicationDbContext context) : base(context) { }
+
+    public async Task<IEnumerable<Poste>> GetActivePostesAsync() =>
+        await _dbSet.Where(p => p.IsActive).OrderBy(p => p.Titre).ToListAsync();
+
+    public async Task<bool> CodeExistsAsync(string code, int? excludeId = null) =>
+        await _dbSet.AnyAsync(p => p.Code == code && (excludeId == null || p.Id != excludeId));
+}
+
 
 // ════════════════════════════════════════════════════════════════
 //  SEQUENCE — توليد الأرقام التسلسلية
