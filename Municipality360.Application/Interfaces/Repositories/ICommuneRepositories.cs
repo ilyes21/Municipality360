@@ -78,6 +78,11 @@ public interface IBOCourrierEntrantRepository : IGenericRepository<BOCourrierEnt
     Task<List<CourrierEntrantDto>> GetEnRetardAsync();
     Task<List<CourrierEntrantDto>> GetNonTraitesParServiceAsync(int serviceId);
     Task<BOStatsDto> GetStatsAsync(int? serviceId = null);
+
+    // ── Pièces jointes ────────────────────────────────────────────
+    Task AddPieceJointeAsync(BOPieceJointeEntrant pj);
+    Task<BOPieceJointeEntrant?> GetPieceJointeAsync(int courrierEntrantId, int pjId);
+    Task SupprimerPieceJointeAsync(BOPieceJointeEntrant pj);
 }
 
 public interface IBOCircuitTraitementRepository : IGenericRepository<BOCircuitTraitement>

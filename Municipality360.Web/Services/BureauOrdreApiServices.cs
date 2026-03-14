@@ -10,34 +10,62 @@
 //    builder.Services.AddScoped<IBOStatsApiService, BOStatsApiService>();
 // ═══════════════════════════════════════════════════════════════════
 
+using Microsoft.AspNetCore.Components.Forms;
 using Municipality360.Application.Common;
 using Municipality360.Application.DTOs.BureauOrdre;
+using Municipality360.Application.DTOs.Structure;
 
 namespace Municipality360.Web.Services;
+
+
 
 // ── Courrier Entrant ──────────────────────────────────────────────
 
 public interface ICourrierEntrantApiService
 {
+    // Lectures
     Task<PagedResult<CourrierEntrantDto>?> GetPagedAsync(CourrierEntrantFilterDto filter);
     Task<CourrierEntrantDetailDto?> GetByIdAsync(int id);
     Task<CourrierEntrantDetailDto?> GetByNumeroAsync(string numero);
     Task<List<CourrierEntrantDto>?> GetEnRetardAsync();
     Task<List<CourrierEntrantDto>?> GetEnAttenteParServiceAsync(int serviceId);
     Task<BOStatsDto?> GetStatsAsync(int? serviceId = null);
+
+    // Écriture
     Task<CourrierEntrantDetailDto?> EnregistrerAsync(CreateCourrierEntrantDto dto);
+    Task<CourrierEntrantDetailDto?> EnregistrerAvecFichiersAsync(CreateCourrierEntrantDto dto, List<IBrowserFile> fichiers);
     Task<CourrierEntrantDetailDto?> ModifierAsync(int id, UpdateCourrierEntrantDto dto);
     Task<bool> ChangerStatutAsync(int id, ChangerStatutEntrantDto dto);
+    Task<bool> AffecterAsync(int id, AffecterCourrierEntrantDto dto);
+
+    // Circuit
     Task<BOCircuitTraitementDto?> AcheminerAsync(int id, AcheminerCourrierDto dto);
     Task<bool> TraiterEtapeCircuitAsync(int circuitId, TraiterEtapeCircuitDto dto);
+    Task<bool> RetournerEtapeCircuitAsync(int circuitId, RetournerEtapeCircuitDto dto);
     Task<List<BOCircuitTraitementDto>?> GetCircuitAsync(int id);
+
+    // Pièces jointes
+    Task<bool> UploadPiecesJointesAsync(int id, List<IBrowserFile> fichiers, string typePiece = "Annexe");
+
+    // Archivage
     Task<BOArchiveDto?> ArchiverAsync(int id, ArchiversCourrierDto dto);
+
+    // Services (pour les dropdowns)
+    Task<List<ServiceItemDto>?> GetServicesAsync();
 }
 
 public class CourrierEntrantApiService : ICourrierEntrantApiService
 {
     private readonly ApiService _api;
-    public CourrierEntrantApiService(ApiService api) => _api = api;
+    private readonly HttpClient _http;
+
+    public CourrierEntrantApiService(ApiService api, HttpClient http)
+    {
+        _api = api;
+        _http = http;
+    }
+
+    // ── Lectures ──────────────────────────────────────────────────
 
     public async Task<PagedResult<CourrierEntrantDto>?> GetPagedAsync(CourrierEntrantFilterDto f)
     {
@@ -50,23 +78,24 @@ public class CourrierEntrantApiService : ICourrierEntrantApiService
         if (f.DossierId.HasValue) q += $"&dossierId={f.DossierId}";
         if (f.NecessiteReponse.HasValue) q += $"&necessiteReponse={f.NecessiteReponse}";
         if (f.EnRetard.HasValue) q += $"&enRetard={f.EnRetard}";
+        if (f.EstConfidentiel.HasValue) q += $"&estConfidentiel={f.EstConfidentiel}";
         if (f.DateDebut.HasValue) q += $"&dateDebut={f.DateDebut:yyyy-MM-dd}";
         if (f.DateFin.HasValue) q += $"&dateFin={f.DateFin:yyyy-MM-dd}";
         if (!string.IsNullOrEmpty(f.SearchTerm)) q += $"&searchTerm={Uri.EscapeDataString(f.SearchTerm)}";
         return await _api.GetAsync<PagedResult<CourrierEntrantDto>>(q);
     }
 
-    public async Task<CourrierEntrantDetailDto?> GetByIdAsync(int id) =>
-        await _api.GetAsync<CourrierEntrantDetailDto>($"api/courriers-entrants/{id}");
+    public Task<CourrierEntrantDetailDto?> GetByIdAsync(int id) =>
+        _api.GetAsync<CourrierEntrantDetailDto>($"api/courriers-entrants/{id}");
 
-    public async Task<CourrierEntrantDetailDto?> GetByNumeroAsync(string numero) =>
-        await _api.GetAsync<CourrierEntrantDetailDto>($"api/courriers-entrants/numero/{numero}");
+    public Task<CourrierEntrantDetailDto?> GetByNumeroAsync(string numero) =>
+        _api.GetAsync<CourrierEntrantDetailDto>($"api/courriers-entrants/numero/{numero}");
 
-    public async Task<List<CourrierEntrantDto>?> GetEnRetardAsync() =>
-        await _api.GetAsync<List<CourrierEntrantDto>>("api/courriers-entrants/en-retard");
+    public Task<List<CourrierEntrantDto>?> GetEnRetardAsync() =>
+        _api.GetAsync<List<CourrierEntrantDto>>("api/courriers-entrants/en-retard");
 
-    public async Task<List<CourrierEntrantDto>?> GetEnAttenteParServiceAsync(int serviceId) =>
-        await _api.GetAsync<List<CourrierEntrantDto>>($"api/courriers-entrants/en-attente/service/{serviceId}");
+    public Task<List<CourrierEntrantDto>?> GetEnAttenteParServiceAsync(int serviceId) =>
+        _api.GetAsync<List<CourrierEntrantDto>>($"api/courriers-entrants/en-attente/service/{serviceId}");
 
     public async Task<BOStatsDto?> GetStatsAsync(int? serviceId = null)
     {
@@ -75,33 +104,155 @@ public class CourrierEntrantApiService : ICourrierEntrantApiService
         return await _api.GetAsync<BOStatsDto>(q);
     }
 
-    public async Task<CourrierEntrantDetailDto?> EnregistrerAsync(CreateCourrierEntrantDto dto) =>
-        await _api.PostAsync<CreateCourrierEntrantDto, CourrierEntrantDetailDto>("api/courriers-entrants", dto);
+    // ── Enregistrement JSON ───────────────────────────────────────
 
-    public async Task<CourrierEntrantDetailDto?> ModifierAsync(int id, UpdateCourrierEntrantDto dto) =>
-        await _api.PutAsync<UpdateCourrierEntrantDto, CourrierEntrantDetailDto>($"api/courriers-entrants/{id}", dto);
+    public Task<CourrierEntrantDetailDto?> EnregistrerAsync(CreateCourrierEntrantDto dto) =>
+        _api.PostAsync<CreateCourrierEntrantDto, CourrierEntrantDetailDto>("api/courriers-entrants", dto);
+
+    // ── Enregistrement avec fichiers (multipart) ──────────────────
+
+    public async Task<CourrierEntrantDetailDto?> EnregistrerAvecFichiersAsync(
+        CreateCourrierEntrantDto dto, List<IBrowserFile> fichiers)
+    {
+        try
+        {
+            using var content = new MultipartFormDataContent();
+
+            // Champs texte
+            void Add(string key, string? val)
+            { if (val != null) content.Add(new StringContent(val), key); }
+
+            Add("NumeroExterne", dto.NumeroExterne);
+            Add("DateCourrier", dto.DateCourrier.ToString("yyyy-MM-dd"));
+            Add("DateReception", dto.DateReception.ToString("yyyy-MM-dd"));
+            Add("ObjetCourrier", dto.ObjetCourrier);
+            Add("TypeDocument", dto.TypeDocument);
+            Add("ModeReception", dto.ModeReception);
+            Add("NumeroRecommande", dto.NumeroRecommande);
+            Add("Priorite", dto.Priorite);
+            Add("Observation", dto.Observation);
+            content.Add(new StringContent(dto.NombrePages.ToString()), "NombrePages");
+            content.Add(new StringContent(dto.EstConfidentiel.ToString()), "EstConfidentiel");
+            content.Add(new StringContent(dto.NecessiteReponse.ToString()), "NecessiteReponse");
+            if (dto.ServiceDestinataireId.HasValue)
+                content.Add(new StringContent(dto.ServiceDestinataireId.Value.ToString()), "ServiceDestinataireId");
+            if (dto.CategorieId.HasValue)
+                content.Add(new StringContent(dto.CategorieId.Value.ToString()), "CategorieId");
+            if (dto.DossierId.HasValue)
+                content.Add(new StringContent(dto.DossierId.Value.ToString()), "DossierId");
+            if (dto.DelaiReponse.HasValue)
+                content.Add(new StringContent(dto.DelaiReponse.Value.ToString("yyyy-MM-dd")), "DelaiReponse");
+
+            // Fichiers
+            foreach (var file in fichiers)
+            {
+                var stream = file.OpenReadStream(maxAllowedSize: 10_485_760);
+                var sc = new StreamContent(stream);
+                sc.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
+                    file.Name.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) ? "application/pdf" : "image/jpeg");
+                content.Add(sc, "Fichiers", file.Name);
+            }
+
+            var response = await _http.PostAsync("api/courriers-entrants/avec-fichiers", content);
+            if (!response.IsSuccessStatusCode) return null;
+            return await response.Content.ReadFromJsonAsync<CourrierEntrantDetailDto>();
+        }
+        catch { return null; }
+    }
+
+    // ── Modification ──────────────────────────────────────────────
+
+    public Task<CourrierEntrantDetailDto?> ModifierAsync(int id, UpdateCourrierEntrantDto dto) =>
+        _api.PutAsync<UpdateCourrierEntrantDto, CourrierEntrantDetailDto>($"api/courriers-entrants/{id}", dto);
+
+    // ── Statut ────────────────────────────────────────────────────
 
     public async Task<bool> ChangerStatutAsync(int id, ChangerStatutEntrantDto dto)
     {
-        var result = await _api.PatchAsync<ChangerStatutEntrantDto, object>($"api/courriers-entrants/{id}/statut", dto);
+        var result = await _api.PatchAsync<ChangerStatutEntrantDto, object>(
+            $"api/courriers-entrants/{id}/statut", dto);
         return result != null;
     }
 
-    public async Task<BOCircuitTraitementDto?> AcheminerAsync(int id, AcheminerCourrierDto dto) =>
-        await _api.PostAsync<AcheminerCourrierDto, BOCircuitTraitementDto>($"api/courriers-entrants/{id}/acheminer", dto);
+    // ── Affectation directe ───────────────────────────────────────
+
+    public async Task<bool> AffecterAsync(int id, AffecterCourrierEntrantDto dto)
+    {
+        var result = await _api.PatchAsync<AffecterCourrierEntrantDto, object>(
+            $"api/courriers-entrants/{id}/affecter", dto);
+        return result != null;
+    }
+
+    // ── Circuit ───────────────────────────────────────────────────
+
+    public Task<BOCircuitTraitementDto?> AcheminerAsync(int id, AcheminerCourrierDto dto) =>
+        _api.PostAsync<AcheminerCourrierDto, BOCircuitTraitementDto>(
+            $"api/courriers-entrants/{id}/acheminer", dto);
 
     public async Task<bool> TraiterEtapeCircuitAsync(int circuitId, TraiterEtapeCircuitDto dto)
     {
-        var result = await _api.PatchAsync<TraiterEtapeCircuitDto, object>($"api/courriers-entrants/circuit/{circuitId}/traiter", dto);
+        var result = await _api.PatchAsync<TraiterEtapeCircuitDto, object>(
+            $"api/courriers-entrants/circuit/{circuitId}/traiter", dto);
         return result != null;
     }
 
-    public async Task<List<BOCircuitTraitementDto>?> GetCircuitAsync(int id) =>
-        await _api.GetAsync<List<BOCircuitTraitementDto>>($"api/courriers-entrants/{id}/circuit");
+    public async Task<bool> RetournerEtapeCircuitAsync(int circuitId, RetournerEtapeCircuitDto dto)
+    {
+        var result = await _api.PatchAsync<RetournerEtapeCircuitDto, object>(
+            $"api/courriers-entrants/circuit/{circuitId}/retourner", dto);
+        return result != null;
+    }
 
-    public async Task<BOArchiveDto?> ArchiverAsync(int id, ArchiversCourrierDto dto) =>
-        await _api.PostAsync<ArchiversCourrierDto, BOArchiveDto>($"api/courriers-entrants/{id}/archiver", dto);
+    public Task<List<BOCircuitTraitementDto>?> GetCircuitAsync(int id) =>
+        _api.GetAsync<List<BOCircuitTraitementDto>>($"api/courriers-entrants/{id}/circuit");
+
+    // ── Pièces jointes multipart ──────────────────────────────────
+
+    public async Task<bool> UploadPiecesJointesAsync(
+        int id, List<IBrowserFile> fichiers, string typePiece = "Annexe")
+    {
+        try
+        {
+            using var content = new MultipartFormDataContent();
+            content.Add(new StringContent(typePiece), "TypePiece");
+
+            foreach (var file in fichiers)
+            {
+                var stream = file.OpenReadStream(maxAllowedSize: 10_485_760);
+                var sc = new StreamContent(stream);
+                sc.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
+                    file.Name.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) ? "application/pdf" : "image/jpeg");
+                content.Add(sc, "Fichiers", file.Name);
+            }
+
+            var response = await _http.PostAsync($"api/courriers-entrants/{id}/pieces-jointes", content);
+            return response.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
+
+    // ── Archivage ─────────────────────────────────────────────────
+
+    public Task<BOArchiveDto?> ArchiverAsync(int id, ArchiversCourrierDto dto) =>
+        _api.PostAsync<ArchiversCourrierDto, BOArchiveDto>(
+            $"api/courriers-entrants/{id}/archiver", dto);
+
+    // ── Services (dropdown) ───────────────────────────────────────
+
+    public async Task<List<ServiceItemDto>?> GetServicesAsync()
+    {
+        try
+        {
+            var result = await _api.GetAsync<Result<IEnumerable<ServiceDto>>>("api/services");
+            return result?.Data?
+                .Where(s => s.IsActive)
+                .Select(s => new ServiceItemDto(s.Id, s.Nom))
+                .ToList();
+        }
+        catch { return new(); }
+    }
 }
+
 
 // ── Courrier Sortant ──────────────────────────────────────────────
 

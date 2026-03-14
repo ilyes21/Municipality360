@@ -244,11 +244,11 @@ public class BODossierRepository : GenericRepository<BODossier>, IBODossierRepos
 
     private static BODossierDto MapToDto(BODossier d) => new()
     {
-        Id = d.Id, NumeroDossier = d.NumeroDossier, Intitule = d.Intitule,
-        Description = d.Description, ServiceResponsableId = d.ServiceResponsableId,
-        ServiceResponsableNom = d.ServiceResponsable?.Nom, DateOuverture = d.DateOuverture,
-        DateCloture = d.DateCloture, StatutDossier = d.StatutDossier.ToString(),
-        NombreCourriersEntrants = d.CourriersEntrants?.Count ?? 0
+        //Id = d.Id, NumeroDossier = d.NumeroDossier, Intitule = d.Intitule,
+        //Description = d.Description, ServiceResponsableId = d.ServiceResponsableId,
+        //ServiceResponsableNom = d.ServiceResponsable?.Nom, DateOuverture = d.DateOuverture,
+        //DateCloture = d.DateCloture, StatutDossier = d.StatutDossier.ToString(),
+        //NombreCourriersEntrants = d.CourriersEntrants?.Count ?? 0
     };
 }
 
@@ -256,9 +256,12 @@ public class BODossierRepository : GenericRepository<BODossier>, IBODossierRepos
 //  BUREAU D'ORDRE — COURRIER ENTRANT
 // ════════════════════════════════════════════════════════════════
 
-public class BOCourrierEntrantRepository : GenericRepository<BOCourrierEntrant>, IBOCourrierEntrantRepository
+public class BOCourrierEntrantRepository
+    : GenericRepository<BOCourrierEntrant>, IBOCourrierEntrantRepository
 {
     public BOCourrierEntrantRepository(ApplicationDbContext context) : base(context) { }
+
+    // ── Query helper ──────────────────────────────────────────────
 
     private IQueryable<BOCourrierEntrant> WithDetails() =>
         _dbSet
@@ -267,100 +270,194 @@ public class BOCourrierEntrantRepository : GenericRepository<BOCourrierEntrant>,
             .Include(c => c.ExpediteurContact)
             .Include(c => c.ServiceDestinataire)
             .Include(c => c.PiecesJointes)
-            .Include(c => c.Circuit).ThenInclude(ct => ct.ServiceEmetteur)
-            .Include(c => c.Circuit).ThenInclude(ct => ct.ServiceRecepteur)
-            .Include(c => c.Reponses);
+            .Include(c => c.Circuit)
+                .ThenInclude(ct => ct.ServiceEmetteur)
+            .Include(c => c.Circuit)
+                .ThenInclude(ct => ct.ServiceRecepteur)
+            .Include(c => c.Archive);
+
+    // ── Lecture paginée ───────────────────────────────────────────
 
     public async Task<PagedResult<CourrierEntrantDto>> GetPagedAsync(CourrierEntrantFilterDto filter)
     {
         var q = _dbSet.AsQueryable();
-        if (!string.IsNullOrEmpty(filter.Statut) && Enum.TryParse<StatutEntrant>(filter.Statut, out var st))
+
+        if (!string.IsNullOrEmpty(filter.Statut)
+            && Enum.TryParse<StatutEntrant>(filter.Statut, out var st))
             q = q.Where(c => c.Statut == st);
-        if (!string.IsNullOrEmpty(filter.Priorite) && Enum.TryParse<PrioriteCourrier>(filter.Priorite, out var pr))
+
+        if (!string.IsNullOrEmpty(filter.Priorite)
+            && Enum.TryParse<PrioriteCourrier>(filter.Priorite, out var pr))
             q = q.Where(c => c.Priorite == pr);
+
+        if (!string.IsNullOrEmpty(filter.TypeDocument)
+            && Enum.TryParse<TypeDocumentBO>(filter.TypeDocument, out var td))
+            q = q.Where(c => c.TypeDocument == td);
+
         if (filter.ServiceDestinataireId.HasValue)
             q = q.Where(c => c.ServiceDestinataireId == filter.ServiceDestinataireId);
+
+        if (filter.CategorieId.HasValue)
+            q = q.Where(c => c.CategorieId == filter.CategorieId);
+
+        if (filter.DossierId.HasValue)
+            q = q.Where(c => c.DossierId == filter.DossierId);
+
+        if (filter.NecessiteReponse.HasValue)
+            q = q.Where(c => c.NecessiteReponse == filter.NecessiteReponse.Value);
+
+        if (filter.EstConfidentiel.HasValue)
+            q = q.Where(c => c.EstConfidentiel == filter.EstConfidentiel.Value);
+
         if (filter.DateDebut.HasValue)
             q = q.Where(c => c.DateReception >= filter.DateDebut.Value);
+
         if (filter.DateFin.HasValue)
             q = q.Where(c => c.DateReception <= filter.DateFin.Value);
+
+        if (filter.EnRetard == true)
+        {
+            var today = DateTime.UtcNow.Date;
+            q = q.Where(c => c.NecessiteReponse
+                && c.DelaiReponse.HasValue
+                && c.DelaiReponse.Value.Date < today
+                && c.Statut != StatutEntrant.Traite
+                && c.Statut != StatutEntrant.Archive);
+        }
+
         if (!string.IsNullOrEmpty(filter.SearchTerm))
         {
             var t = filter.SearchTerm.ToLower();
-            q = q.Where(c => c.ObjetCourrier.ToLower().Contains(t) || c.NumeroOrdre.ToLower().Contains(t));
+            q = q.Where(c =>
+                c.ObjetCourrier.ToLower().Contains(t) ||
+                c.NumeroOrdre.ToLower().Contains(t) ||
+                (c.NumeroExterne != null && c.NumeroExterne.ToLower().Contains(t)) ||
+                (c.ExpediteurLibreNom != null && c.ExpediteurLibreNom.ToLower().Contains(t)));
         }
 
         var total = await q.CountAsync();
         var page = filter.PageNumber < 1 ? 1 : filter.PageNumber;
-        var size = filter.PageSize < 1 ? 20 : filter.PageSize;
-        var items = await q.OrderByDescending(c => c.DateReception)
-            .Skip((page - 1) * size).Take(size).ToListAsync();
+        var size = filter.PageSize < 1 ? 15 : filter.PageSize;
+
+        var items = await q
+            .Include(c => c.ServiceDestinataire)
+            .Include(c => c.ExpediteurContact)
+            .Include(c => c.PiecesJointes)
+            .Include(c => c.Circuit)
+            .OrderByDescending(c => c.Priorite)
+            .ThenByDescending(c => c.DateReception)
+            .Skip((page - 1) * size)
+            .Take(size)
+            .ToListAsync();
 
         return new PagedResult<CourrierEntrantDto>
         {
             Items = items.Select(MapToListDto).ToList(),
-            TotalCount = total, PageNumber = page, PageSize = size
+            TotalCount = total,
+            PageNumber = page,
+            PageSize = size
         };
     }
 
-    public async Task<BOCourrierEntrant?> GetByIdWithDetailsAsync(int id) =>
-        await WithDetails().FirstOrDefaultAsync(c => c.Id == id);
+    public async Task<BOCourrierEntrant?> GetByIdWithDetailsAsync(int id)
+        => await WithDetails().FirstOrDefaultAsync(c => c.Id == id);
 
-    public async Task<BOCourrierEntrant?> GetByNumeroAsync(string numero) =>
-        await WithDetails().FirstOrDefaultAsync(c => c.NumeroOrdre == numero);
+    public async Task<BOCourrierEntrant?> GetByNumeroAsync(string numero)
+        => await WithDetails().FirstOrDefaultAsync(c => c.NumeroOrdre == numero);
 
     public async Task<List<CourrierEntrantDto>> GetEnRetardAsync()
     {
         var today = DateTime.UtcNow.Date;
         return await _dbSet
-            .Where(c => c.NecessiteReponse && c.DelaiReponse.HasValue
+            .Include(c => c.ServiceDestinataire)
+            .Include(c => c.ExpediteurContact)
+            .Where(c => c.NecessiteReponse
+                && c.DelaiReponse.HasValue
                 && c.DelaiReponse.Value.Date < today
-                && c.Statut != StatutEntrant.Traite && c.Statut != StatutEntrant.Archive)
+                && c.Statut != StatutEntrant.Traite
+                && c.Statut != StatutEntrant.Archive)
             .OrderBy(c => c.DelaiReponse)
             .Select(c => MapToListDto(c))
             .ToListAsync();
     }
 
-    public async Task<List<CourrierEntrantDto>> GetNonTraitesParServiceAsync(int serviceId) =>
-        await _dbSet
+    public async Task<List<CourrierEntrantDto>> GetNonTraitesParServiceAsync(int serviceId)
+        => await _dbSet
+            .Include(c => c.ExpediteurContact)
+            .Include(c => c.PiecesJointes)
+            .Include(c => c.Circuit)
             .Where(c => c.ServiceDestinataireId == serviceId
-                && c.Statut != StatutEntrant.Traite && c.Statut != StatutEntrant.Archive)
-            .OrderBy(c => c.Priorite).ThenBy(c => c.DateReception)
+                && c.Statut != StatutEntrant.Traite
+                && c.Statut != StatutEntrant.Archive)
+            .OrderBy(c => c.Priorite)
+            .ThenBy(c => c.DateReception)
             .Select(c => MapToListDto(c))
             .ToListAsync();
 
     public async Task<BOStatsDto> GetStatsAsync(int? serviceId = null)
     {
         var q = _dbSet.AsQueryable();
-        if (serviceId.HasValue) q = q.Where(c => c.ServiceDestinataireId == serviceId);
+        if (serviceId.HasValue)
+            q = q.Where(c => c.ServiceDestinataireId == serviceId);
         var today = DateTime.UtcNow.Date;
 
         return new BOStatsDto
         {
-            TotalEntrants      = await q.CountAsync(),
-            Enregistres        = await q.CountAsync(c => c.Statut == StatutEntrant.Enregistre),
-            EnCours            = await q.CountAsync(c => c.Statut == StatutEntrant.EnCours),
-            Traites            = await q.CountAsync(c => c.Statut == StatutEntrant.Traite),
-            Archives           = await q.CountAsync(c => c.Statut == StatutEntrant.Archive),
-            EnRetard           = await q.CountAsync(c => c.NecessiteReponse
-                && c.DelaiReponse.HasValue && c.DelaiReponse.Value.Date < today
-                && c.Statut != StatutEntrant.Traite && c.Statut != StatutEntrant.Archive),
-            Urgents            = await q.CountAsync(c => c.Priorite == PrioriteCourrier.Urgent
+            TotalEntrants = await q.CountAsync(),
+            Enregistres = await q.CountAsync(c => c.Statut == StatutEntrant.Enregistre),
+            EnCours = await q.CountAsync(c => c.Statut == StatutEntrant.EnCours),
+            Traites = await q.CountAsync(c => c.Statut == StatutEntrant.Traite),
+            Archives = await q.CountAsync(c => c.Statut == StatutEntrant.Archive),
+            EnRetard = await q.CountAsync(c =>
+                c.NecessiteReponse && c.DelaiReponse.HasValue
+                && c.DelaiReponse.Value.Date < today
+                && c.Statut != StatutEntrant.Traite
+                && c.Statut != StatutEntrant.Archive),
+            Urgents = await q.CountAsync(c =>
+                c.Priorite == PrioriteCourrier.Urgent
                 || c.Priorite == PrioriteCourrier.TresUrgent),
         };
     }
 
+    // ── Pièces jointes ────────────────────────────────────────────
+
+    public async Task AddPieceJointeAsync(BOPieceJointeEntrant pj)
+    {
+        _context.Set<BOPieceJointeEntrant>().Add(pj);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task<BOPieceJointeEntrant?> GetPieceJointeAsync(int courrierEntrantId, int pjId)
+        => await _context.Set<BOPieceJointeEntrant>()
+            .FirstOrDefaultAsync(p => p.Id == pjId && p.CourrierEntrantId == courrierEntrantId);
+
+    public async Task SupprimerPieceJointeAsync(BOPieceJointeEntrant pj)
+    {
+        _context.Set<BOPieceJointeEntrant>().Remove(pj);
+        await _context.SaveChangesAsync();
+    }
+
+    // ── Mapping statique ──────────────────────────────────────────
+
     private static CourrierEntrantDto MapToListDto(BOCourrierEntrant c) => new()
     {
-        Id = c.Id, NumeroOrdre = c.NumeroOrdre, NumeroExterne = c.NumeroExterne,
-        DateReception = c.DateReception, DateCourrier = c.DateCourrier,
-        ObjetCourrier = c.ObjetCourrier, TypeDocument = c.TypeDocument.ToString(),
+        Id = c.Id,
+        NumeroOrdre = c.NumeroOrdre,
+        NumeroExterne = c.NumeroExterne,
+        DateReception = c.DateReception,
+        DateCourrier = c.DateCourrier,
+        ObjetCourrier = c.ObjetCourrier,
+        TypeDocument = c.TypeDocument.ToString(),
         ExpediteurNom = c.ExpediteurContact?.NomComplet ?? c.ExpediteurLibreNom ?? string.Empty,
-        ModeReception = c.ModeReception.ToString(), Priorite = c.Priorite.ToString(),
-        EstConfidentiel = c.EstConfidentiel, Statut = c.Statut.ToString(),
-        DelaiReponse = c.DelaiReponse, NecessiteReponse = c.NecessiteReponse,
+        ModeReception = c.ModeReception.ToString(),
+        Priorite = c.Priorite.ToString(),
+        EstConfidentiel = c.EstConfidentiel,
+        Statut = c.Statut.ToString(),
+        NecessiteReponse = c.NecessiteReponse,
+        DelaiReponse = c.DelaiReponse,
         ServiceDestinataireId = c.ServiceDestinataireId,
         ServiceDestinataireNom = c.ServiceDestinataire?.Nom,
+        AgentDestinataireId = c.AgentDestinataireId,
         NombrePiecesJointes = c.PiecesJointes?.Count ?? 0,
         NombreEtapesCircuit = c.Circuit?.Count ?? 0,
         CreatedAt = c.CreatedAt
@@ -505,15 +602,20 @@ public class BOArchiveRepository : GenericRepository<BOArchive>, IBOArchiveRepos
 
     private static BOArchiveDto MapToDto(BOArchive a) => new()
     {
-        Id = a.Id, NumeroArchive = a.NumeroArchive, CodeBarre = a.CodeBarre,
-        SalleArchive = a.SalleArchive, Rayon = a.Rayon, Boite = a.Boite,
-        Classification = a.Classification.ToString(),
-        DureeConservationAns = a.DureeConservationAns,
-        DateDebutConservation = a.DateDebutConservation,
-        DateFinConservation = a.DateFinConservation,
-        CheminArchiveNumerique = a.CheminArchiveNumerique,
-        EstDetruit = a.EstDetruit, Observation = a.Observation,
-        DateArchivage = a.DateArchivage
+        //Id = a.Id,
+        //NumeroArchive = a.NumeroArchive,
+        //CodeBarre = a.CodeBarre,
+        //SalleArchive = a.SalleArchive,
+        //Rayon = a.Rayon,
+        //Boite = a.Boite,
+        //Classification = a.Classification.ToString(),
+        //DureeConservationAns = a.DureeConservationAns,
+        //DateDebutConservation = a.DateDebutConservation,
+        //DateFinConservation = a.DateFinConservation,
+        //CheminArchiveNumerique = a.CheminArchiveNumerique,
+        //EstDetruit = a.EstDetruit,
+        //Observation = a.Observation,
+        //DateArchivage = a.DateArchivage
     };
 }
 

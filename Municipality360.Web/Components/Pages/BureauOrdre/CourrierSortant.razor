@@ -183,11 +183,11 @@ else
     </div>
 
     <div class="tab-row">
-        <button class="tab-btn @(_tab=="all"?"active":"")"         @onclick='()=>{_tab="all";    _filter.Statut=null;       _ = LoadAsync();}'>الكل</button>
-        <button class="tab-btn @(_tab=="brouillon"?"active":"")"   @onclick='()=>{_tab="brouillon";   _filter.Statut="Brouillon";    _ = LoadAsync();}'>المسودات</button>
-        <button class="tab-btn @(_tab=="validation"?"active":"")"  @onclick='()=>{_tab="validation";  _filter.Statut="EnValidation"; _ = LoadAsync();}'>في انتظار التوقيع</button>
-        <button class="tab-btn @(_tab=="signe"?"active":"")"       @onclick='()=>{_tab="signe";        _filter.Statut="Signe";        _ = LoadAsync();}'>موقّع</button>
-        <button class="tab-btn @(_tab=="envoye"?"active":"")"      @onclick='()=>{_tab="envoye";       _filter.Statut="Envoye";       _ = LoadAsync();}'>مُرسَل</button>
+        <button class="tab-btn @(_tab=="all"?"active":"")"         @onclick='async()=>{_tab="all";         _filter.Statut=null;           await LoadAsync();}'>الكل</button>
+        <button class="tab-btn @(_tab=="brouillon"?"active":"")"   @onclick='async()=>{_tab="brouillon";   _filter.Statut="Brouillon";    await LoadAsync();}'>المسودات</button>
+        <button class="tab-btn @(_tab=="validation"?"active":"")"  @onclick='async()=>{_tab="validation";  _filter.Statut="EnValidation"; await LoadAsync();}'>في انتظار التوقيع</button>
+        <button class="tab-btn @(_tab=="signe"?"active":"")"       @onclick='async()=>{_tab="signe";       _filter.Statut="Signe";        await LoadAsync();}'>موقّع</button>
+        <button class="tab-btn @(_tab=="envoye"?"active":"")"      @onclick='async()=>{_tab="envoye";      _filter.Statut="Envoye";       await LoadAsync();}'>مُرسَل</button>
     </div>
 
     <div class="filters-bar">
@@ -209,7 +209,7 @@ else
             <table>
                 <thead><tr>
                     <th>رقم الترتيب</th><th>تاريخ التحرير</th><th>الموضوع</th>
-                    <th>المرسل إليه</th><th>طريقة الإرسال</th>
+                    <th>المرسل إليه</th><th>م.ج</th>
                     <th>تاريخ الإرسال</th><th>الحالة</th><th></th>
                 </tr></thead>
                 <tbody>
@@ -229,7 +229,7 @@ else
                                     @if(s.EstConfidentiel){ <span class="badge badge-confidentiel" style="margin-right:.4rem"><i class="bi bi-lock-fill"></i></span> }
                                 </td>
                                 <td>@(s.DestinataireNom ?? "—")</td>
-                                <td>@s.ModeEnvoi</td>
+                                <td style="text-align:center">@(s.NombrePiecesJointes > 0 ? s.NombrePiecesJointes.ToString() : "—")</td>
                                 <td>@(s.DateEnvoi.HasValue ? s.DateEnvoi.Value.ToString("dd/MM/yyyy") : "—")</td>
                                 <td><span class="badge @StatutBadge(s.Statut)">@StatutLabel(s.Statut)</span></td>
                                 <td @onclick:stopPropagation="true">
@@ -407,11 +407,15 @@ else
         if (d == null) return;
         _dto = new CreateCourrierSortantDto
         {
-            ObjetCourrier = d.ObjetCourrier, TypeDocument = d.TypeDocument,
-            ModeEnvoi = d.ModeEnvoi, DestinataireLibreNom = d.DestinataireNom,
-            FonctionSignataire = d.FonctionSignataire, Priorite = d.Priorite,
-            EstConfidentiel = d.EstConfidentiel, Observation = d.Observation,
-            NombrePages = d.NombrePiecesJointes > 0 ? (short)d.NombrePiecesJointes : (short)1
+            ObjetCourrier        = d.ObjetCourrier,
+            TypeDocument         = d.TypeDocument,
+            ModeEnvoi            = d.ModeEnvoi,
+            DestinataireLibreNom = d.DestinataireNom,
+            FonctionSignataire   = d.FonctionSignataire,
+            Priorite             = d.Priorite,
+            EstConfidentiel      = d.EstConfidentiel,
+            Observation          = d.Observation,
+            NombrePages          = (short)(d.NombrePiecesJointes > 0 ? d.NombrePiecesJointes : 1)
         };
         _editId = id; _showForm = true; _v = false; _formError = _formSuccess = null; _detail = null;
     }
@@ -440,15 +444,47 @@ else
         finally { _saving = false; }
     }
 
-    private async Task SoumettreAsync(int id) { _saving=true; await Api.SoumettreEnValidationAsync(id); await OpenDetail(id); await LoadAsync(); _saving=false; }
-    private void OpenSigner(int id)   { _targetId=id; _signerFonction=_detail?.FonctionSignataire; _showSigner=true; }
-    private async Task ConfirmSigner(){ if(string.IsNullOrEmpty(_signerFonction))return; _saving=true; await Api.MarquerSigneAsync(_targetId,_signerFonction!); _showSigner=false; await OpenDetail(_targetId); await LoadAsync(); _saving=false; }
-    private async Task MarquerEnvoyeAsync(int id){ _saving=true; await Api.MarquerEnvoyeAsync(id,DateTime.Today); await OpenDetail(id); await LoadAsync(); _saving=false; }
-    private async Task AccuserAsync(int id)      { _saving=true; await Api.AccuserReceptionAsync(id,DateTime.Today); await OpenDetail(id); _saving=false; }
-    private void OpenAnnuler(int id)  { _targetId=id; _annulerMotif=null; _showAnnuler=true; }
-    private async Task ConfirmAnnuler(){ if(string.IsNullOrEmpty(_annulerMotif))return; _saving=true; await Api.AnnulerAsync(_targetId,_annulerMotif!); _showAnnuler=false; await OpenDetail(_targetId); await LoadAsync(); _saving=false; }
-    private void OpenArchiver(int id) { _targetId=id; _archiverDto=new(){DureeConservationAns=10,Classification="Courant"}; _showArchiver=true; _showSigner=_showAnnuler=false; }
-    private async Task ConfirmArchiver(){ _saving=true; await Api.ArchiverAsync(_targetId,_archiverDto); _showArchiver=false; await OpenDetail(_targetId); await LoadAsync(); _saving=false; }
+    private async Task SoumettreAsync(int id)
+    {
+        _saving = true;
+        try { await Api.SoumettreEnValidationAsync(id); await OpenDetail(id); await LoadAsync(); }
+        finally { _saving = false; }
+    }
+    private void OpenSigner(int id)   { _targetId = id; _signerFonction = _detail?.FonctionSignataire; _showSigner = true; }
+    private async Task ConfirmSigner()
+    {
+        if (string.IsNullOrEmpty(_signerFonction)) return;
+        _saving = true;
+        try { await Api.MarquerSigneAsync(_targetId, _signerFonction!); _showSigner = false; await OpenDetail(_targetId); await LoadAsync(); }
+        finally { _saving = false; }
+    }
+    private async Task MarquerEnvoyeAsync(int id)
+    {
+        _saving = true;
+        try { await Api.MarquerEnvoyeAsync(id, DateTime.Today); await OpenDetail(id); await LoadAsync(); }
+        finally { _saving = false; }
+    }
+    private async Task AccuserAsync(int id)
+    {
+        _saving = true;
+        try { await Api.AccuserReceptionAsync(id, DateTime.Today); await OpenDetail(id); }
+        finally { _saving = false; }
+    }
+    private void OpenAnnuler(int id)  { _targetId = id; _annulerMotif = null; _showAnnuler = true; }
+    private async Task ConfirmAnnuler()
+    {
+        if (string.IsNullOrEmpty(_annulerMotif)) return;
+        _saving = true;
+        try { await Api.AnnulerAsync(_targetId, _annulerMotif!); _showAnnuler = false; await OpenDetail(_targetId); await LoadAsync(); }
+        finally { _saving = false; }
+    }
+    private void OpenArchiver(int id) { _targetId = id; _archiverDto = new() { DureeConservationAns = 10, Classification = "Courant" }; _showArchiver = true; _showSigner = _showAnnuler = false; }
+    private async Task ConfirmArchiver()
+    {
+        _saving = true;
+        try { await Api.ArchiverAsync(_targetId, _archiverDto); _showArchiver = false; await OpenDetail(_targetId); await LoadAsync(); }
+        finally { _saving = false; }
+    }
 
     private System.Threading.CancellationTokenSource? _cts;
     private async Task OnSearch() { _cts?.Cancel(); _cts=new(); try{await Task.Delay(400,_cts.Token);await LoadAsync();}catch{} }

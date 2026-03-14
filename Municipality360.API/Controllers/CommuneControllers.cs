@@ -240,18 +240,30 @@ public class EmployesController : ControllerBase
 public class CourriersEntrantsController : ControllerBase
 {
     private readonly ICourrierEntrantService _service;
-    public CourriersEntrantsController(ICourrierEntrantService service) => _service = service;
+    private readonly IWebHostEnvironment _env;
 
-    private string UserId   => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
-    private string UserName => $"{User.FindFirstValue("firstName")} {User.FindFirstValue("lastName")}".Trim();
-
-    [HttpGet]
-    public async Task<IActionResult> GetPaged([FromQuery] CourrierEntrantFilterDto filter)
+    public CourriersEntrantsController(ICourrierEntrantService service, IWebHostEnvironment env)
     {
-        var result = await _service.GetPagedAsync(filter);
-        return Ok(result);
+        _service = service;
+        _env = env;
     }
 
+    // ─── Helpers ──────────────────────────────────────────────────────────────
+    private string UserId => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+    private string UserName => User.FindFirstValue(ClaimTypes.Name)
+                            ?? User.FindFirstValue("name")
+                            ?? "Inconnu";
+
+    // ══════════════════════════════════════════════════════════════════════════
+    //  LECTURES
+    // ══════════════════════════════════════════════════════════════════════════
+
+    /// <summary>Liste paginée avec filtres avancés</summary>
+    [HttpGet]
+    public async Task<IActionResult> GetPaged([FromQuery] CourrierEntrantFilterDto filter)
+        => Ok(await _service.GetPagedAsync(filter));
+
+    /// <summary>Détail complet (circuit + pièces jointes)</summary>
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(int id)
     {
@@ -259,6 +271,7 @@ public class CourriersEntrantsController : ControllerBase
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
     }
 
+    /// <summary>Recherche par numéro d'ordre (ENT-YYYYNNN)</summary>
     [HttpGet("numero/{numero}")]
     public async Task<IActionResult> GetByNumero(string numero)
     {
@@ -266,21 +279,34 @@ public class CourriersEntrantsController : ControllerBase
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
     }
 
+    /// <summary>Courriers dont le délai de réponse est dépassé</summary>
     [HttpGet("en-retard")]
-    public async Task<IActionResult> GetEnRetard() => Ok(await _service.GetEnRetardAsync());
+    public async Task<IActionResult> GetEnRetard()
+        => Ok(await _service.GetEnRetardAsync());
 
+    /// <summary>Courriers en attente pour un service donné</summary>
     [HttpGet("en-attente/service/{serviceId:int}")]
     public async Task<IActionResult> GetEnAttenteParService(int serviceId)
         => Ok(await _service.GetEnAttenteParServiceAsync(serviceId));
 
+    /// <summary>Statistiques globales ou par service</summary>
     [HttpGet("stats")]
     public async Task<IActionResult> GetStats([FromQuery] int? serviceId)
         => Ok(await _service.GetStatsAsync(serviceId));
 
+    // ══════════════════════════════════════════════════════════════════════════
+    //  ENREGISTREMENT
+    // ══════════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Enregistrer un courrier entrant (corps JSON).
+    /// Les pièces jointes peuvent être ajoutées séparément via POST /{id}/pieces-jointes
+    /// </summary>
     [HttpPost]
-    [Authorize(Roles = "SuperAdmin,Admin,Manager,BureauOrdre")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,BOAgent")]
     public async Task<IActionResult> Enregistrer([FromBody] CreateCourrierEntrantDto dto)
     {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
         try
         {
             var result = await _service.EnregistrerAsync(dto, UserId, UserName);
@@ -289,51 +315,316 @@ public class CourriersEntrantsController : ControllerBase
         catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
     }
 
+    /// <summary>
+    /// Enregistrer un courrier entrant avec pièces jointes en une seule requête multipart/form-data.
+    /// Champs: tous les champs de CreateCourrierEntrantDto + fichiers (Files[])
+    /// </summary>
+    [HttpPost("avec-fichiers")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,BOAgent")]
+    [RequestSizeLimit(52_428_800)] // 50 MB
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> EnregistrerAvecFichiers([FromForm] CreateCourrierEntrantAvecFichiersDto dto)
+    {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+        try
+        {
+            // 1. Enregistrer le courrier
+            var createDto = dto.ToCreateDto();
+            var result = await _service.EnregistrerAsync(createDto, UserId, UserName);
+
+            // 2. Uploader les fichiers si présents
+            if (dto.Fichiers != null && dto.Fichiers.Count > 0)
+            {
+                var uploadDir = Path.Combine(_env.ContentRootPath, "uploads", "courriers-entrants", result.Id.ToString());
+                Directory.CreateDirectory(uploadDir);
+
+                short ordre = 1;
+                foreach (var fichier in dto.Fichiers)
+                {
+                    if (fichier.Length == 0) continue;
+
+                    var ext = Path.GetExtension(fichier.FileName).ToLowerInvariant();
+                    if (ext is not ".pdf" and not ".png" and not ".jpg" and not ".jpeg" and not ".tiff")
+                        continue;
+
+                    var nomStocke = $"{Guid.NewGuid()}{ext}";
+                    var chemin = Path.Combine(uploadDir, nomStocke);
+
+                    await using (var stream = new FileStream(chemin, FileMode.Create))
+                        await fichier.CopyToAsync(stream);
+
+                    await _service.AjouterPieceJointeAsync(result.Id, new AjouterPieceJointeDto
+                    {
+                        NomFichierOriginal = fichier.FileName,
+                        NomFichierStocke = nomStocke,
+                        CheminFichier = chemin,
+                        ExtensionFichier = ext,
+                        TailleFichierOctets = fichier.Length,
+                        TypePiece = ordre == 1 ? "DocumentPrincipal" : "Annexe",
+                        Ordre = ordre++,
+                        UploadedById = UserId
+                    });
+                }
+
+                // Recharger avec PJ à jour
+                result = await _service.GetByIdAsync(result.Id);
+            }
+
+            return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
+        }
+        catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    //  MODIFICATION
+    // ══════════════════════════════════════════════════════════════════════════
+
+    /// <summary>Modifier les champs d'un courrier (hors pièces jointes)</summary>
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "SuperAdmin,Admin,Manager,BureauOrdre")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,BOAgent")]
     public async Task<IActionResult> Modifier(int id, [FromBody] UpdateCourrierEntrantDto dto)
     {
-        try { return Ok(await _service.ModifierAsync(id, dto, UserId)); }
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+        try
+        {
+            var result = await _service.ModifierAsync(id, dto, UserId);
+            return Ok(result);
+        }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
+    // ══════════════════════════════════════════════════════════════════════════
+    //  STATUT & AFFECTATION
+    // ══════════════════════════════════════════════════════════════════════════
+
+    /// <summary>Changer le statut (Enregistre → EnCours → Traite → Archive…)</summary>
     [HttpPatch("{id:int}/statut")]
-    [Authorize(Roles = "SuperAdmin,Admin,Manager,BureauOrdre")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,BOAgent")]
     public async Task<IActionResult> ChangerStatut(int id, [FromBody] ChangerStatutEntrantDto dto)
     {
-        try { await _service.ChangerStatutAsync(id, dto, UserId, UserName); return NoContent(); }
-        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
-    }
-
-    [HttpPost("{id:int}/acheminer")]
-    [Authorize(Roles = "SuperAdmin,Admin,Manager,BureauOrdre")]
-    public async Task<IActionResult> Acheminer(int id, [FromBody] AcheminerCourrierDto dto)
-    {
-        try { return Ok(await _service.AcheminerAsync(id, dto, UserId)); }
+        try
+        {
+            await _service.ChangerStatutAsync(id, dto, UserId, UserName);
+            return NoContent();
+        }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 
-    [HttpPatch("circuit/{circuitId:int}/traiter")]
-    public async Task<IActionResult> TraiterEtape(int circuitId, [FromBody] TraiterEtapeCircuitDto dto)
+    /// <summary>
+    /// Affecter (ou ré-affecter) à un service / agent sans passer par le circuit.
+    /// Pratique pour les corrections rapides après enregistrement.
+    /// </summary>
+    [HttpPatch("{id:int}/affecter")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,BOAgent")]
+    public async Task<IActionResult> Affecter(int id, [FromBody] AffecterCourrierEntrantDto dto)
     {
-        try { await _service.TraiterEtapeCircuitAsync(circuitId, dto, UserId, UserName); return NoContent(); }
+        try
+        {
+            await _service.AffecterAsync(id, dto, UserId, UserName);
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    //  CIRCUIT DE TRAITEMENT
+    // ══════════════════════════════════════════════════════════════════════════
+
+    /// <summary>Acheminer vers un autre service (crée une étape dans le circuit)</summary>
+    [HttpPost("{id:int}/acheminer")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,BOAgent")]
+    public async Task<IActionResult> Acheminer(int id, [FromBody] AcheminerCourrierDto dto)
+    {
+        try
+        {
+            var result = await _service.AcheminerAsync(id, dto, UserId);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    /// <summary>Traiter une étape du circuit (ajouter commentaire / action effectuée)</summary>
+    [HttpPatch("circuit/{circuitId:int}/traiter")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,BOAgent")]
+    public async Task<IActionResult> TraiterEtapeCircuit(int circuitId, [FromBody] TraiterEtapeCircuitDto dto)
+    {
+        try
+        {
+            await _service.TraiterEtapeCircuitAsync(circuitId, dto, UserId, UserName);
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    /// <summary>Retourner une étape (renvoi vers l'émetteur)</summary>
+    [HttpPatch("circuit/{circuitId:int}/retourner")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,BOAgent")]
+    public async Task<IActionResult> RetournerEtapeCircuit(int circuitId, [FromBody] RetournerEtapeCircuitDto dto)
+    {
+        try
+        {
+            await _service.RetournerEtapeCircuitAsync(circuitId, dto, UserId, UserName);
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    /// <summary>Historique complet du circuit pour un courrier</summary>
+    [HttpGet("{id:int}/circuit")]
+    public async Task<IActionResult> GetCircuit(int id)
+        => Ok(await _service.GetCircuitAsync(id));
+
+    // ══════════════════════════════════════════════════════════════════════════
+    //  PIÈCES JOINTES
+    // ══════════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Ajouter des pièces jointes à un courrier existant (multipart/form-data).
+    /// Accepte: PDF, PNG, JPG, JPEG, TIFF — max 10 MB par fichier.
+    /// </summary>
+    [HttpPost("{id:int}/pieces-jointes")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,BOAgent")]
+    [RequestSizeLimit(52_428_800)]
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> AjouterPiecesJointes(int id, [FromForm] UploadPiecesJointesDto dto)
+    {
+        if (dto.Fichiers == null || dto.Fichiers.Count == 0)
+            return BadRequest(new { message = "Aucun fichier fourni." });
+
+        try
+        {
+            var uploadDir = Path.Combine(_env.ContentRootPath, "uploads", "courriers-entrants", id.ToString());
+            Directory.CreateDirectory(uploadDir);
+
+            // Récupérer le prochain ordre
+            var detail = await _service.GetByIdAsync(id);
+            short ordre = (short)((detail.PiecesJointes?.Count ?? 0) + 1);
+
+            var resultPJ = new List<BOPieceJointeDto>();
+            foreach (var fichier in dto.Fichiers)
+            {
+                if (fichier.Length == 0) continue;
+
+                var ext = Path.GetExtension(fichier.FileName).ToLowerInvariant();
+                if (ext is not ".pdf" and not ".png" and not ".jpg" and not ".jpeg" and not ".tiff")
+                    return BadRequest(new { message = $"Type de fichier non autorisé: {ext}. Acceptés: pdf, png, jpg, jpeg, tiff" });
+
+                if (fichier.Length > 10_485_760) // 10 MB
+                    return BadRequest(new { message = $"Fichier {fichier.FileName} dépasse 10 MB." });
+
+                var nomStocke = $"{Guid.NewGuid()}{ext}";
+                var chemin = Path.Combine(uploadDir, nomStocke);
+
+                await using (var stream = new FileStream(chemin, FileMode.Create))
+                    await fichier.CopyToAsync(stream);
+
+                var pj = await _service.AjouterPieceJointeAsync(id, new AjouterPieceJointeDto
+                {
+                    NomFichierOriginal = fichier.FileName,
+                    NomFichierStocke = nomStocke,
+                    CheminFichier = chemin,
+                    ExtensionFichier = ext,
+                    TailleFichierOctets = fichier.Length,
+                    TypePiece = dto.TypePiece ?? (ordre == 1 ? "DocumentPrincipal" : "Annexe"),
+                    Description = dto.Description,
+                    Ordre = ordre++,
+                    UploadedById = UserId
+                });
+                resultPJ.Add(pj);
+            }
+
+            return Ok(new { message = $"{resultPJ.Count} pièce(s) jointe(s) ajoutée(s).", pieces = resultPJ });
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    /// <summary>Télécharger une pièce jointe</summary>
+    [HttpGet("{id:int}/pieces-jointes/{pjId:int}/telecharger")]
+    public async Task<IActionResult> TelechargerPieceJointe(int id, int pjId)
+    {
+        try
+        {
+            var pj = await _service.GetPieceJointeAsync(id, pjId);
+            if (!System.IO.File.Exists(pj.CheminFichier))
+                return NotFound(new { message = "Fichier introuvable sur le serveur." });
+
+            var contentType = pj.ExtensionFichier switch
+            {
+                ".pdf" => "application/pdf",
+                ".png" => "image/png",
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".tiff" => "image/tiff",
+                _ => "application/octet-stream"
+            };
+            var bytes = await System.IO.File.ReadAllBytesAsync(pj.CheminFichier);
+            return File(bytes, contentType, pj.NomFichierOriginal);
+        }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
     }
 
-    [HttpGet("{id:int}/circuit")]
-    public async Task<IActionResult> GetCircuit(int id) => Ok(await _service.GetCircuitAsync(id));
+    /// <summary>Supprimer une pièce jointe</summary>
+    [HttpDelete("{id:int}/pieces-jointes/{pjId:int}")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,BOAgent")]
+    public async Task<IActionResult> SupprimerPieceJointe(int id, int pjId)
+    {
+        try
+        {
+            var pj = await _service.GetPieceJointeAsync(id, pjId);
+            await _service.SupprimerPieceJointeAsync(id, pjId, UserId);
 
+            // Supprimer le fichier physique
+            if (System.IO.File.Exists(pj.CheminFichier))
+                System.IO.File.Delete(pj.CheminFichier);
+
+            return NoContent();
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (UnauthorizedAccessException) { return Forbid(); }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    //  ARCHIVAGE
+    // ══════════════════════════════════════════════════════════════════════════
+
+    /// <summary>Archiver un courrier traité</summary>
     [HttpPost("{id:int}/archiver")]
-    [Authorize(Roles = "SuperAdmin,Admin,Manager,BureauOrdre")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,BOAgent")]
     public async Task<IActionResult> Archiver(int id, [FromBody] ArchiversCourrierDto dto)
     {
-        try { return Ok(await _service.ArchiverAsync(id, dto, UserId)); }
+        try
+        {
+            var result = await _service.ArchiverAsync(id, dto, UserId);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    //  SUPPRESSION (SuperAdmin uniquement — soft delete)
+    // ══════════════════════════════════════════════════════════════════════════
+
+    [HttpDelete("{id:int}")]
+    [Authorize(Roles = "SuperAdmin")]
+    public async Task<IActionResult> Supprimer(int id)
+    {
+        try
+        {
+            await _service.SupprimerAsync(id, UserId);
+            return NoContent();
+        }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
     }
 }
+
 
 // ════════════════════════════════════════════════════════════════
 //  BUREAU D'ORDRE — COURRIER SORTANT

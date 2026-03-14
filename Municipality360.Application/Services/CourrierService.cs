@@ -37,7 +37,9 @@ public class CourrierEntrantService : ICourrierEntrantService
         _notif = notif;
     }
 
-    // ── Lectures ────────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════
+    //  LECTURES
+    // ══════════════════════════════════════════════════════════════
 
     public Task<PagedResult<CourrierEntrantDto>> GetPagedAsync(CourrierEntrantFilterDto filter)
         => _repo.GetPagedAsync(filter);
@@ -56,12 +58,18 @@ public class CourrierEntrantService : ICourrierEntrantService
         return MapToDetail(e);
     }
 
-    public Task<List<CourrierEntrantDto>> GetEnRetardAsync() => _repo.GetEnRetardAsync();
+    public Task<List<CourrierEntrantDto>> GetEnRetardAsync()
+        => _repo.GetEnRetardAsync();
+
     public Task<List<CourrierEntrantDto>> GetEnAttenteParServiceAsync(int serviceId)
         => _repo.GetNonTraitesParServiceAsync(serviceId);
-    public Task<BOStatsDto> GetStatsAsync(int? serviceId = null) => _repo.GetStatsAsync(serviceId);
 
-    // ── Enregistrement ──────────────────────────────────────────────
+    public Task<BOStatsDto> GetStatsAsync(int? serviceId = null)
+        => _repo.GetStatsAsync(serviceId);
+
+    // ══════════════════════════════════════════════════════════════
+    //  ENREGISTREMENT
+    // ══════════════════════════════════════════════════════════════
 
     public async Task<CourrierEntrantDetailDto> EnregistrerAsync(
         CreateCourrierEntrantDto dto, string agentId, string agentNom)
@@ -96,6 +104,7 @@ public class CourrierEntrantService : ICourrierEntrantService
 
         await _repo.AddAsync(courrier);
 
+        // Notification au service destinataire si défini
         if (dto.ServiceDestinataireId.HasValue)
             await _notif.NotifierServiceAsync(
                 dto.ServiceDestinataireId.Value,
@@ -103,10 +112,20 @@ public class CourrierEntrantService : ICourrierEntrantService
                 $"Nouveau courrier entrant {numero} : {dto.ObjetCourrier}",
                 courrier.Id.ToString(), "CourrierEntrant");
 
+        // Notification à l'agent destinataire si défini
+        if (!string.IsNullOrEmpty(dto.AgentDestinataireId))
+            await _notif.NotifierAgentAsync(
+                dto.AgentDestinataireId,
+                TypeNotification.CourrierAssigne,
+                $"Courrier {numero} vous a été assigné : {dto.ObjetCourrier}",
+                courrier.Id.ToString(), "CourrierEntrant");
+
         return await GetByIdAsync(courrier.Id);
     }
 
-    // ── Modification ────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════
+    //  MODIFICATION
+    // ══════════════════════════════════════════════════════════════
 
     public async Task<CourrierEntrantDetailDto> ModifierAsync(
         int id, UpdateCourrierEntrantDto dto, string agentId)
@@ -121,11 +140,16 @@ public class CourrierEntrantService : ICourrierEntrantService
         c.TypeDocument = Enum.Parse<TypeDocumentBO>(dto.TypeDocument);
         c.CategorieId = dto.CategorieId;
         c.DossierId = dto.DossierId;
+        c.ExpediteurContactId = dto.ExpediteurContactId;
+        c.ExpediteurLibreNom = dto.ExpediteurLibreNom;
         c.ServiceDestinataireId = dto.ServiceDestinataireId;
         c.AgentDestinataireId = dto.AgentDestinataireId;
         c.Priorite = Enum.Parse<PrioriteCourrier>(dto.Priorite);
-        c.DelaiReponse = dto.DelaiReponse;
+        c.EstConfidentiel = dto.EstConfidentiel;
         c.NecessiteReponse = dto.NecessiteReponse;
+        c.DelaiReponse = dto.DelaiReponse;
+        c.NombrePages = dto.NombrePages;
+        c.NumeroRecommande = dto.NumeroRecommande;
         c.Observation = dto.Observation;
         c.UpdatedAt = DateTime.UtcNow;
 
@@ -133,7 +157,9 @@ public class CourrierEntrantService : ICourrierEntrantService
         return await GetByIdAsync(id);
     }
 
-    // ── Changement de statut ────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════
+    //  STATUT
+    // ══════════════════════════════════════════════════════════════
 
     public async Task ChangerStatutAsync(
         int id, ChangerStatutEntrantDto dto, string agentId, string agentNom)
@@ -152,7 +178,47 @@ public class CourrierEntrantService : ICourrierEntrantService
                 c.Id.ToString(), "CourrierEntrant");
     }
 
-    // ── Acheminement ────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════
+    //  AFFECTATION DIRECTE (sans circuit)
+    // ══════════════════════════════════════════════════════════════
+
+    public async Task AffecterAsync(
+        int id, AffecterCourrierEntrantDto dto, string agentId, string agentNom)
+    {
+        var c = await _repo.GetByIdAsync(id)
+            ?? throw new KeyNotFoundException($"Courrier entrant #{id} introuvable.");
+
+        if (c.Statut == StatutEntrant.Archive)
+            throw new InvalidOperationException("Impossible d'affecter un courrier archivé.");
+
+        c.ServiceDestinataireId = dto.ServiceDestinataireId;
+        c.AgentDestinataireId = dto.AgentDestinataireId;
+        // Passer en EnCours si c'était Enregistre/Recu
+        if (c.Statut is StatutEntrant.Recu or StatutEntrant.Enregistre)
+            c.Statut = StatutEntrant.EnCours;
+        c.UpdatedAt = DateTime.UtcNow;
+
+        await _repo.UpdateAsync(c);
+
+        // Notification service
+        await _notif.NotifierServiceAsync(
+            dto.ServiceDestinataireId,
+            TypeNotification.CourrierAssigne,
+            $"Courrier {c.NumeroOrdre} affecté à votre service : {c.ObjetCourrier}",
+            c.Id.ToString(), "CourrierEntrant");
+
+        // Notification agent
+        if (!string.IsNullOrEmpty(dto.AgentDestinataireId))
+            await _notif.NotifierAgentAsync(
+                dto.AgentDestinataireId,
+                TypeNotification.CourrierAssigne,
+                $"Courrier {c.NumeroOrdre} vous a été affecté : {c.ObjetCourrier}",
+                c.Id.ToString(), "CourrierEntrant");
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  CIRCUIT DE TRAITEMENT
+    // ══════════════════════════════════════════════════════════════
 
     public async Task<BOCircuitTraitementDto> AcheminerAsync(
         int courrierEntrantId, AcheminerCourrierDto dto, string agentId)
@@ -173,6 +239,14 @@ public class CourrierEntrantService : ICourrierEntrantService
             await _circuitRepo.UpdateAsync(etapeActive);
         }
 
+        // Mettre à jour le service destinataire principal du courrier
+        c.ServiceDestinataireId = dto.ServiceRecepteurId;
+        c.AgentDestinataireId = dto.AgentRecepteurId;
+        if (c.Statut is StatutEntrant.Recu or StatutEntrant.Enregistre)
+            c.Statut = StatutEntrant.EnCours;
+        c.UpdatedAt = DateTime.UtcNow;
+        await _repo.UpdateAsync(c);
+
         var etape = new BOCircuitTraitement
         {
             CourrierEntrantId = courrierEntrantId,
@@ -185,26 +259,28 @@ public class CourrierEntrantService : ICourrierEntrantService
             InstructionTransmission = dto.InstructionTransmission,
             DelaiTraitement = dto.DelaiTraitement,
             StatutEtape = StatutEtapeCircuit.EnAttente,
+            DateTransmission = DateTime.UtcNow,
             CreatedById = agentId
         };
 
         await _circuitRepo.AddAsync(etape);
 
-        c.ServiceDestinataireId = dto.ServiceRecepteurId;
-        c.AgentDestinataireId = dto.AgentRecepteurId;
-        c.Statut = StatutEntrant.EnCours;
-        c.UpdatedAt = DateTime.UtcNow;
-        await _repo.UpdateAsync(c);
-
         await _notif.NotifierServiceAsync(
-            dto.ServiceRecepteurId, TypeNotification.CourrierAssigne,
-            $"Courrier {c.NumeroOrdre} vous a été acheminé ({dto.TypeAction}).",
-            courrierEntrantId.ToString(), "CourrierEntrant");
+            dto.ServiceRecepteurId,
+            TypeNotification.NouveauCourrier,
+            $"Courrier {c.NumeroOrdre} acheminé vers votre service ({dto.TypeAction}).",
+            c.Id.ToString(), "CourrierEntrant");
 
-        return (await _circuitRepo.GetByCourrierAsync(courrierEntrantId)).Last();
+        if (!string.IsNullOrEmpty(dto.AgentRecepteurId))
+            await _notif.NotifierAgentAsync(
+                dto.AgentRecepteurId,
+                TypeNotification.CourrierAssigne,
+                $"Courrier {c.NumeroOrdre} vous a été acheminé : {c.ObjetCourrier}",
+                c.Id.ToString(), "CourrierEntrant");
+
+        var liste = await _circuitRepo.GetByCourrierAsync(courrierEntrantId);
+        return liste.Last();
     }
-
-    // ── Traitement d'étape ──────────────────────────────────────────
 
     public async Task TraiterEtapeCircuitAsync(
         int circuitId, TraiterEtapeCircuitDto dto, string agentId, string agentNom)
@@ -212,31 +288,128 @@ public class CourrierEntrantService : ICourrierEntrantService
         var etape = await _circuitRepo.GetByIdAsync(circuitId)
             ?? throw new KeyNotFoundException($"Étape circuit #{circuitId} introuvable.");
 
-        etape.StatutEtape = dto.EstRetour ? StatutEtapeCircuit.Retourne : StatutEtapeCircuit.Traite;
-        etape.DateTraitement = DateTime.UtcNow;
+        if (etape.StatutEtape == StatutEtapeCircuit.Traite)
+            throw new InvalidOperationException("Étape déjà traitée.");
+
+        etape.StatutEtape = Enum.Parse<StatutEtapeCircuit>(dto.StatutEtape);
         etape.CommentaireTraitement = dto.CommentaireTraitement;
         etape.ActionEffectuee = dto.ActionEffectuee;
-        etape.EstRetour = dto.EstRetour;
-        etape.MotifRetour = dto.MotifRetour;
+        etape.DateTraitement = DateTime.UtcNow;
         etape.UpdatedAt = DateTime.UtcNow;
 
         await _circuitRepo.UpdateAsync(etape);
     }
 
-    // ── Circuit ─────────────────────────────────────────────────────
+    public async Task RetournerEtapeCircuitAsync(
+        int circuitId, RetournerEtapeCircuitDto dto, string agentId, string agentNom)
+    {
+        var etape = await _circuitRepo.GetByIdAsync(circuitId)
+            ?? throw new KeyNotFoundException($"Étape circuit #{circuitId} introuvable.");
+
+        etape.StatutEtape = StatutEtapeCircuit.Retourne;
+        etape.EstRetour = true;
+        etape.MotifRetour = dto.MotifRetour;
+        etape.CommentaireTraitement = dto.Commentaire;
+        etape.DateTraitement = DateTime.UtcNow;
+        etape.UpdatedAt = DateTime.UtcNow;
+
+        await _circuitRepo.UpdateAsync(etape);
+
+        // Notifier l'émetteur
+        if (!string.IsNullOrEmpty(etape.AgentEmetteurId))
+            await _notif.NotifierAgentAsync(
+                etape.AgentEmetteurId,
+                TypeNotification.NouveauCourrier,
+                $"Courrier #{etape.CourrierEntrantId} retourné: {dto.MotifRetour}",
+                etape.CourrierEntrantId.ToString(), "CourrierEntrant");
+    }
 
     public Task<List<BOCircuitTraitementDto>> GetCircuitAsync(int courrierEntrantId)
         => _circuitRepo.GetByCourrierAsync(courrierEntrantId);
 
-    // ── Archivage ───────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════
+    //  PIÈCES JOINTES
+    // ══════════════════════════════════════════════════════════════
 
-    public async Task<BOArchiveDto> ArchiverAsync(int id, ArchiversCourrierDto dto, string agentId)
+    public async Task<BOPieceJointeDto> AjouterPieceJointeAsync(
+        int courrierEntrantId, AjouterPieceJointeDto dto)
+    {
+        var c = await _repo.GetByIdAsync(courrierEntrantId)
+            ?? throw new KeyNotFoundException($"Courrier entrant #{courrierEntrantId} introuvable.");
+
+        if (c.Statut == StatutEntrant.Archive)
+            throw new InvalidOperationException("Impossible d'ajouter une pièce jointe à un courrier archivé.");
+
+        var pj = new BOPieceJointeEntrant
+        {
+            CourrierEntrantId = courrierEntrantId,
+            NomFichierOriginal = dto.NomFichierOriginal,
+            NomFichierStocke = dto.NomFichierStocke,
+            CheminFichier = dto.CheminFichier,
+            ExtensionFichier = dto.ExtensionFichier,
+            TailleFichierOctets = dto.TailleFichierOctets,
+            TypePiece = Enum.Parse<TypePieceJointeBO>(dto.TypePiece),
+            Description = dto.Description,
+            Ordre = dto.Ordre,
+            UploadedById = dto.UploadedById
+        };
+
+        // Utiliser le repository générique via le contexte
+        // (nécessite d'exposer un IGenericRepository<BOPieceJointeEntrant> ou une méthode dédiée)
+        await _repo.AddPieceJointeAsync(pj);
+
+        return new BOPieceJointeDto
+        {
+            Id = pj.Id,
+            NomFichierOriginal = pj.NomFichierOriginal,
+            ExtensionFichier = pj.ExtensionFichier,
+            TailleFichierOctets = pj.TailleFichierOctets,
+            TypePiece = pj.TypePiece.ToString(),
+            Ordre = pj.Ordre,
+            Description = pj.Description,
+            UrlTelechargement = $"/api/courriers-entrants/{courrierEntrantId}/pieces-jointes/{pj.Id}/telecharger"
+        };
+    }
+
+    public async Task<PieceJointeDetailDto> GetPieceJointeAsync(int courrierEntrantId, int pjId)
+    {
+        var pj = await _repo.GetPieceJointeAsync(courrierEntrantId, pjId)
+            ?? throw new KeyNotFoundException($"Pièce jointe #{pjId} introuvable pour courrier #{courrierEntrantId}.");
+
+        return new PieceJointeDetailDto
+        {
+            Id = pj.Id,
+            NomFichierOriginal = pj.NomFichierOriginal,
+            ExtensionFichier = pj.ExtensionFichier,
+            TailleFichierOctets = pj.TailleFichierOctets,
+            TypePiece = pj.TypePiece.ToString(),
+            Ordre = pj.Ordre,
+            Description = pj.Description,
+            CheminFichier = pj.CheminFichier,
+            UrlTelechargement = $"/api/courriers-entrants/{courrierEntrantId}/pieces-jointes/{pj.Id}/telecharger"
+        };
+    }
+
+    public async Task SupprimerPieceJointeAsync(int courrierEntrantId, int pjId, string agentId)
+    {
+        var pj = await _repo.GetPieceJointeAsync(courrierEntrantId, pjId)
+            ?? throw new KeyNotFoundException($"Pièce jointe #{pjId} introuvable.");
+
+        await _repo.SupprimerPieceJointeAsync(pj);
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  ARCHIVAGE
+    // ══════════════════════════════════════════════════════════════
+
+    public async Task<BOArchiveDto> ArchiverAsync(
+        int id, ArchiversCourrierDto dto, string agentId)
     {
         var c = await _repo.GetByIdAsync(id)
             ?? throw new KeyNotFoundException($"Courrier entrant #{id} introuvable.");
 
-        if (c.Statut != StatutEntrant.Traite)
-            throw new InvalidOperationException("Seuls les courriers traités peuvent être archivés.");
+        if (c.Statut == StatutEntrant.Archive)
+            throw new InvalidOperationException("Courrier déjà archivé.");
 
         var numeroArchive = await _seq.GenererNumeroAsync("ARC");
         var dateDebut = DateTime.UtcNow;
@@ -266,7 +439,24 @@ public class CourrierEntrantService : ICourrierEntrantService
         return (await _archiveRepo.GetByCourrierEntrantIdAsync(id))!;
     }
 
-    // ── Mapping privé ───────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════
+    //  SUPPRESSION (soft delete)
+    // ══════════════════════════════════════════════════════════════
+
+    public async Task SupprimerAsync(int id, string agentId)
+    {
+        var c = await _repo.GetByIdAsync(id)
+            ?? throw new KeyNotFoundException($"Courrier entrant #{id} introuvable.");
+
+        if (c.Statut == StatutEntrant.Archive)
+            throw new InvalidOperationException("Impossible de supprimer un courrier archivé.");
+
+        await _repo.DeleteAsync(c); // soft-delete via BaseEntity.IsDeleted
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  MAPPING
+    // ══════════════════════════════════════════════════════════════
 
     private static CourrierEntrantDetailDto MapToDetail(BOCourrierEntrant c) => new()
     {
@@ -282,7 +472,7 @@ public class CourrierEntrantService : ICourrierEntrantService
         DossierId = c.DossierId,
         DossierIntitule = c.Dossier?.Intitule,
         ExpediteurContactId = c.ExpediteurContactId,
-        ExpediteurNom = c.ExpediteurContact?.NomComplet ?? c.ExpediteurLibreNom,
+        ExpediteurNom = c.ExpediteurContact?.NomComplet ?? c.ExpediteurLibreNom ?? string.Empty,
         ModeReception = c.ModeReception.ToString(),
         NumeroRecommande = c.NumeroRecommande,
         ServiceDestinataireId = c.ServiceDestinataireId,
@@ -292,12 +482,28 @@ public class CourrierEntrantService : ICourrierEntrantService
         Priorite = c.Priorite.ToString(),
         EstConfidentiel = c.EstConfidentiel,
         Statut = c.Statut.ToString(),
-        DelaiReponse = c.DelaiReponse,
         NecessiteReponse = c.NecessiteReponse,
+        DelaiReponse = c.DelaiReponse,
         Observation = c.Observation,
+        EnregistreParId = c.EnregistreParId,
         NombrePiecesJointes = c.PiecesJointes?.Count ?? 0,
         NombreEtapesCircuit = c.Circuit?.Count ?? 0,
         CreatedAt = c.CreatedAt,
+
+        PiecesJointes = c.PiecesJointes?
+            .OrderBy(p => p.Ordre)
+            .Select(p => new BOPieceJointeDto
+            {
+                Id = p.Id,
+                NomFichierOriginal = p.NomFichierOriginal,
+                ExtensionFichier = p.ExtensionFichier,
+                TailleFichierOctets = p.TailleFichierOctets,
+                TypePiece = p.TypePiece.ToString(),
+                Ordre = p.Ordre,
+                Description = p.Description,
+                UrlTelechargement = $"/api/courriers-entrants/{c.Id}/pieces-jointes/{p.Id}/telecharger"
+            }).ToList() ?? new(),
+
         Circuit = c.Circuit?
             .OrderBy(ct => ct.NumeroEtape)
             .Select(ct => new BOCircuitTraitementDto
@@ -308,6 +514,7 @@ public class CourrierEntrantService : ICourrierEntrantService
                 ServiceEmetteurNom = ct.ServiceEmetteur?.Nom,
                 ServiceRecepteurId = ct.ServiceRecepteurId,
                 ServiceRecepteurNom = ct.ServiceRecepteur?.Nom ?? string.Empty,
+                AgentRecepteurId = ct.AgentRecepteurId,
                 DateTransmission = ct.DateTransmission,
                 DateTraitement = ct.DateTraitement,
                 DelaiTraitement = ct.DelaiTraitement,
@@ -318,30 +525,10 @@ public class CourrierEntrantService : ICourrierEntrantService
                 StatutEtape = ct.StatutEtape.ToString(),
                 EstRetour = ct.EstRetour,
                 MotifRetour = ct.MotifRetour
-            }).ToList() ?? new(),
-        PiecesJointes = c.PiecesJointes?
-            .Select(p => new BOPieceJointeDto
-            {
-                Id = p.Id,
-                NomFichierOriginal = p.NomFichierOriginal,
-                ExtensionFichier = p.ExtensionFichier,
-                TailleFichierOctets = p.TailleFichierOctets,
-                TypePiece = p.TypePiece.ToString(),
-                Ordre = p.Ordre,
-                Description = p.Description
-            }).ToList() ?? new(),
-        Reponses = c.Reponses?
-            .Select(r => new CourrierSortantDto
-            {
-                Id = r.Id,
-                NumeroOrdre = r.NumeroOrdre,
-                ObjetCourrier = r.ObjetCourrier,
-                Statut = r.Statut.ToString(),
-                DateRedaction = r.DateRedaction,
-                DateEnvoi = r.DateEnvoi
             }).ToList() ?? new()
     };
 }
+
 
 // ════════════════════════════════════════════════════════════════
 //  COURRIER SORTANT SERVICE

@@ -80,20 +80,38 @@ public interface IEmployeService
 
 public interface ICourrierEntrantService
 {
+    // ── Lectures ──────────────────────────────────────────────────
     Task<PagedResult<CourrierEntrantDto>> GetPagedAsync(CourrierEntrantFilterDto filter);
     Task<CourrierEntrantDetailDto> GetByIdAsync(int id);
     Task<CourrierEntrantDetailDto> GetByNumeroAsync(string numero);
     Task<List<CourrierEntrantDto>> GetEnRetardAsync();
     Task<List<CourrierEntrantDto>> GetEnAttenteParServiceAsync(int serviceId);
     Task<BOStatsDto> GetStatsAsync(int? serviceId = null);
+
+    // ── Écriture principale ───────────────────────────────────────
     Task<CourrierEntrantDetailDto> EnregistrerAsync(CreateCourrierEntrantDto dto, string agentId, string agentNom);
     Task<CourrierEntrantDetailDto> ModifierAsync(int id, UpdateCourrierEntrantDto dto, string agentId);
     Task ChangerStatutAsync(int id, ChangerStatutEntrantDto dto, string agentId, string agentNom);
+
+    // ── Affectation directe ───────────────────────────────────────
+    Task AffecterAsync(int id, AffecterCourrierEntrantDto dto, string agentId, string agentNom);
+
+    // ── Circuit ───────────────────────────────────────────────────
     Task<BOCircuitTraitementDto> AcheminerAsync(int courrierEntrantId, AcheminerCourrierDto dto, string agentId);
     Task TraiterEtapeCircuitAsync(int circuitId, TraiterEtapeCircuitDto dto, string agentId, string agentNom);
+    Task RetournerEtapeCircuitAsync(int circuitId, RetournerEtapeCircuitDto dto, string agentId, string agentNom);
     Task<List<BOCircuitTraitementDto>> GetCircuitAsync(int courrierEntrantId);
+
+    // ── Pièces jointes ────────────────────────────────────────────
+    Task<BOPieceJointeDto> AjouterPieceJointeAsync(int courrierEntrantId, AjouterPieceJointeDto dto);
+    Task<PieceJointeDetailDto> GetPieceJointeAsync(int courrierEntrantId, int pjId);
+    Task SupprimerPieceJointeAsync(int courrierEntrantId, int pjId, string agentId);
+
+    // ── Archivage & suppression ───────────────────────────────────
     Task<BOArchiveDto> ArchiverAsync(int id, ArchiversCourrierDto dto, string agentId);
+    Task SupprimerAsync(int id, string agentId);
 }
+
 
 public interface ICourrierSortantService
 {
