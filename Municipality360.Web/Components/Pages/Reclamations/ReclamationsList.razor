@@ -1,0 +1,601 @@
+@page "/complaints/list"
+@page "/complaints/list/{Id:int}"
+@using Microsoft.AspNetCore.Authorization
+@using Municipality360.Application.DTOs.Reclamations
+@attribute [Authorize(Roles = "SuperAdmin,Admin,Manager,Reclamations")]
+@layout Municipality360.Web.Components.Layout.MainLayout
+@inject IReclamationApiService Api
+@inject ITypeReclamationApiService TypeApi
+@inject ICategorieReclamationApiService CatApi
+@inject NavigationManager Nav
+
+<PageTitle>متابعة الشكاوى — Municipality360</PageTitle>
+
+<style>
+    .page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem; }
+    .page-title  { font-size:1.3rem; font-weight:800; color:#0f172a; margin:0; }
+    .page-sub    { font-size:.8rem; color:#94a3b8; margin-top:.2rem; }
+
+    .btn { display:inline-flex; align-items:center; gap:.4rem; padding:.45rem .95rem; border-radius:9px; border:none; cursor:pointer; font-family:'Tajawal',sans-serif; font-size:.85rem; font-weight:600; transition:all .2s; }
+    .btn-primary   { background:linear-gradient(135deg,#f97316,#fb923c); color:#fff; box-shadow:0 3px 10px rgba(249,115,22,.3); }
+    .btn-primary:hover { transform:translateY(-1px); }
+    .btn-secondary { background:#f1f5f9; color:#374151; }
+    .btn-secondary:hover { background:#e2e8f0; }
+    .btn-success   { background:#dcfce7; color:#15803d; }
+    .btn-warning   { background:#fef3c7; color:#b45309; }
+    .btn-danger    { background:#fee2e2; color:#dc2626; }
+    .btn-blue      { background:#e0f2fe; color:#0369a1; }
+    .btn-sm { padding:.3rem .65rem; font-size:.78rem; }
+
+    .stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:.85rem; margin-bottom:1.5rem; }
+    .stat-card { background:#fff; border-radius:12px; padding:.9rem 1.1rem; box-shadow:0 1px 6px rgba(0,0,0,.07); border:1px solid #f1f5f9; cursor:pointer; transition:transform .2s; }
+    .stat-card:hover { transform:translateY(-2px); }
+    .stat-card::before { content:''; display:block; width:3px; height:100%; position:absolute; top:0; right:0; border-radius:0 12px 12px 0; }
+    .stat-card { position:relative; overflow:hidden; }
+    .stat-val { font-size:1.6rem; font-weight:800; color:#0f172a; }
+    .stat-lbl { font-size:.73rem; color:#64748b; }
+    .s-orange::before { background:#f97316; } .s-blue::before { background:#0ea5e9; }
+    .s-green::before  { background:#22c55e; } .s-red::before   { background:#ef4444; }
+    .s-purple::before { background:#8b5cf6; } .s-gray::before  { background:#94a3b8; }
+
+    .filters-bar { display:flex; gap:.75rem; flex-wrap:wrap; margin-bottom:1.2rem; align-items:center; }
+    .search-wrap { position:relative; flex:1; min-width:200px; }
+    .search-input { width:100%; height:38px; padding:0 1rem 0 2.5rem; border:1.5px solid #e2e8f0; border-radius:9px; font-family:'Tajawal',sans-serif; font-size:.86rem; outline:none; background:#fff; }
+    .search-input:focus { border-color:#f97316; box-shadow:0 0 0 3px rgba(249,115,22,.1); }
+    .search-icon { position:absolute; right:10px; top:50%; transform:translateY(-50%); color:#94a3b8; pointer-events:none; }
+    select.filter-sel { height:38px; padding:0 .75rem; border:1.5px solid #e2e8f0; border-radius:9px; font-family:'Tajawal',sans-serif; font-size:.85rem; outline:none; background:#fff; }
+    .filter-date { height:38px; padding:0 .6rem; border:1.5px solid #e2e8f0; border-radius:9px; font-family:'Tajawal',sans-serif; font-size:.85rem; outline:none; background:#fff; }
+
+    .table-card  { background:#fff; border-radius:14px; box-shadow:0 1px 8px rgba(0,0,0,.07); border:1px solid #f1f5f9; overflow:hidden; }
+    .table-inner { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; }
+    thead tr { background:#f8fafc; border-bottom:1px solid #e2e8f0; }
+    th { padding:.65rem 1rem; text-align:right; font-size:.73rem; font-weight:700; color:#64748b; white-space:nowrap; }
+    td { padding:.8rem 1rem; font-size:.85rem; color:#374151; border-bottom:1px solid #f8fafc; vertical-align:middle; }
+    tbody tr { cursor:pointer; }
+    tbody tr:hover { background:#fff7ed; }
+    tbody tr:last-child td { border-bottom:none; }
+    .tr-critique { border-right:3px solid #ef4444; }
+    .tr-retard   { background:#fff7ed !important; }
+
+    .badge { display:inline-flex; align-items:center; gap:.3rem; border-radius:99px; padding:.2rem .65rem; font-size:.72rem; font-weight:600; white-space:nowrap; }
+    .badge-nouvelle   { background:#e0f2fe; color:#0369a1; }
+    .badge-encours    { background:#fef3c7; color:#b45309; }
+    .badge-traitee    { background:#dcfce7; color:#15803d; }
+    .badge-rejetee    { background:#fee2e2; color:#dc2626; }
+    .badge-fermee     { background:#f3f4f6; color:#6b7280; }
+    .badge-critique   { background:#fee2e2; color:#dc2626; }
+    .badge-haute      { background:#fef3c7; color:#b45309; }
+    .badge-moyenne    { background:#e0f2fe; color:#0369a1; }
+    .badge-basse      { background:#f0fdf4; color:#15803d; }
+
+    .pagination { display:flex; align-items:center; justify-content:center; gap:.4rem; padding:1rem; }
+    .pg-btn { width:34px; height:34px; border-radius:8px; border:1.5px solid #e2e8f0; background:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:.82rem; }
+    .pg-btn:hover { border-color:#f97316; color:#f97316; }
+    .pg-btn.active { background:#f97316; border-color:#f97316; color:#fff; }
+    .pg-btn:disabled { opacity:.4; cursor:not-allowed; }
+
+    .overlay { position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:500; display:flex; align-items:flex-start; justify-content:flex-end; }
+    .drawer  { width:min(620px,95vw); height:100vh; background:#fff; box-shadow:-6px 0 40px rgba(0,0,0,.15); display:flex; flex-direction:column; overflow:hidden; }
+    .drawer-header { padding:1.2rem 1.5rem; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between; background:#fff7ed; flex-shrink:0; }
+    .drawer-title  { font-size:1rem; font-weight:700; color:#0f172a; }
+    .drawer-body   { flex:1; overflow-y:auto; padding:1.5rem; display:flex; flex-direction:column; gap:1.25rem; }
+    .close-btn { background:none; border:none; font-size:1.2rem; cursor:pointer; color:#64748b; }
+    .close-btn:hover { color:#0f172a; }
+    .detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:.75rem 1.5rem; }
+    .detail-item label { display:block; font-size:.72rem; font-weight:700; color:#64748b; text-transform:uppercase; margin-bottom:.2rem; }
+    .detail-item span  { font-size:.88rem; color:#0f172a; }
+    .detail-item.full  { grid-column:1/-1; }
+    .divider { border:none; border-top:1px solid #f1f5f9; }
+    .section-sub { font-size:.82rem; font-weight:700; color:#374151; margin-bottom:.5rem; display:flex; align-items:center; gap:.4rem; }
+    .action-row { display:flex; gap:.6rem; flex-wrap:wrap; }
+
+    /* Timeline suivis */
+    .timeline { list-style:none; margin:0; padding:0; }
+    .tl-item  { display:flex; gap:.85rem; padding-bottom:1rem; position:relative; }
+    .tl-item::before { content:''; position:absolute; right:14px; top:26px; width:2px; bottom:0; background:#f1f5f9; }
+    .tl-item:last-child::before { display:none; }
+    .tl-dot { width:28px; height:28px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:.72rem; font-weight:700; }
+    .tl-content { flex:1; }
+    .tl-title  { font-size:.84rem; font-weight:600; color:#0f172a; }
+    .tl-meta   { font-size:.75rem; color:#94a3b8; }
+    .tl-body   { font-size:.82rem; color:#374151; margin-top:.25rem; background:#f8fafc; border-radius:7px; padding:.5rem .75rem; }
+
+    /* Modal */
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:600; display:flex; align-items:center; justify-content:center; }
+    .modal-box { background:#fff; border-radius:16px; padding:1.75rem; width:min(520px,94vw); max-height:90vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,.2); }
+    .modal-title { font-size:1.05rem; font-weight:700; color:#0f172a; margin-bottom:1.25rem; display:flex; align-items:center; gap:.5rem; }
+    .form-group { display:flex; flex-direction:column; gap:.3rem; margin-bottom:.85rem; }
+    .form-label { font-size:.8rem; font-weight:700; color:#374151; }
+    .form-label .req { color:#ef4444; }
+    .form-control { height:38px; padding:0 .85rem; border:1.5px solid #e2e8f0; border-radius:9px; font-family:'Tajawal',sans-serif; font-size:.88rem; outline:none; }
+    .form-control:focus { border-color:#f97316; box-shadow:0 0 0 3px rgba(249,115,22,.1); }
+    textarea.form-control { height:80px; resize:vertical; padding:.6rem .85rem; }
+    .modal-footer { display:flex; gap:.75rem; justify-content:flex-end; margin-top:1rem; padding-top:1rem; border-top:1px solid #f1f5f9; }
+    .alert-err { background:#fef2f2; border:1px solid #fca5a5; border-radius:9px; padding:.75rem 1rem; font-size:.85rem; color:#dc2626; margin-bottom:1rem; }
+
+    .skeleton { background:linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%); background-size:200% 100%; animation:shimmer 1.4s infinite; border-radius:8px; }
+    @@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+    .star { color:#f59e0b; }
+    .satisfaction { display:flex; gap:.2rem; }
+</style>
+
+<div class="page-header">
+    <div>
+        <div class="page-title"><i class="bi bi-chat-square-text-fill" style="color:#f97316"></i> متابعة الشكاوى</div>
+        <div class="page-sub">@(_paged?.TotalCount ?? 0) شكوى</div>
+    </div>
+    <button class="btn btn-primary" @onclick='()=>Nav.NavigateTo("/complaints/add")'>
+        <i class="bi bi-plus-lg"></i> شكوى جديدة
+    </button>
+</div>
+
+@* KPI Stats *@
+@if (_stats != null)
+{
+    <div class="stats-grid">
+        <div class="stat-card s-blue"    @onclick='()=>SetFilter("")'>
+            <div class="stat-val">@_stats.Total</div>
+            <div class="stat-lbl">إجمالي الشكاوى</div>
+        </div>
+        <div class="stat-card s-orange"  @onclick='()=>SetFilter("Nouvelle")'>
+            <div class="stat-val">@_stats.Nouvelles</div>
+            <div class="stat-lbl">جديدة</div>
+        </div>
+        <div class="stat-card s-blue"    @onclick='()=>SetFilter("EnCours")'>
+            <div class="stat-val">@_stats.EnCours</div>
+            <div class="stat-lbl">قيد المعالجة</div>
+        </div>
+        <div class="stat-card s-green"   @onclick='()=>SetFilter("Traitee")'>
+            <div class="stat-val">@_stats.Traitees</div>
+            <div class="stat-lbl">معالجة</div>
+        </div>
+        <div class="stat-card s-red"     @onclick='()=>SetFilter("Rejetee")'>
+            <div class="stat-val">@_stats.Rejetees</div>
+            <div class="stat-lbl">مرفوضة</div>
+        </div>
+        <div class="stat-card s-purple"  @onclick='()=>SetFilter("","Critique")'>
+            <div class="stat-val">@_stats.Critiques</div>
+            <div class="stat-lbl">حرجة</div>
+        </div>
+        <div class="stat-card s-gray">
+            <div class="stat-val">@(_stats.SatisfactionMoyenne.ToString("F1")) <i class="bi bi-star-fill star" style="font-size:1rem"></i></div>
+            <div class="stat-lbl">متوسط الرضا</div>
+        </div>
+    </div>
+}
+
+@* Filters *@
+<div class="filters-bar">
+    <div class="search-wrap">
+        <i class="bi bi-search search-icon"></i>
+        <input class="search-input" placeholder="بحث بالرقم أو الموضوع…"
+               @bind="_filter.SearchTerm" @bind:event="oninput" @onkeyup="OnSearch" />
+    </div>
+    <select class="filter-sel" @bind="_filter.Statut" @bind:after="LoadAsync">
+        <option value="">كل الحالات</option>
+        <option value="Nouvelle">جديدة</option>
+        <option value="EnCours">قيد المعالجة</option>
+        <option value="Traitee">معالجة</option>
+        <option value="Rejetee">مرفوضة</option>
+        <option value="Fermee">مغلقة</option>
+    </select>
+    <select class="filter-sel" @bind="_filter.Priorite" @bind:after="LoadAsync">
+        <option value="">كل الأولويات</option>
+        <option value="Critique">حرجة</option>
+        <option value="Haute">عالية</option>
+        <option value="Moyenne">متوسطة</option>
+        <option value="Basse">منخفضة</option>
+    </select>
+    <select class="filter-sel" @bind="_filter.Canal" @bind:after="LoadAsync">
+        <option value="">كل القنوات</option>
+        <option value="Guichet">شباك</option>
+        <option value="Mobile">تطبيق</option>
+        <option value="Web">الموقع</option>
+        <option value="Telephone">هاتف</option>
+        <option value="Email">بريد</option>
+    </select>
+    <input type="date" class="filter-date" @bind="_filter.DateDebut" @bind:after="LoadAsync" title="من" />
+    <input type="date" class="filter-date" @bind="_filter.DateFin"   @bind:after="LoadAsync" title="إلى" />
+    <button class="btn btn-secondary" @onclick="ResetFilter"><i class="bi bi-x-circle"></i></button>
+</div>
+
+@* Table *@
+<div class="table-card">
+    <div class="table-inner">
+        <table>
+            <thead><tr>
+                <th>الرقم</th><th>تاريخ الإيداع</th><th>الموضوع</th>
+                <th>المواطن</th><th>النوع</th><th>القناة</th>
+                <th>الأولوية</th><th>الحالة</th><th></th>
+            </tr></thead>
+            <tbody>
+                @if (_loading)
+                {
+                    @for (int i = 0; i < 6; i++)
+                    {
+                        <tr><td colspan="9"><div class="skeleton" style="height:18px;margin:.4rem 0"></div></td></tr>
+                    }
+                }
+                else if (_paged?.Items?.Any() == true)
+                {
+                    @foreach (var r in _paged.Items)
+                    {
+                        <tr class="@(r.Priorite=="Critique"?"tr-critique":"")"
+                            @onclick="()=>OpenDetail(r.Id)">
+                            <td><strong style="color:#f97316;font-size:.8rem">@r.NumeroReclamation</strong></td>
+                            <td>@r.DateDepot.ToString("dd/MM/yyyy")</td>
+                            <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="@r.Objet">
+                                @r.Objet
+                            </td>
+                            <td>@(r.EstAnonyme ? "مجهول" : r.CitoyenNomComplet)</td>
+                            <td style="font-size:.78rem">@r.TypeReclamationLibelle</td>
+                            <td><i class="bi @CanalIcon(r.Canal)" style="font-size:.9rem" title="@r.Canal"></i></td>
+                            <td><span class="badge @PrioriteBadge(r.Priorite)">@PrioriteLabel(r.Priorite)</span></td>
+                            <td><span class="badge @StatutBadge(r.Statut)">@StatutLabel(r.Statut)</span></td>
+                            <td @onclick:stopPropagation="true">
+                                <button class="btn btn-secondary btn-sm" @onclick="()=>OpenDetail(r.Id)">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                }
+                else
+                {
+                    <tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:3rem">
+                        <i class="bi bi-chat-square-text" style="font-size:2rem;display:block;margin-bottom:.5rem"></i>
+                        لا توجد شكاوى مطابقة للفلاتر
+                    </td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (_paged != null && _paged.TotalPages > 1)
+    {
+        <div class="pagination">
+            <button class="pg-btn" disabled="@(_filter.PageNumber==1)" @onclick="()=>GoPage(_filter.PageNumber-1)"><i class="bi bi-chevron-right"></i></button>
+            @for (int p = Math.Max(1, _filter.PageNumber - 2); p <= Math.Min(_paged.TotalPages, _filter.PageNumber + 2); p++)
+            {
+                int pp = p;
+                <button class="pg-btn @(pp==_filter.PageNumber?"active":"")" @onclick="()=>GoPage(pp)">@pp</button>
+            }
+            <button class="pg-btn" disabled="@(_filter.PageNumber==_paged.TotalPages)" @onclick="()=>GoPage(_filter.PageNumber+1)"><i class="bi bi-chevron-left"></i></button>
+            <span style="font-size:.82rem;color:#64748b;margin:0 .5rem">@_filter.PageNumber / @_paged.TotalPages</span>
+        </div>
+    }
+</div>
+
+@* ══ DRAWER Détail ══ *@
+@if (_detail != null)
+{
+    <div class="overlay" @onclick="CloseDetail">
+        <div class="drawer" @onclick:stopPropagation="true">
+            <div class="drawer-header">
+                <div>
+                    <div class="drawer-title">
+                        <i class="bi bi-chat-square-text-fill" style="color:#f97316"></i>
+                        @_detail.NumeroReclamation
+                    </div>
+                    <div style="font-size:.78rem;color:#94a3b8;margin-top:.15rem">@_detail.Objet</div>
+                </div>
+                <button class="close-btn" @onclick="CloseDetail"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="drawer-body">
+
+                @* Info principale *@
+                <div class="detail-grid">
+                    <div class="detail-item"><label>الحالة</label><span class="badge @StatutBadge(_detail.Statut)">@StatutLabel(_detail.Statut)</span></div>
+                    <div class="detail-item"><label>الأولوية</label><span class="badge @PrioriteBadge(_detail.Priorite)">@PrioriteLabel(_detail.Priorite)</span></div>
+                    <div class="detail-item"><label>تاريخ الإيداع</label><span>@_detail.DateDepot.ToString("dd/MM/yyyy HH:mm")</span></div>
+                    <div class="detail-item"><label>القناة</label><span><i class="bi @CanalIcon(_detail.Canal)"></i> @CanalLabel(_detail.Canal)</span></div>
+                    <div class="detail-item"><label>النوع</label><span>@_detail.TypeReclamationLibelle</span></div>
+                    <div class="detail-item"><label>الفئة</label><span>@_detail.CategorieLibelle</span></div>
+                    <div class="detail-item full"><label>الموضوع</label><span>@_detail.Objet</span></div>
+                    <div class="detail-item full"><label>الوصف</label><span style="white-space:pre-wrap">@_detail.Description</span></div>
+                    @if (!string.IsNullOrEmpty(_detail.Localisation))
+                    { <div class="detail-item full"><label>الموقع</label><span><i class="bi bi-geo-alt"></i> @_detail.Localisation</span></div> }
+                </div>
+
+                <hr class="divider"/>
+
+                @* مواطن *@
+                <div class="section-sub"><i class="bi bi-person-fill"></i> المواطن</div>
+                <div class="detail-grid">
+                    <div class="detail-item"><label>الاسم</label><span>@(_detail.EstAnonyme ? "مجهول" : _detail.CitoyenNomComplet)</span></div>
+                    <div class="detail-item"><label>الهاتف</label><span>@(_detail.EstAnonyme ? "—" : _detail.CitoyenTelephone)</span></div>
+                    @if (_detail.DateCloture.HasValue)
+                    { <div class="detail-item"><label>تاريخ الإغلاق</label><span>@_detail.DateCloture.Value.ToString("dd/MM/yyyy")</span></div> }
+                    @if (_detail.SatisfactionCitoyen.HasValue)
+                    {
+                        <div class="detail-item">
+                            <label>تقييم المواطن</label>
+                            <span class="satisfaction">
+                                @for (int i = 1; i <= 5; i++)
+                                {
+                                    int ii = i;
+                                    <i class="bi @(ii <= _detail.SatisfactionCitoyen.Value ? "bi-star-fill star" : "bi-star")" style="font-size:1rem"></i>
+                                }
+                            </span>
+                        </div>
+                    }
+                </div>
+
+                <hr class="divider"/>
+
+                @* Traitement *@
+                <div class="section-sub"><i class="bi bi-building"></i> المعالجة</div>
+                <div class="detail-grid">
+                    <div class="detail-item"><label>المصلحة المعنية</label><span>@(_detail.ServiceConcerneNom ?? "—")</span></div>
+                    <div class="detail-item"><label>المكلف بالمعالجة</label><span>@(_detail.AffecteAId != null ? "محدد" : "—")</span></div>
+                    @if (!string.IsNullOrEmpty(_detail.SolutionApportee))
+                    { <div class="detail-item full"><label>الحل المقدم</label><span style="white-space:pre-wrap">@_detail.SolutionApportee</span></div> }
+                </div>
+
+                <hr class="divider"/>
+
+                @* Actions *@
+                <div class="section-sub"><i class="bi bi-lightning"></i> الإجراءات</div>
+                <div class="action-row">
+                    @if (_detail.Statut is "Nouvelle" or "EnCours")
+                    {
+                        <button class="btn btn-blue" @onclick="()=>_showAssigner=true"><i class="bi bi-arrow-right-circle"></i> توجيه</button>
+                        <button class="btn btn-warning" @onclick="()=>OpenChangerStatut()"><i class="bi bi-arrow-repeat"></i> تغيير الحالة</button>
+                    }
+                    @if (_detail.Statut is "EnCours")
+                    {
+                        <button class="btn btn-success" @onclick="()=>OpenTraiter()"><i class="bi bi-check-circle"></i> معالجة</button>
+                        <button class="btn btn-danger" @onclick="()=>OpenRejeter()"><i class="bi bi-x-circle"></i> رفض</button>
+                    }
+                    <button class="btn btn-secondary" @onclick='()=>Nav.NavigateTo($"/complaints/list/{_detail.Id}")'>
+                        <i class="bi bi-box-arrow-up-right"></i> فتح
+                    </button>
+                </div>
+
+                @* Panel Assigner *@
+                @if (_showAssigner)
+                {
+                    <div style="background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:10px;padding:1rem;margin-top:.5rem">
+                        <div class="section-sub"><i class="bi bi-arrow-right-circle" style="color:#0369a1"></i> توجيه الشكوى للمصلحة</div>
+                        <div class="form-group">
+                            <label class="form-label">رمز المصلحة (ID) <span class="req">*</span></label>
+                            <input type="number" class="form-control" placeholder="رقم المصلحة…" @bind="_assignDto.ServiceConcerneId" />
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">ملاحظة</label>
+                            <textarea class="form-control" placeholder="ملاحظة للمصلحة…" @bind="_assignDto.Commentaire"></textarea>
+                        </div>
+                        <div style="display:flex;gap:.5rem;justify-content:flex-end">
+                            <button class="btn btn-secondary" @onclick="()=>_showAssigner=false">إلغاء</button>
+                            <button class="btn btn-primary" @onclick="ConfirmAssigner" disabled="@_saving">@(_saving?"جارٍ…":"توجيه")</button>
+                        </div>
+                    </div>
+                }
+
+                @* Panel Changer Statut *@
+                @if (_showChangerStatut)
+                {
+                    <div style="background:#faf5ff;border:1.5px solid #ddd6fe;border-radius:10px;padding:1rem;margin-top:.5rem">
+                        <div class="section-sub"><i class="bi bi-arrow-repeat" style="color:#7c3aed"></i> تغيير الحالة</div>
+                        <div class="form-group">
+                            <label class="form-label">الحالة الجديدة <span class="req">*</span></label>
+                            <select class="form-control" @bind="_statutDto.NouveauStatut">
+                                <option value="">— اختر —</option>
+                                <option value="EnCours">قيد المعالجة</option>
+                                <option value="Traitee">تمت المعالجة</option>
+                                <option value="Rejetee">مرفوضة</option>
+                                <option value="Fermee">مغلقة</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">تعليق</label>
+                            <textarea class="form-control" placeholder="تعليق…" @bind="_statutDto.Commentaire"></textarea>
+                        </div>
+                        @if (_statutDto.NouveauStatut is "Traitee")
+                        {
+                            <div class="form-group">
+                                <label class="form-label">الحل المقدم</label>
+                                <textarea class="form-control" placeholder="وصف الحل…" @bind="_statutDto.SolutionApportee"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">تقييم المواطن (1-5)</label>
+                                <input type="number" class="form-control" min="1" max="5" @bind="_statutDto.SatisfactionCitoyen" />
+                            </div>
+                        }
+                        <div class="form-group" style="flex-direction:row;align-items:center;gap:.5rem">
+                            <input type="checkbox" @bind="_statutDto.VisibleCitoyen" style="width:16px;height:16px;accent-color:#f97316" />
+                            <label class="form-label" style="margin:0">مرئي للمواطن</label>
+                        </div>
+                        <div style="display:flex;gap:.5rem;justify-content:flex-end">
+                            <button class="btn btn-secondary" @onclick="()=>_showChangerStatut=false">إلغاء</button>
+                            <button class="btn btn-primary" @onclick="ConfirmChangerStatut" disabled="@(_saving||string.IsNullOrEmpty(_statutDto.NouveauStatut))">@(_saving?"جارٍ…":"تطبيق")</button>
+                        </div>
+                    </div>
+                }
+
+                <hr class="divider"/>
+
+                @* Suivis *@
+                @if (_detail.Suivis?.Any() == true)
+                {
+                    <div class="section-sub"><i class="bi bi-clock-history"></i> سجل المتابعة (@_detail.Suivis.Count)</div>
+                    <ul class="timeline">
+                        @foreach (var s in _detail.Suivis)
+                        {
+                            <li class="tl-item">
+                                <div class="tl-dot" style="background:@StatutColor(s.NouveauStatut);color:#fff">
+                                    @(s.NouveauStatut?[..1] ?? "?")
+                                </div>
+                                <div class="tl-content">
+                                    <div class="tl-title">
+                                        @s.UtilisateurNom
+                                        @if (!string.IsNullOrEmpty(s.NouveauStatut))
+                                        { <span class="badge @StatutBadge(s.NouveauStatut)" style="margin-right:.4rem">@StatutLabel(s.NouveauStatut)</span> }
+                                        @if (s.VisibleCitoyen)
+                                        { <i class="bi bi-eye-fill" style="color:#0369a1;font-size:.75rem;margin-right:.3rem" title="مرئي للمواطن"></i> }
+                                    </div>
+                                    <div class="tl-meta">@s.DateChangement.ToString("dd/MM/yyyy HH:mm")</div>
+                                    @if (!string.IsNullOrEmpty(s.Commentaire))
+                                    { <div class="tl-body">@s.Commentaire</div> }
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                }
+
+                @* Pièces jointes *@
+                @if (_detail.PiecesJointes?.Any() == true)
+                {
+                    <hr class="divider"/>
+                    <div class="section-sub"><i class="bi bi-paperclip"></i> المرفقات (@_detail.PiecesJointes.Count)</div>
+                    @foreach (var pj in _detail.PiecesJointes)
+                    {
+                        <div style="display:flex;align-items:center;gap:.6rem;padding:.5rem .75rem;background:#f8fafc;border-radius:8px;margin-bottom:.4rem;font-size:.83rem">
+                            <i class="bi bi-file-earmark" style="color:#64748b"></i>
+                            <span style="flex:1">@pj.NomFichier</span>
+                            @if (pj.AjouteeParCitoyen)
+                            { <span class="badge" style="background:#e0f2fe;color:#0369a1;font-size:.65rem">مواطن</span> }
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    private PagedResult<ReclamationDto>?  _paged;
+    private ReclamationDetailDto?         _detail;
+    private ReclamationStatsDto?          _stats;
+    private ReclamationFilterDto          _filter = new() { PageNumber = 1, PageSize = 12 };
+    private AssignerReclamationDto        _assignDto  = new();
+    private ChangerStatutReclamationDto   _statutDto  = new() { VisibleCitoyen = false };
+    private bool _loading, _saving;
+    private bool _showAssigner, _showChangerStatut;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+        try { _stats = await Api.GetStatsAsync(); } catch { }
+        if (Id.HasValue) await OpenDetail(Id.Value);
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true; StateHasChanged();
+        try { _paged = await Api.GetPagedAsync(_filter); } catch { }
+        _loading = false;
+    }
+
+    private async Task OpenDetail(int id)
+    {
+        _showAssigner = _showChangerStatut = false;
+        _assignDto = new(); _statutDto = new() { VisibleCitoyen = false };
+        try { _detail = await Api.GetByIdAsync(id); } catch { }
+    }
+
+    private void CloseDetail() => _detail = null;
+
+    private void OpenChangerStatut() { _statutDto = new() { VisibleCitoyen = false }; _showChangerStatut = true; _showAssigner = false; }
+    private void OpenTraiter()       { _statutDto = new() { NouveauStatut = "Traitee", VisibleCitoyen = true }; _showChangerStatut = true; _showAssigner = false; }
+    private void OpenRejeter()       { _statutDto = new() { NouveauStatut = "Rejetee", VisibleCitoyen = false }; _showChangerStatut = true; _showAssigner = false; }
+
+    private async Task ConfirmAssigner()
+    {
+        if (_detail == null || !_assignDto.ServiceConcerneId.HasValue) return;
+        _saving = true;
+        try
+        {
+            await Api.AssignerAsync(_detail.Id, _assignDto);
+            _showAssigner = false;
+            await OpenDetail(_detail.Id);
+            await LoadAsync();
+            try { _stats = await Api.GetStatsAsync(); } catch { }
+        }
+        finally { _saving = false; }
+    }
+
+    private async Task ConfirmChangerStatut()
+    {
+        if (_detail == null || string.IsNullOrEmpty(_statutDto.NouveauStatut)) return;
+        _saving = true;
+        try
+        {
+            await Api.ChangerStatutAsync(_detail.Id, _statutDto);
+            _showChangerStatut = false;
+            await OpenDetail(_detail.Id);
+            await LoadAsync();
+            try { _stats = await Api.GetStatsAsync(); } catch { }
+        }
+        finally { _saving = false; }
+    }
+
+    private void SetFilter(string statut, string priorite = "")
+    {
+        _filter.Statut   = statut;
+        _filter.Priorite = priorite;
+        _filter.PageNumber = 1;
+        _ = LoadAsync();
+    }
+
+    private async Task ResetFilter()
+    {
+        _filter = new() { PageNumber = 1, PageSize = 12 };
+        await LoadAsync();
+    }
+
+    private async Task GoPage(int p) { _filter.PageNumber = p; await LoadAsync(); }
+
+    private System.Threading.CancellationTokenSource? _cts;
+    private async Task OnSearch()
+    {
+        _cts?.Cancel(); _cts = new();
+        try { await Task.Delay(400, _cts.Token); _filter.PageNumber = 1; await LoadAsync(); } catch { }
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────
+    private static string StatutBadge(string? s) => s switch
+    {
+        "Nouvelle" => "badge-nouvelle", "EnCours"  => "badge-encours",
+        "Traitee"  => "badge-traitee",  "Rejetee"  => "badge-rejetee",
+        "Fermee"   => "badge-fermee",   _          => "badge-nouvelle"
+    };
+    private static string StatutLabel(string? s) => s switch
+    {
+        "Nouvelle" => "جديدة",    "EnCours" => "قيد المعالجة",
+        "Traitee"  => "معالجة",   "Rejetee" => "مرفوضة",
+        "Fermee"   => "مغلقة",    _         => s ?? ""
+    };
+    private static string StatutColor(string? s) => s switch
+    {
+        "Nouvelle" => "#0369a1", "EnCours" => "#b45309",
+        "Traitee"  => "#15803d", "Rejetee" => "#dc2626",
+        "Fermee"   => "#6b7280", _         => "#94a3b8"
+    };
+    private static string PrioriteBadge(string p) => p switch
+    {
+        "Critique" => "badge-critique", "Haute"  => "badge-haute",
+        "Moyenne"  => "badge-moyenne",  "Basse"  => "badge-basse", _ => "badge-moyenne"
+    };
+    private static string PrioriteLabel(string p) => p switch
+    {
+        "Critique" => "حرجة", "Haute"  => "عالية",
+        "Moyenne"  => "متوسطة","Basse" => "منخفضة", _ => p
+    };
+    private static string CanalIcon(string c) => c switch
+    {
+        "Mobile"    => "bi-phone-fill",
+        "Web"       => "bi-globe2",
+        "Email"     => "bi-envelope-fill",
+        "Telephone" => "bi-telephone-fill",
+        _           => "bi-building"
+    };
+    private static string CanalLabel(string c) => c switch
+    {
+        "Mobile" => "تطبيق", "Web" => "الموقع", "Email" => "بريد",
+        "Telephone" => "هاتف", "Guichet" => "شباك", _ => c
+    };
+}

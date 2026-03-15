@@ -71,6 +71,12 @@ builder.Services.AddScoped<AuthenticationStateProvider>(
 // ── Cascading Auth State ──────────────────────────────────
 builder.Services.AddCascadingAuthenticationState();
 
+//------Reclamation---------
+builder.Services.AddScoped<IReclamationApiService, ReclamationApiService>();
+builder.Services.AddScoped<ICitoyenApiService, CitoyenApiService>();
+builder.Services.AddScoped<ITypeReclamationApiService, TypeReclamationApiService>();
+builder.Services.AddScoped<ICategorieReclamationApiService, CategorieReclamationApiService>();
+
 // ═══════════════════════════════════════════════════════════
 var app = builder.Build();
 // ═══════════════════════════════════════════════════════════

@@ -1,0 +1,317 @@
+@page "/complaints/add"
+@page "/complaints/edit/{Id:int}"
+@using Microsoft.AspNetCore.Authorization
+@using Municipality360.Application.DTOs.Reclamations
+@attribute [Authorize(Roles = "SuperAdmin,Admin,Manager,Reclamations")]
+@layout Municipality360.Web.Components.Layout.MainLayout
+@inject IReclamationApiService Api
+@inject ICitoyenApiService CitoyenApi
+@inject ITypeReclamationApiService TypeApi
+@inject ICategorieReclamationApiService CatApi
+@inject NavigationManager Nav
+
+<PageTitle>@(_editId.HasValue ? "تعديل شكوى" : "شكوى جديدة") — Municipality360</PageTitle>
+
+<style>
+    .page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem; }
+    .page-title  { font-size:1.3rem; font-weight:800; color:#0f172a; margin:0; }
+    .page-sub    { font-size:.8rem; color:#94a3b8; margin-top:.2rem; }
+    .btn { display:inline-flex; align-items:center; gap:.4rem; padding:.45rem .95rem; border-radius:9px; border:none; cursor:pointer; font-family:'Tajawal',sans-serif; font-size:.85rem; font-weight:600; transition:all .2s; }
+    .btn-primary   { background:linear-gradient(135deg,#f97316,#fb923c); color:#fff; box-shadow:0 3px 10px rgba(249,115,22,.3); }
+    .btn-primary:hover { transform:translateY(-1px); }
+    .btn-secondary { background:#f1f5f9; color:#374151; }
+    .btn-secondary:hover { background:#e2e8f0; }
+
+    .form-card { background:#fff; border-radius:14px; box-shadow:0 1px 8px rgba(0,0,0,.07); border:1px solid #f1f5f9; padding:1.5rem; margin-bottom:1.25rem; }
+    .card-title { font-size:.92rem; font-weight:700; color:#374151; margin-bottom:1rem; padding-bottom:.65rem; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; gap:.45rem; }
+    .card-title i { color:#f97316; }
+    .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:.9rem 1.25rem; }
+    .form-group { display:flex; flex-direction:column; gap:.3rem; }
+    .form-group.full { grid-column:1/-1; }
+    .form-label { font-size:.8rem; font-weight:700; color:#374151; }
+    .form-label .req { color:#ef4444; }
+    .form-control { height:38px; padding:0 .85rem; border:1.5px solid #e2e8f0; border-radius:9px; font-family:'Tajawal',sans-serif; font-size:.88rem; outline:none; transition:border-color .2s; background:#fff; }
+    .form-control:focus { border-color:#f97316; box-shadow:0 0 0 3px rgba(249,115,22,.1); }
+    .form-control.invalid { border-color:#ef4444; }
+    textarea.form-control { height:90px; resize:vertical; padding:.6rem .85rem; }
+    .form-check { display:flex; align-items:center; gap:.5rem; font-size:.88rem; cursor:pointer; }
+    .form-check input { width:16px; height:16px; accent-color:#f97316; cursor:pointer; }
+
+    .citoyen-search { display:flex; gap:.6rem; align-items:flex-end; }
+    .citoyen-card { background:#f0f9ff; border:1px solid #bae6fd; border-radius:10px; padding:.85rem 1rem; display:flex; align-items:center; justify-content:space-between; margin-top:.4rem; }
+    .citoyen-name { font-weight:700; color:#0369a1; font-size:.9rem; }
+    .citoyen-meta { font-size:.78rem; color:#64748b; }
+
+    .alert-err { background:#fef2f2; border:1px solid #fca5a5; border-radius:9px; padding:.75rem 1rem; font-size:.85rem; color:#dc2626; margin-bottom:1rem; }
+    .alert-ok  { background:#f0fdf4; border:1px solid #86efac; border-radius:9px; padding:.75rem 1rem; font-size:.85rem; color:#15803d; margin-bottom:1rem; }
+
+    .form-footer { display:flex; gap:.75rem; justify-content:flex-end; margin-top:1.25rem; }
+</style>
+
+<div class="page-header">
+    <div>
+        <div class="page-title">
+            <i class="bi bi-chat-square-text-fill" style="color:#f97316"></i>
+            @(_editId.HasValue ? "تعديل شكوى" : "تسجيل شكوى جديدة")
+        </div>
+        <div class="page-sub">الشكاوى / @(_editId.HasValue ? "تعديل" : "جديدة")</div>
+    </div>
+    <button class="btn btn-secondary" @onclick='()=>Nav.NavigateTo("/complaints/list")'>
+        <i class="bi bi-arrow-right"></i> رجوع
+    </button>
+</div>
+
+@if (!string.IsNullOrEmpty(_error))   { <div class="alert-err"><i class="bi bi-exclamation-triangle"></i> @_error</div> }
+@if (!string.IsNullOrEmpty(_success)) { <div class="alert-ok"><i class="bi bi-check-circle"></i> @_success</div> }
+
+@* ── 1. المواطن ── *@
+<div class="form-card">
+    <div class="card-title"><i class="bi bi-person-fill"></i> المواطن</div>
+
+    <div class="citoyen-search">
+        <div class="form-group" style="flex:1">
+            <label class="form-label">البحث بالاسم أو رقم الهوية (CIN)</label>
+            <input type="text" class="form-control @(_v && _dto.CitoyenId == 0 && !_dto.EstAnonyme ? "invalid" : "")"
+                   placeholder="اكتب الاسم أو رقم الهوية…"
+                   @bind="_cinSearch" @bind:event="oninput" @onkeyup="SearchCitoyen" />
+        </div>
+        <button class="btn btn-secondary" @onclick="SearchCitoyen" style="margin-bottom:.3rem">
+            <i class="bi bi-search"></i>
+        </button>
+        <button class="btn btn-secondary" @onclick='()=>Nav.NavigateTo("/complaints/citizens")'
+                style="margin-bottom:.3rem" title="إضافة مواطن جديد">
+            <i class="bi bi-person-plus"></i>
+        </button>
+    </div>
+
+    @if (_citoyens?.Any() == true && _dto.CitoyenId == 0)
+    {
+        <div style="border:1.5px solid #e2e8f0;border-radius:9px;overflow:hidden;margin-top:.5rem">
+            @foreach (var c in _citoyens)
+            {
+                <div style="padding:.65rem 1rem;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:.86rem"
+                     @onclick="()=>SelectCitoyen(c)">
+                    <strong>@c.NomComplet</strong>
+                    <span style="color:#64748b;margin-right:.5rem">@c.CIN</span>
+                    <span style="color:#94a3b8;margin-right:.5rem">@c.Telephone</span>
+                </div>
+            }
+        </div>
+    }
+
+    @if (_selectedCitoyen != null)
+    {
+        <div class="citoyen-card">
+            <div>
+                <div class="citoyen-name">@_selectedCitoyen.NomComplet</div>
+                <div class="citoyen-meta">
+                    <i class="bi bi-card-text"></i> @_selectedCitoyen.CIN
+                    &nbsp;|&nbsp; <i class="bi bi-telephone"></i> @_selectedCitoyen.Telephone
+                    @if (!string.IsNullOrEmpty(_selectedCitoyen.Email))
+                    { <text> &nbsp;|&nbsp; <i class="bi bi-envelope"></i> @_selectedCitoyen.Email</text> }
+                </div>
+            </div>
+            <button class="btn btn-secondary" style="padding:.25rem .6rem" @onclick="ClearCitoyen">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+    }
+
+    <div style="margin-top:.75rem">
+        <label class="form-check">
+            <input type="checkbox" @bind="_dto.EstAnonyme" @bind:after="OnAnonyme" />
+            تسجيل الشكوى بصفة مجهولة
+        </label>
+    </div>
+</div>
+
+@* ── 2. تصنيف الشكوى ── *@
+<div class="form-card">
+    <div class="card-title"><i class="bi bi-tags-fill"></i> تصنيف الشكوى</div>
+    <div class="form-grid">
+        <div class="form-group">
+            <label class="form-label">نوع الشكوى <span class="req">*</span></label>
+            <select class="form-control @(_v && _dto.TypeReclamationId == 0 ? "invalid" : "")"
+                    @bind="_dto.TypeReclamationId">
+                <option value="0">— اختر النوع —</option>
+                @if (_types != null)
+                {
+                    @foreach (var t in _types)
+                    {
+                        <option value="@t.Id">@t.Libelle</option>
+                    }
+                }
+            </select>
+        </div>
+        <div class="form-group">
+            <label class="form-label">الفئة <span class="req">*</span></label>
+            <select class="form-control @(_v && _dto.CategorieId == 0 ? "invalid" : "")"
+                    @bind="_dto.CategorieId">
+                <option value="0">— اختر الفئة —</option>
+                @if (_categories != null)
+                {
+                    @foreach (var c in _categories)
+                    {
+                        <option value="@c.Id">@c.Libelle</option>
+                        @foreach (var sub in c.SousCategories)
+                        {
+                            <option value="@sub.Id">&nbsp;&nbsp;└ @sub.Libelle</option>
+                        }
+                    }
+                }
+            </select>
+        </div>
+        <div class="form-group">
+            <label class="form-label">الأولوية</label>
+            <select class="form-control" @bind="_dto.Priorite">
+                <option value="Basse">منخفضة</option>
+                <option value="Moyenne">متوسطة</option>
+                <option value="Haute">عالية</option>
+                <option value="Critique">حرجة</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label class="form-label">القناة</label>
+            <select class="form-control" @bind="_dto.Canal">
+                <option value="Guichet">شباك</option>
+                <option value="Telephone">هاتف</option>
+                <option value="Email">بريد إلكتروني</option>
+                <option value="Web">الموقع الإلكتروني</option>
+                <option value="Mobile">تطبيق الجوال</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label class="form-label">تاريخ الحادثة</label>
+            <input type="date" class="form-control" @bind="_dto.DateIncident" />
+        </div>
+    </div>
+</div>
+
+@* ── 3. محتوى الشكوى ── *@
+<div class="form-card">
+    <div class="card-title"><i class="bi bi-file-text-fill"></i> محتوى الشكوى</div>
+    <div class="form-grid">
+        <div class="form-group full">
+            <label class="form-label">موضوع الشكوى <span class="req">*</span></label>
+            <input type="text" class="form-control @(_v && string.IsNullOrEmpty(_dto.Objet) ? "invalid" : "")"
+                   placeholder="موضوع الشكوى بإيجاز…" @bind="_dto.Objet" />
+        </div>
+        <div class="form-group full">
+            <label class="form-label">الوصف التفصيلي <span class="req">*</span></label>
+            <textarea class="form-control @(_v && string.IsNullOrEmpty(_dto.Description) ? "invalid" : "")"
+                      style="height:120px" placeholder="وصف تفصيلي للمشكلة أو الشكوى…"
+                      @bind="_dto.Description"></textarea>
+        </div>
+        <div class="form-group full">
+            <label class="form-label">الموقع الجغرافي</label>
+            <input type="text" class="form-control" placeholder="عنوان أو وصف الموقع…"
+                   @bind="_dto.Localisation" />
+        </div>
+        <div class="form-group">
+            <label class="form-label">خط الطول</label>
+            <input type="number" class="form-control" step="0.000001" placeholder="Longitude"
+                   @bind="_dto.Longitude" />
+        </div>
+        <div class="form-group">
+            <label class="form-label">خط العرض</label>
+            <input type="number" class="form-control" step="0.000001" placeholder="Latitude"
+                   @bind="_dto.Latitude" />
+        </div>
+    </div>
+</div>
+
+<div class="form-footer">
+    <button class="btn btn-secondary" @onclick='()=>Nav.NavigateTo("/complaints/list")'>إلغاء</button>
+    <button class="btn btn-primary" @onclick="SaveAsync" disabled="@_saving">
+        @if (_saving) { <text><i class="bi bi-hourglass-split"></i> جارٍ الحفظ…</text> }
+        else          { <text><i class="bi bi-floppy"></i> حفظ الشكوى</text> }
+    </button>
+</div>
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    private int?                  _editId;
+    private CreateReclamationDto  _dto    = new() { Priorite = "Moyenne", Canal = "Guichet" };
+    private CitoyenDto?           _selectedCitoyen;
+    private List<CitoyenDto>?     _citoyens;
+    private List<TypeReclamationDto>?      _types;
+    private List<CategorieReclamationDto>? _categories;
+    private string  _cinSearch = string.Empty;
+    private bool _saving, _v;
+    private string? _error, _success;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _editId = Id;
+        try { _types      = await TypeApi.GetAllActiveAsync(); }   catch { }
+        try { _categories = await CatApi.GetHierarchieAsync(); }   catch { }
+    }
+
+    private async Task SearchCitoyen()
+    {
+        if (string.IsNullOrWhiteSpace(_cinSearch) || _cinSearch.Length < 2) return;
+        try
+        {
+            var result = await CitoyenApi.GetPagedAsync(new CitoyenFilterDto { SearchTerm = _cinSearch, PageNumber = 1, PageSize = 8, IsActive = true });
+            _citoyens = result?.Items?.ToList() ?? new();
+        }
+        catch { _citoyens = new(); }
+    }
+
+    private void SelectCitoyen(CitoyenDto c)
+    {
+        _selectedCitoyen = c;
+        _dto.CitoyenId   = c.Id;
+        _dto.EstAnonyme  = false;
+        _citoyens        = null;
+        _cinSearch       = c.NomComplet;
+    }
+
+    private void ClearCitoyen()
+    {
+        _selectedCitoyen = null;
+        _dto.CitoyenId   = 0;
+        _cinSearch       = string.Empty;
+        _citoyens        = null;
+    }
+
+    private void OnAnonyme()
+    {
+        if (_dto.EstAnonyme)
+        {
+            // Pour anonyme, on utilise un citoyen "Anonyme" fictif (Id=1 ou à adapter)
+            _dto.CitoyenId = 1;
+            ClearCitoyen();
+        }
+        else
+        {
+            _dto.CitoyenId = 0;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        _v = true;
+        if (!_dto.EstAnonyme && _dto.CitoyenId == 0)   { _error = "يرجى تحديد المواطن أو تفعيل خيار المجهول."; return; }
+        if (_dto.TypeReclamationId == 0)                { _error = "يرجى اختيار نوع الشكوى."; return; }
+        if (_dto.CategorieId == 0)                      { _error = "يرجى اختيار الفئة."; return; }
+        if (string.IsNullOrEmpty(_dto.Objet))           { _error = "موضوع الشكوى مطلوب."; return; }
+        if (string.IsNullOrEmpty(_dto.Description))     { _error = "وصف الشكوى مطلوب."; return; }
+
+        _saving = true; _error = null;
+        try
+        {
+            var result = await Api.DeposerAsync(_dto);
+            if (result != null)
+            {
+                _success = $"تم تسجيل الشكوى بنجاح — رقم: {result.NumeroReclamation}";
+                await Task.Delay(1500);
+                Nav.NavigateTo($"/complaints/list/{result.Id}");
+            }
+            else { _error = "حدث خطأ أثناء حفظ الشكوى."; }
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _saving = false; }
+    }
+}
