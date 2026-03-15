@@ -176,6 +176,23 @@ public interface IReclamationService
     Task AssignerAsync(int id, AssignerReclamationDto dto, string agentId, string agentNom);
     Task ChangerStatutAsync(int id, ChangerStatutReclamationDto dto, string agentId, string agentNom);
 }
+public interface ITypeReclamationService
+{
+    Task<List<TypeReclamationDto>> GetAllActiveAsync();
+    Task<TypeReclamationDto> GetByIdAsync(int id);
+    Task<TypeReclamationDto> CreateAsync(CreateTypeReclamationDto dto);
+    Task<TypeReclamationDto> UpdateAsync(int id, CreateTypeReclamationDto dto);
+    Task DeleteAsync(int id);
+}
+
+public interface ICategorieReclamationService
+{
+    Task<List<CategorieReclamationDto>> GetHierarchieAsync();
+    Task<List<CategorieReclamationDto>> GetFlatAsync();
+    Task<CategorieReclamationDto> GetByIdAsync(int id);
+    Task<CategorieReclamationDto> CreateAsync(CreateCategorieReclamationDto dto);
+    Task DeleteAsync(int id);
+}
 
 // ── Permis de Bâtir ──────────────────────────────────────────────
 

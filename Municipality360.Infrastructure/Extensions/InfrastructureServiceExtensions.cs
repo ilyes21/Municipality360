@@ -147,6 +147,9 @@ public static class InfrastructureServiceExtensions
         // ── Services — Réclamations ────────────────────────────────────
         services.AddScoped<ICitoyenService, CitoyenService>();
         services.AddScoped<IReclamationService, ReclamationService>();
+        // Réclamations — référentiels
+        services.AddScoped<ITypeReclamationService, TypeReclamationService>();
+        services.AddScoped<ICategorieReclamationService, CategorieReclamationService>();
 
         // ── Services — Permis de Bâtir ─────────────────────────────────
         services.AddScoped<IDemandeurService, DemandeurService>();

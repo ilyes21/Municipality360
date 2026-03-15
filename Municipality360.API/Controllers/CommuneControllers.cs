@@ -839,7 +839,119 @@ public class ReclamationsController : ControllerBase
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
     }
 }
+// ════════════════════════════════════════════════════════════════
+//  TYPES DE RÉCLAMATION
+// ════════════════════════════════════════════════════════════════
 
+[ApiController]
+[Route("api/types-reclamation")]
+[Authorize]
+public class TypesReclamationController : ControllerBase
+{
+    private readonly ITypeReclamationService _service;
+    public TypesReclamationController(ITypeReclamationService service) => _service = service;
+
+    /// <summary>Liste tous les types actifs</summary>
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+        => Ok(await _service.GetAllActiveAsync());
+
+    /// <summary>Détail d'un type</summary>
+    [HttpGet("{id:int}")]
+    public async Task<IActionResult> GetById(int id)
+    {
+        try { return Ok(await _service.GetByIdAsync(id)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+    }
+
+    /// <summary>Créer un type</summary>
+    [HttpPost]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager")]
+    public async Task<IActionResult> Create([FromBody] CreateTypeReclamationDto dto)
+    {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+        try
+        {
+            var result = await _service.CreateAsync(dto);
+            return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
+        }
+        catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); }
+    }
+
+    /// <summary>Modifier un type</summary>
+    [HttpPut("{id:int}")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager")]
+    public async Task<IActionResult> Update(int id, [FromBody] CreateTypeReclamationDto dto)
+    {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+        try { return Ok(await _service.UpdateAsync(id, dto)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); }
+    }
+
+    /// <summary>Supprimer (soft delete)</summary>
+    [HttpDelete("{id:int}")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        try { await _service.DeleteAsync(id); return NoContent(); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+    }
+}
+
+// ════════════════════════════════════════════════════════════════
+//  CATÉGORIES DE RÉCLAMATION
+// ════════════════════════════════════════════════════════════════
+
+[ApiController]
+[Route("api/categories-reclamation")]
+[Authorize]
+public class CategoriesReclamationController : ControllerBase
+{
+    private readonly ICategorieReclamationService _service;
+    public CategoriesReclamationController(ICategorieReclamationService service) => _service = service;
+
+    /// <summary>Hiérarchie complète (parents + sous-catégories)</summary>
+    [HttpGet]
+    public async Task<IActionResult> GetHierarchie()
+        => Ok(await _service.GetHierarchieAsync());
+
+    /// <summary>Toutes les catégories à plat (pour dropdowns)</summary>
+    [HttpGet("flat")]
+    public async Task<IActionResult> GetFlat()
+        => Ok(await _service.GetFlatAsync());
+
+    /// <summary>Détail</summary>
+    [HttpGet("{id:int}")]
+    public async Task<IActionResult> GetById(int id)
+    {
+        try { return Ok(await _service.GetByIdAsync(id)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+    }
+
+    /// <summary>Créer une catégorie</summary>
+    [HttpPost]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager")]
+    public async Task<IActionResult> Create([FromBody] CreateCategorieReclamationDto dto)
+    {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+        try
+        {
+            var result = await _service.CreateAsync(dto);
+            return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
+        }
+        catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); }
+    }
+
+    /// <summary>Supprimer</summary>
+    [HttpDelete("{id:int}")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        try { await _service.DeleteAsync(id); return NoContent(); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+    }
+}
 // ════════════════════════════════════════════════════════════════
 //  CITOYENS
 // ════════════════════════════════════════════════════════════════
@@ -851,6 +963,10 @@ public class CitoyensController : ControllerBase
 {
     private readonly ICitoyenService _service;
     public CitoyensController(ICitoyenService service) => _service = service;
+
+    [HttpGet("cin-exists/{cin}")]
+    public async Task<IActionResult> CINExists(string cin, [FromQuery] int? excludeId)
+        => Ok(await _service.CINExistsAsync(cin, excludeId));
 
     [HttpGet]
     public async Task<IActionResult> GetPaged([FromQuery] CitoyenFilterDto filter)

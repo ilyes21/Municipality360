@@ -1,6 +1,7 @@
 @page "/complaints/add"
 @page "/complaints/edit/{Id:int}"
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.JSInterop
 @using Municipality360.Application.DTOs.Reclamations
 @attribute [Authorize(Roles = "SuperAdmin,Admin,Manager,Reclamations")]
 @layout Municipality360.Web.Components.Layout.MainLayout
@@ -8,44 +9,75 @@
 @inject ICitoyenApiService CitoyenApi
 @inject ITypeReclamationApiService TypeApi
 @inject ICategorieReclamationApiService CatApi
+@inject IServiceApiService ServiceApi
+@inject IEmployeApiService EmployeApi
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <PageTitle>@(_editId.HasValue ? "تعديل شكوى" : "شكوى جديدة") — Municipality360</PageTitle>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 
 <style>
     .page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem; }
     .page-title  { font-size:1.3rem; font-weight:800; color:#0f172a; margin:0; }
     .page-sub    { font-size:.8rem; color:#94a3b8; margin-top:.2rem; }
+
     .btn { display:inline-flex; align-items:center; gap:.4rem; padding:.45rem .95rem; border-radius:9px; border:none; cursor:pointer; font-family:'Tajawal',sans-serif; font-size:.85rem; font-weight:600; transition:all .2s; }
     .btn-primary   { background:linear-gradient(135deg,#f97316,#fb923c); color:#fff; box-shadow:0 3px 10px rgba(249,115,22,.3); }
     .btn-primary:hover { transform:translateY(-1px); }
     .btn-secondary { background:#f1f5f9; color:#374151; }
     .btn-secondary:hover { background:#e2e8f0; }
+    .btn-map { background:#e0f2fe; color:#0369a1; border:none; border-radius:9px; padding:.45rem .85rem; cursor:pointer; font-family:'Tajawal',sans-serif; font-size:.84rem; font-weight:600; display:inline-flex; align-items:center; gap:.4rem; transition:all .2s; }
+    .btn-map:hover { background:#bae6fd; }
 
-    .form-card { background:#fff; border-radius:14px; box-shadow:0 1px 8px rgba(0,0,0,.07); border:1px solid #f1f5f9; padding:1.5rem; margin-bottom:1.25rem; }
+    .form-card  { background:#fff; border-radius:14px; box-shadow:0 1px 8px rgba(0,0,0,.07); border:1px solid #f1f5f9; padding:1.5rem; margin-bottom:1.25rem; }
     .card-title { font-size:.92rem; font-weight:700; color:#374151; margin-bottom:1rem; padding-bottom:.65rem; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; gap:.45rem; }
     .card-title i { color:#f97316; }
+
     .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:.9rem 1.25rem; }
     .form-group { display:flex; flex-direction:column; gap:.3rem; }
     .form-group.full { grid-column:1/-1; }
     .form-label { font-size:.8rem; font-weight:700; color:#374151; }
     .form-label .req { color:#ef4444; }
-    .form-control { height:38px; padding:0 .85rem; border:1.5px solid #e2e8f0; border-radius:9px; font-family:'Tajawal',sans-serif; font-size:.88rem; outline:none; transition:border-color .2s; background:#fff; }
+    .form-control { height:38px; padding:0 .85rem; border:1.5px solid #e2e8f0; border-radius:9px; font-family:'Tajawal',sans-serif; font-size:.88rem; outline:none; transition:border-color .2s; background:#fff; color:#374151; }
     .form-control:focus { border-color:#f97316; box-shadow:0 0 0 3px rgba(249,115,22,.1); }
     .form-control.invalid { border-color:#ef4444; }
-    textarea.form-control { height:90px; resize:vertical; padding:.6rem .85rem; }
-    .form-check { display:flex; align-items:center; gap:.5rem; font-size:.88rem; cursor:pointer; }
+    textarea.form-control { height:110px; resize:vertical; padding:.6rem .85rem; }
+    .form-check { display:flex; align-items:center; gap:.5rem; font-size:.86rem; cursor:pointer; }
     .form-check input { width:16px; height:16px; accent-color:#f97316; cursor:pointer; }
 
-    .citoyen-search { display:flex; gap:.6rem; align-items:flex-end; }
-    .citoyen-card { background:#f0f9ff; border:1px solid #bae6fd; border-radius:10px; padding:.85rem 1rem; display:flex; align-items:center; justify-content:space-between; margin-top:.4rem; }
+    /* Citoyen */
+    .suggestions-box { border:1.5px solid #e2e8f0; border-radius:10px; overflow:hidden; margin-top:.4rem; box-shadow:0 4px 18px rgba(0,0,0,.1); }
+    .sug-item { padding:.7rem 1rem; cursor:pointer; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; gap:.8rem; }
+    .sug-item:hover { background:#fff7ed; }
+    .sug-item:last-child { border-bottom:none; }
+    .sug-name { font-weight:700; color:#0f172a; font-size:.88rem; }
+    .sug-meta { font-size:.75rem; color:#94a3b8; display:flex; gap:.6rem; margin-top:.1rem; flex-wrap:wrap; }
+    .citoyen-card { background:#f0f9ff; border:1.5px solid #bae6fd; border-radius:10px; padding:.85rem 1.1rem; display:flex; align-items:center; justify-content:space-between; margin-top:.5rem; gap:.75rem; }
     .citoyen-name { font-weight:700; color:#0369a1; font-size:.9rem; }
-    .citoyen-meta { font-size:.78rem; color:#64748b; }
+    .citoyen-meta { font-size:.78rem; color:#64748b; margin-top:.2rem; display:flex; gap:.75rem; flex-wrap:wrap; }
 
-    .alert-err { background:#fef2f2; border:1px solid #fca5a5; border-radius:9px; padding:.75rem 1rem; font-size:.85rem; color:#dc2626; margin-bottom:1rem; }
-    .alert-ok  { background:#f0fdf4; border:1px solid #86efac; border-radius:9px; padding:.75rem 1rem; font-size:.85rem; color:#15803d; margin-bottom:1rem; }
+    /* Map */
+    #rec-map { height:340px; width:100%; border-radius:10px; border:1.5px solid #e2e8f0; margin-top:.6rem; }
+    .map-hint { font-size:.75rem; color:#94a3b8; margin-top:.35rem; display:flex; align-items:center; gap:.3rem; }
+    .coords-row { display:grid; grid-template-columns:1fr 1fr auto; gap:.6rem; margin-top:.65rem; align-items:end; }
+    .coord-display { background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px; padding:.5rem .85rem; font-size:.82rem; color:#0369a1; font-weight:600; display:flex; align-items:center; gap:.35rem; }
 
-    .form-footer { display:flex; gap:.75rem; justify-content:flex-end; margin-top:1.25rem; }
+    /* Affectation */
+    .affectation-inner { background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:10px; padding:1rem 1.1rem; }
+    .aff-title { font-size:.85rem; font-weight:700; color:#374151; margin-bottom:.85rem; display:flex; align-items:center; gap:.4rem; }
+
+    .alert-err { background:#fef2f2; border:1px solid #fca5a5; border-radius:9px; padding:.75rem 1rem; font-size:.85rem; color:#dc2626; margin-bottom:1rem; display:flex; gap:.5rem; align-items:center; }
+    .alert-ok  { background:#f0fdf4; border:1px solid #86efac; border-radius:9px; padding:.75rem 1rem; font-size:.85rem; color:#15803d; margin-bottom:1rem; display:flex; gap:.5rem; align-items:center; }
+    .form-footer { display:flex; gap:.75rem; justify-content:flex-end; padding-top:1rem; border-top:1px solid #f1f5f9; }
+
+    .loading-inline { display:inline-flex; align-items:center; gap:.5rem; padding:.45rem .75rem; background:#f8fafc; border-radius:8px; font-size:.83rem; color:#94a3b8; }
+    .spin { animation:spin .7s linear infinite; }
+    @@keyframes spin { to { transform:rotate(360deg); } }
+
+    .type-hint { font-size:.74rem; color:#64748b; margin-top:.25rem; padding:.3rem .6rem; background:#fff7ed; border-radius:6px; display:flex; gap:.5rem; }
+    .badge-canal { display:inline-flex; align-items:center; gap:.3rem; border-radius:6px; padding:.2rem .55rem; font-size:.72rem; font-weight:600; background:#e0f2fe; color:#0369a1; }
 </style>
 
 <div class="page-header">
@@ -57,213 +89,541 @@
         <div class="page-sub">الشكاوى / @(_editId.HasValue ? "تعديل" : "جديدة")</div>
     </div>
     <button class="btn btn-secondary" @onclick='()=>Nav.NavigateTo("/complaints/list")'>
-        <i class="bi bi-arrow-right"></i> رجوع
+        <i class="bi bi-arrow-right"></i> رجوع للقائمة
     </button>
 </div>
 
-@if (!string.IsNullOrEmpty(_error))   { <div class="alert-err"><i class="bi bi-exclamation-triangle"></i> @_error</div> }
-@if (!string.IsNullOrEmpty(_success)) { <div class="alert-ok"><i class="bi bi-check-circle"></i> @_success</div> }
+@if (!string.IsNullOrEmpty(_error))
+{
+    <div class="alert-err"><i class="bi bi-exclamation-triangle-fill"></i> @_error</div>
+}
+@if (!string.IsNullOrEmpty(_success))
+{
+    <div class="alert-ok"><i class="bi bi-check-circle-fill"></i> @_success</div>
+}
 
-@* ── 1. المواطن ── *@
+@* ══ 1. المواطن ══════════════════════════════════════════════════ *@
 <div class="form-card">
-    <div class="card-title"><i class="bi bi-person-fill"></i> المواطن</div>
+    <div class="card-title"><i class="bi bi-person-fill"></i> المواطن صاحب الشكوى</div>
 
-    <div class="citoyen-search">
-        <div class="form-group" style="flex:1">
-            <label class="form-label">البحث بالاسم أو رقم الهوية (CIN)</label>
-            <input type="text" class="form-control @(_v && _dto.CitoyenId == 0 && !_dto.EstAnonyme ? "invalid" : "")"
-                   placeholder="اكتب الاسم أو رقم الهوية…"
-                   @bind="_cinSearch" @bind:event="oninput" @onkeyup="SearchCitoyen" />
-        </div>
-        <button class="btn btn-secondary" @onclick="SearchCitoyen" style="margin-bottom:.3rem">
-            <i class="bi bi-search"></i>
-        </button>
-        <button class="btn btn-secondary" @onclick='()=>Nav.NavigateTo("/complaints/citizens")'
-                style="margin-bottom:.3rem" title="إضافة مواطن جديد">
-            <i class="bi bi-person-plus"></i>
-        </button>
-    </div>
-
-    @if (_citoyens?.Any() == true && _dto.CitoyenId == 0)
+    @if (!_dto.EstAnonyme)
     {
-        <div style="border:1.5px solid #e2e8f0;border-radius:9px;overflow:hidden;margin-top:.5rem">
-            @foreach (var c in _citoyens)
-            {
-                <div style="padding:.65rem 1rem;cursor:pointer;border-bottom:1px solid #f1f5f9;font-size:.86rem"
-                     @onclick="()=>SelectCitoyen(c)">
-                    <strong>@c.NomComplet</strong>
-                    <span style="color:#64748b;margin-right:.5rem">@c.CIN</span>
-                    <span style="color:#94a3b8;margin-right:.5rem">@c.Telephone</span>
-                </div>
-            }
+        <div style="display:flex;gap:.65rem;align-items:flex-end">
+            <div class="form-group" style="flex:1">
+                <label class="form-label">بحث بالاسم أو رقم الهوية <span class="req">*</span></label>
+                <input type="text"
+                       class="form-control @(_v && _dto.CitoyenId == 0 ? "invalid" : "")"
+                       placeholder="اكتب الاسم أو رقم الهوية (CIN) للبحث…"
+                       value="@_cinSearch"
+                       @oninput="OnSearchInput"
+                       autocomplete="off" />
+            </div>
+            <button class="btn btn-secondary" style="margin-bottom:.3rem"
+                    @onclick='()=>Nav.NavigateTo("/complaints/citizens")'>
+                <i class="bi bi-person-plus"></i> جديد
+            </button>
         </div>
+
+        @if (_searchLoading)
+        {
+            <div class="loading-inline" style="margin-top:.5rem">
+                <i class="bi bi-hourglass-split spin"></i> جارٍ البحث…
+            </div>
+        }
+        else if (_citoyens?.Any() == true && _selectedCitoyen == null)
+        {
+            <div class="suggestions-box">
+                @foreach (var c in _citoyens)
+                {
+                    <div class="sug-item" @onclick="()=>SelectCitoyen(c)">
+                        <i class="bi bi-person-circle" style="font-size:1.25rem;color:#f97316;flex-shrink:0"></i>
+                        <div style="flex:1">
+                            <div class="sug-name">@c.NomComplet</div>
+                            <div class="sug-meta">
+                                <span><i class="bi bi-card-text"></i> @c.CIN</span>
+                                <span><i class="bi bi-telephone"></i> @c.Telephone</span>
+                                @if (!string.IsNullOrEmpty(c.Ville)) { <span><i class="bi bi-geo-alt"></i> @c.Ville</span> }
+                            </div>
+                        </div>
+                        @if (c.NombreReclamations > 0)
+                        {
+                            <span style="background:#fff7ed;color:#f97316;border-radius:99px;padding:.15rem .6rem;font-size:.72rem;font-weight:700;flex-shrink:0">@c.NombreReclamations ش</span>
+                        }
+                    </div>
+                }
+            </div>
+        }
+        else if (_citoyens?.Any() == false && _cinSearch.Length >= 2 && _selectedCitoyen == null)
+        {
+            <div style="margin-top:.4rem;padding:.65rem 1rem;background:#fef2f2;border-radius:8px;font-size:.84rem;color:#dc2626;display:flex;align-items:center;gap:.65rem">
+                <i class="bi bi-person-x-fill"></i>
+                <span>لا يوجد مواطن بهذا الاسم أو رقم الهوية.</span>
+                <button class="btn btn-secondary" style="padding:.2rem .65rem;font-size:.78rem;margin-right:auto"
+                        @onclick='()=>Nav.NavigateTo("/complaints/citizens")'>
+                    <i class="bi bi-person-plus"></i> إضافة مواطن جديد
+                </button>
+            </div>
+        }
     }
 
     @if (_selectedCitoyen != null)
     {
         <div class="citoyen-card">
-            <div>
+            <i class="bi bi-person-check-fill" style="font-size:1.5rem;color:#0369a1;flex-shrink:0"></i>
+            <div style="flex:1">
                 <div class="citoyen-name">@_selectedCitoyen.NomComplet</div>
                 <div class="citoyen-meta">
-                    <i class="bi bi-card-text"></i> @_selectedCitoyen.CIN
-                    &nbsp;|&nbsp; <i class="bi bi-telephone"></i> @_selectedCitoyen.Telephone
+                    <span><i class="bi bi-card-text"></i> @_selectedCitoyen.CIN</span>
+                    <span><i class="bi bi-telephone"></i> @_selectedCitoyen.Telephone</span>
                     @if (!string.IsNullOrEmpty(_selectedCitoyen.Email))
-                    { <text> &nbsp;|&nbsp; <i class="bi bi-envelope"></i> @_selectedCitoyen.Email</text> }
+                    { <span><i class="bi bi-envelope"></i> @_selectedCitoyen.Email</span> }
+                    @if (!string.IsNullOrEmpty(_selectedCitoyen.Ville))
+                    { <span><i class="bi bi-geo-alt"></i> @_selectedCitoyen.Ville</span> }
+                    @if (_selectedCitoyen.NombreReclamations > 0)
+                    { <span style="color:#f97316"><i class="bi bi-chat-square-text"></i> @_selectedCitoyen.NombreReclamations شكاوى سابقة</span> }
                 </div>
             </div>
-            <button class="btn btn-secondary" style="padding:.25rem .6rem" @onclick="ClearCitoyen">
+            <button class="btn btn-secondary" style="padding:.25rem .6rem;flex-shrink:0" @onclick="ClearCitoyen">
                 <i class="bi bi-x-lg"></i>
             </button>
         </div>
     }
 
-    <div style="margin-top:.75rem">
+    <div style="margin-top:.9rem;padding-top:.75rem;border-top:1px solid #f1f5f9">
         <label class="form-check">
             <input type="checkbox" @bind="_dto.EstAnonyme" @bind:after="OnAnonyme" />
-            تسجيل الشكوى بصفة مجهولة
+            <span>تسجيل الشكوى بصفة <strong>مجهولة</strong> — دون الكشف عن هوية المواطن</span>
         </label>
     </div>
 </div>
 
-@* ── 2. تصنيف الشكوى ── *@
+@* ══ 2. التصنيف ════════════════════════════════════════════════════ *@
 <div class="form-card">
     <div class="card-title"><i class="bi bi-tags-fill"></i> تصنيف الشكوى</div>
     <div class="form-grid">
         <div class="form-group">
             <label class="form-label">نوع الشكوى <span class="req">*</span></label>
-            <select class="form-control @(_v && _dto.TypeReclamationId == 0 ? "invalid" : "")"
-                    @bind="_dto.TypeReclamationId">
-                <option value="0">— اختر النوع —</option>
-                @if (_types != null)
-                {
+            @if (_typesLoading)
+            {
+                <div class="loading-inline"><i class="bi bi-arrow-clockwise spin"></i> تحميل الأنواع…</div>
+            }
+            else if (_types?.Any() == true)
+            {
+                <select class="form-control @(_v && _dto.TypeReclamationId == 0 ? "invalid" : "")"
+                        @bind="_dto.TypeReclamationId" @bind:after="OnTypeChanged">
+                    <option value="0">— اختر نوع الشكوى —</option>
                     @foreach (var t in _types)
                     {
                         <option value="@t.Id">@t.Libelle</option>
                     }
+                </select>
+                @if (_selectedType != null)
+                {
+                    <div class="type-hint">
+                        <i class="bi bi-clock"></i> أجل المعالجة: <strong>@_selectedType.DelaiTraitementJours يوم</strong>
+                        @if (!string.IsNullOrEmpty(_selectedType.ServiceResponsableNom))
+                        { <text> · <i class="bi bi-building"></i> @_selectedType.ServiceResponsableNom</text> }
+                    </div>
                 }
-            </select>
+            }
+            else
+            {
+                <div style="padding:.45rem .75rem;background:#fef2f2;border-radius:8px;font-size:.82rem;color:#dc2626">
+                    <i class="bi bi-exclamation-triangle"></i> تعذّر تحميل الأنواع
+                    <button class="btn btn-secondary" style="padding:.2rem .5rem;font-size:.75rem;margin-right:.5rem" @onclick="LoadTypesAsync">إعادة</button>
+                </div>
+            }
         </div>
+
         <div class="form-group">
             <label class="form-label">الفئة <span class="req">*</span></label>
-            <select class="form-control @(_v && _dto.CategorieId == 0 ? "invalid" : "")"
-                    @bind="_dto.CategorieId">
-                <option value="0">— اختر الفئة —</option>
-                @if (_categories != null)
-                {
+            @if (_catsLoading)
+            {
+                <div class="loading-inline"><i class="bi bi-arrow-clockwise spin"></i> تحميل الفئات…</div>
+            }
+            else if (_categories?.Any() == true)
+            {
+                <select class="form-control @(_v && _dto.CategorieId == 0 ? "invalid" : "")"
+                        @bind="_dto.CategorieId">
+                    <option value="0">— اختر الفئة —</option>
                     @foreach (var c in _categories)
                     {
-                        <option value="@c.Id">@c.Libelle</option>
-                        @foreach (var sub in c.SousCategories)
+                        @if (c.ParentId == null)
                         {
-                            <option value="@sub.Id">&nbsp;&nbsp;└ @sub.Libelle</option>
+                            <option value="@c.Id" style="font-weight:700">
+                                @(c.Icone != null ? c.Icone + " " : "📁 ")@c.Libelle
+                            </option>
+                        }
+                        else
+                        {
+                            <option value="@c.Id">&nbsp;&nbsp;&nbsp;&nbsp;└ @c.Libelle</option>
                         }
                     }
-                }
-            </select>
+                </select>
+            }
+            else
+            {
+                <div style="padding:.45rem .75rem;background:#fef2f2;border-radius:8px;font-size:.82rem;color:#dc2626">
+                    <i class="bi bi-exclamation-triangle"></i> تعذّر تحميل الفئات
+                    <button class="btn btn-secondary" style="padding:.2rem .5rem;font-size:.75rem;margin-right:.5rem" @onclick="LoadCategoriesAsync">إعادة</button>
+                </div>
+            }
         </div>
+
         <div class="form-group">
             <label class="form-label">الأولوية</label>
             <select class="form-control" @bind="_dto.Priorite">
-                <option value="Basse">منخفضة</option>
-                <option value="Moyenne">متوسطة</option>
-                <option value="Haute">عالية</option>
-                <option value="Critique">حرجة</option>
+                <option value="Basse">🟢 منخفضة</option>
+                <option value="Moyenne">🔵 متوسطة</option>
+                <option value="Haute">🟠 عالية</option>
+                <option value="Critique">🔴 حرجة — تستوجب تدخلاً فورياً</option>
             </select>
         </div>
+
         <div class="form-group">
-            <label class="form-label">القناة</label>
+            <label class="form-label">قناة الاستقبال</label>
             <select class="form-control" @bind="_dto.Canal">
-                <option value="Guichet">شباك</option>
-                <option value="Telephone">هاتف</option>
-                <option value="Email">بريد إلكتروني</option>
-                <option value="Web">الموقع الإلكتروني</option>
-                <option value="Mobile">تطبيق الجوال</option>
+                <option value="Guichet">🏢 الشباك</option>
+                <option value="Telephone">📞 الهاتف</option>
+                <option value="Email">📧 البريد الإلكتروني</option>
+                <option value="Web">🌐 الموقع الإلكتروني</option>
+                <option value="Mobile">📱 تطبيق الجوال</option>
             </select>
         </div>
+
         <div class="form-group">
             <label class="form-label">تاريخ الحادثة</label>
-            <input type="date" class="form-control" @bind="_dto.DateIncident" />
+            <input type="date" class="form-control" @bind="_dto.DateIncident"
+                   max="@DateTime.Today.ToString("yyyy-MM-dd")" />
         </div>
     </div>
 </div>
 
-@* ── 3. محتوى الشكوى ── *@
+@* ══ 3. المحتوى ════════════════════════════════════════════════════ *@
 <div class="form-card">
     <div class="card-title"><i class="bi bi-file-text-fill"></i> محتوى الشكوى</div>
     <div class="form-grid">
         <div class="form-group full">
             <label class="form-label">موضوع الشكوى <span class="req">*</span></label>
-            <input type="text" class="form-control @(_v && string.IsNullOrEmpty(_dto.Objet) ? "invalid" : "")"
-                   placeholder="موضوع الشكوى بإيجاز…" @bind="_dto.Objet" />
+            <input type="text"
+                   class="form-control @(_v && string.IsNullOrEmpty(_dto.Objet) ? "invalid" : "")"
+                   placeholder="لخّص المشكلة في جملة واضحة ومختصرة…"
+                   @bind="_dto.Objet" maxlength="500" />
         </div>
         <div class="form-group full">
             <label class="form-label">الوصف التفصيلي <span class="req">*</span></label>
             <textarea class="form-control @(_v && string.IsNullOrEmpty(_dto.Description) ? "invalid" : "")"
-                      style="height:120px" placeholder="وصف تفصيلي للمشكلة أو الشكوى…"
+                      placeholder="اشرح المشكلة بتفصيل: متى حدثت؟ ما تأثيرها؟ هل تسببت في أضرار؟ هل تتكرر؟…"
                       @bind="_dto.Description"></textarea>
         </div>
-        <div class="form-group full">
-            <label class="form-label">الموقع الجغرافي</label>
-            <input type="text" class="form-control" placeholder="عنوان أو وصف الموقع…"
-                   @bind="_dto.Localisation" />
+    </div>
+</div>
+
+@* ══ 4. الموقع الجغرافي ══════════════════════════════════════════ *@
+<div class="form-card">
+    <div class="card-title"><i class="bi bi-geo-alt-fill"></i> الموقع الجغرافي</div>
+
+    <div class="form-group full" style="margin-bottom:.9rem">
+        <label class="form-label">وصف الموقع / العنوان</label>
+        <input type="text" class="form-control"
+               placeholder="مثال: شارع الاستقلال، أمام المدرسة الابتدائية…"
+               @bind="_dto.Localisation" />
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:.5rem">
+        <span class="form-label" style="margin:0">تحديد موقع على الخريطة</span>
+        <div style="display:flex;gap:.5rem">
+            <button type="button" class="btn-map" @onclick="GetCurrentLocation">
+                <i class="bi bi-crosshair2"></i> موقعي الحالي
+            </button>
+            <button type="button" class="btn-map" @onclick="ToggleMap">
+                <i class="bi bi-map"></i>
+                @(_showMap ? "إخفاء الخريطة" : "فتح الخريطة")
+            </button>
+        </div>
+    </div>
+
+    @if (_showMap)
+    {
+        <div id="rec-map"></div>
+        <div class="map-hint">
+            <i class="bi bi-info-circle"></i>
+            انقر على الخريطة لتثبيت الموقع. يمكن سحب العلامة لتعديله.
+        </div>
+    }
+
+    <div class="coords-row">
+        <div class="form-group">
+            <label class="form-label">خط العرض (Latitude)</label>
+            <input type="number" class="form-control" step="0.000001"
+                   placeholder="مثال: 36.737222"
+                   @bind="_dto.Latitude" @bind:after="UpdateMapMarker" />
         </div>
         <div class="form-group">
-            <label class="form-label">خط الطول</label>
-            <input type="number" class="form-control" step="0.000001" placeholder="Longitude"
-                   @bind="_dto.Longitude" />
+            <label class="form-label">خط الطول (Longitude)</label>
+            <input type="number" class="form-control" step="0.000001"
+                   placeholder="مثال: 3.086667"
+                   @bind="_dto.Longitude" @bind:after="UpdateMapMarker" />
         </div>
-        <div class="form-group">
-            <label class="form-label">خط العرض</label>
-            <input type="number" class="form-control" step="0.000001" placeholder="Latitude"
-                   @bind="_dto.Latitude" />
+        @if (_dto.Latitude.HasValue && _dto.Longitude.HasValue)
+        {
+            <button type="button" class="btn-map"
+                    style="background:#fee2e2;color:#dc2626;margin-bottom:.3rem"
+                    @onclick="ClearCoords">
+                <i class="bi bi-x-circle"></i>
+            </button>
+        }
+    </div>
+
+    @if (_dto.Latitude.HasValue && _dto.Longitude.HasValue)
+    {
+        <div style="display:flex;gap:.65rem;margin-top:.5rem;flex-wrap:wrap">
+            <div class="coord-display"><i class="bi bi-geo-alt"></i> Lat: @_dto.Latitude.Value.ToString("F6")</div>
+            <div class="coord-display"><i class="bi bi-geo"></i> Lng: @_dto.Longitude.Value.ToString("F6")</div>
+        </div>
+    }
+</div>
+
+@* ══ 5. التوجيه والإسناد ══════════════════════════════════════════ *@
+<div class="form-card">
+    <div class="card-title">
+        <i class="bi bi-arrow-right-circle-fill"></i>
+        التوجيه والإسناد
+        <span style="font-size:.73rem;font-weight:400;color:#94a3b8;margin-right:.25rem">(اختياري — يمكن تعيينه بعد الإنشاء)</span>
+    </div>
+    <div class="affectation-inner">
+        <div class="aff-title"><i class="bi bi-building" style="color:#0369a1"></i> المصلحة المعنية بالمعالجة</div>
+        <div class="form-grid">
+            <div class="form-group full">
+                @if (_servicesLoading)
+                {
+                    <div class="loading-inline"><i class="bi bi-arrow-clockwise spin"></i> تحميل المصالح…</div>
+                }
+                else
+                {
+                    <select class="form-control" @bind="_assignServiceId" @bind:after="OnServiceChanged">
+                        <option value="0">— اختر المصلحة (اختياري) —</option>
+                        @if (_services != null)
+                        {
+                            @foreach (var s in _services)
+                            {
+                                <option value="@s.Id">@s.Nom @(!string.IsNullOrEmpty(s.DepartementNom) ? $"— {s.DepartementNom}" : "")</option>
+                            }
+                        }
+                    </select>
+                }
+            </div>
+
+            @if (_assignServiceId > 0)
+            {
+                <div class="form-group full">
+                    <label class="form-label">
+                        <i class="bi bi-person-workspace"></i>
+                        الموظف المكلف بالملف
+                        <span style="font-weight:400;color:#94a3b8">(اختياري)</span>
+                    </label>
+                    @if (_employesLoading)
+                    {
+                        <div class="loading-inline"><i class="bi bi-arrow-clockwise spin"></i> تحميل الموظفين…</div>
+                    }
+                    else
+                    {
+                        <select class="form-control" @bind="_assignEmployeId">
+                            <option value="">— اختر الموظف (اختياري) —</option>
+                            @if (_employes?.Any() == true)
+                            {
+                                @foreach (var e in _employes)
+                                {
+                                    <option value="@e.Identifiant">@e.NomComplet — @e.PosteTitre</option>
+                                }
+                            }
+                        </select>
+                        @if (_employes?.Any() == false)
+                        {
+                            <div style="font-size:.77rem;color:#94a3b8;margin-top:.2rem">
+                                <i class="bi bi-info-circle"></i> لا يوجد موظفون نشطون في هذه المصلحة.
+                            </div>
+                        }
+                    }
+                </div>
+
+                <div class="form-group full">
+                    <label class="form-label">ملاحظة التوجيه</label>
+                    <textarea class="form-control" style="height:70px"
+                              placeholder="تعليمات أو ملاحظات للمصلحة المعنية…"
+                              @bind="_assignComment"></textarea>
+                </div>
+            }
         </div>
     </div>
 </div>
 
 <div class="form-footer">
-    <button class="btn btn-secondary" @onclick='()=>Nav.NavigateTo("/complaints/list")'>إلغاء</button>
+    <button class="btn btn-secondary" @onclick='()=>Nav.NavigateTo("/complaints/list")'>
+        <i class="bi bi-x"></i> إلغاء
+    </button>
     <button class="btn btn-primary" @onclick="SaveAsync" disabled="@_saving">
-        @if (_saving) { <text><i class="bi bi-hourglass-split"></i> جارٍ الحفظ…</text> }
-        else          { <text><i class="bi bi-floppy"></i> حفظ الشكوى</text> }
+        @if (_saving)
+        {
+            <i class="bi bi-hourglass-split spin"></i>
+            <text>جارٍ الحفظ…</text>
+        }
+        else
+        {
+            <i class="bi bi-floppy"></i>
+            <text>حفظ الشكوى</text>
+        }
     </button>
 </div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 
 @code {
     [Parameter] public int? Id { get; set; }
 
-    private int?                  _editId;
-    private CreateReclamationDto  _dto    = new() { Priorite = "Moyenne", Canal = "Guichet" };
-    private CitoyenDto?           _selectedCitoyen;
-    private List<CitoyenDto>?     _citoyens;
+    private int? _editId;
+    private CreateReclamationDto _dto = new() { Priorite = "Moyenne", Canal = "Guichet" };
+
+    // Citoyen
+    private CitoyenDto?        _selectedCitoyen;
+    private List<CitoyenDto>?  _citoyens;
+    private string             _cinSearch    = string.Empty;
+    private bool               _searchLoading;
+
+    // Référentiels
     private List<TypeReclamationDto>?      _types;
     private List<CategorieReclamationDto>? _categories;
-    private string  _cinSearch = string.Empty;
-    private bool _saving, _v;
+    private TypeReclamationDto?            _selectedType;
+    private bool _typesLoading, _catsLoading;
+
+    // Services & Employés
+    private List<ServiceDto>? _services;
+    private List<EmployeDto>? _employes;
+    private int    _assignServiceId;
+    private string _assignEmployeId = string.Empty;
+    private string _assignComment   = string.Empty;
+    private bool   _servicesLoading, _employesLoading;
+
+    // Map
+    private bool _showMap;
+    private bool _mapReady;
+
+    // Form
+    private bool    _saving, _v;
     private string? _error, _success;
 
+    // ── Lifecycle ─────────────────────────────────────────────────
     protected override async Task OnInitializedAsync()
     {
         _editId = Id;
-        try { _types      = await TypeApi.GetAllActiveAsync(); }   catch { }
-        try { _categories = await CatApi.GetHierarchieAsync(); }   catch { }
+        await Task.WhenAll(LoadTypesAsync(), LoadCategoriesAsync(), LoadServicesAsync());
     }
 
-    private async Task SearchCitoyen()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (string.IsNullOrWhiteSpace(_cinSearch) || _cinSearch.Length < 2) return;
+        if (_showMap && !_mapReady)
+        {
+            _mapReady = true;
+            await Task.Yield();
+            await InitMapAsync();
+        }
+    }
+
+    // ── Référentiels ─────────────────────────────────────────────
+    private async Task LoadTypesAsync()
+    {
+        _typesLoading = true; StateHasChanged();
+        try   { _types = await TypeApi.GetAllActiveAsync() ?? new(); }
+        catch { _types = new(); }
+        _typesLoading = false;
+    }
+
+    private async Task LoadCategoriesAsync()
+    {
+        _catsLoading = true; StateHasChanged();
         try
         {
-            var result = await CitoyenApi.GetPagedAsync(new CitoyenFilterDto { SearchTerm = _cinSearch, PageNumber = 1, PageSize = 8, IsActive = true });
-            _citoyens = result?.Items?.ToList() ?? new();
+            // Essayer d'abord GetFlatAsync (endpoint /flat)
+            _categories = await CatApi.GetFlatAsync() ?? new();
+        }
+        catch
+        {
+            // Fallback: hiérarchie manuelle
+            try
+            {
+                var hier = await CatApi.GetHierarchieAsync() ?? new();
+                _categories = new();
+                foreach (var p in hier)
+                {
+                    _categories.Add(new CategorieReclamationDto
+                    {
+                        Id = p.Id, Code = p.Code, Libelle = p.Libelle,
+                        Icone = p.Icone, CouleurHex = p.CouleurHex,
+                        ParentId = null, Niveau = 1, IsActive = p.IsActive
+                    });
+                    foreach (var sub in p.SousCategories ?? new())
+                    {
+                        _categories.Add(new CategorieReclamationDto
+                        {
+                            Id = sub.Id, Code = sub.Code, Libelle = sub.Libelle,
+                            Icone = sub.Icone, CouleurHex = sub.CouleurHex,
+                            ParentId = p.Id, Niveau = 2, IsActive = sub.IsActive
+                        });
+                    }
+                }
+            }
+            catch { _categories = new(); }
+        }
+        _catsLoading = false;
+    }
+
+    private async Task LoadServicesAsync()
+    {
+        _servicesLoading = true; StateHasChanged();
+        try
+        {
+            var result = await ServiceApi.GetAllAsync();
+            _services = result?.Data?.Where(s => s.IsActive).OrderBy(s => s.Nom).ToList() ?? new();
+        }
+        catch { _services = new(); }
+        _servicesLoading = false;
+    }
+
+    // ── Citoyen ───────────────────────────────────────────────────
+    private System.Threading.CancellationTokenSource? _cts;
+    private async Task OnSearchInput(ChangeEventArgs e)
+    {
+        _cinSearch       = e.Value?.ToString() ?? string.Empty;
+        _selectedCitoyen = null;
+        _dto.CitoyenId   = 0;
+        if (_cinSearch.Length < 2) { _citoyens = null; return; }
+
+        _cts?.Cancel(); _cts = new();
+        try
+        {
+            await Task.Delay(350, _cts.Token);
+            await DoSearch();
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    private async Task DoSearch()
+    {
+        _searchLoading = true; StateHasChanged();
+        try
+        {
+            var r = await CitoyenApi.GetPagedAsync(new CitoyenFilterDto
+            { SearchTerm = _cinSearch, PageNumber = 1, PageSize = 8, IsActive = true });
+            _citoyens = r?.Items?.ToList() ?? new();
         }
         catch { _citoyens = new(); }
+        _searchLoading = false;
     }
 
     private void SelectCitoyen(CitoyenDto c)
     {
         _selectedCitoyen = c;
         _dto.CitoyenId   = c.Id;
-        _dto.EstAnonyme  = false;
         _citoyens        = null;
         _cinSearch       = c.NomComplet;
     }
@@ -278,38 +638,142 @@
 
     private void OnAnonyme()
     {
-        if (_dto.EstAnonyme)
+        if (_dto.EstAnonyme) { _dto.CitoyenId = 1; ClearCitoyen(); }
+        else { _dto.CitoyenId = 0; }
+    }
+
+    // ── Type → pré-remplir service ────────────────────────────────
+    private void OnTypeChanged()
+    {
+        _selectedType = _types?.FirstOrDefault(t => t.Id == _dto.TypeReclamationId);
+        if (_selectedType?.ServiceResponsableId.HasValue == true && _assignServiceId == 0)
         {
-            // Pour anonyme, on utilise un citoyen "Anonyme" fictif (Id=1 ou à adapter)
-            _dto.CitoyenId = 1;
-            ClearCitoyen();
-        }
-        else
-        {
-            _dto.CitoyenId = 0;
+            _assignServiceId = _selectedType.ServiceResponsableId.Value;
+            _ = LoadEmployesForService(_assignServiceId);
         }
     }
 
+    // ── Service → charger employés ────────────────────────────────
+    private async Task OnServiceChanged()
+    {
+        _assignEmployeId = string.Empty;
+        _employes        = null;
+        if (_assignServiceId > 0)
+            await LoadEmployesForService(_assignServiceId);
+    }
+
+    private async Task LoadEmployesForService(int serviceId)
+    {
+        _employesLoading = true; StateHasChanged();
+        try
+        {
+            var r = await EmployeApi.GetPagedAsync(new EmployeFilterDto
+            { ServiceId = serviceId, PageNumber = 1, PageSize = 100 });
+            _employes = r?.Data?.Items?
+                .Where(e => e.Statut == "Actif")
+                .OrderBy(e => e.NomComplet)
+                .ToList() ?? new();
+        }
+        catch { _employes = new(); }
+        _employesLoading = false;
+    }
+
+    // ── Map ───────────────────────────────────────────────────────
+    private async Task ToggleMap()
+    {
+        _showMap  = !_showMap;
+        _mapReady = false;
+        if (!_showMap) return;
+        StateHasChanged();
+        await Task.Delay(120);
+        await InitMapAsync();
+    }
+
+    private async Task InitMapAsync()
+    {
+        try
+        {
+            double lat = _dto.Latitude.HasValue  ? (double)_dto.Latitude.Value  : 36.7372;
+            double lng = _dto.Longitude.HasValue ? (double)_dto.Longitude.Value : 3.0870;
+            await JS.InvokeVoidAsync("recMap.init", "rec-map", lat, lng,
+                DotNetObjectReference.Create(this));
+        }
+        catch { /* Leaflet pas encore chargé */ }
+    }
+
+    [JSInvokable("OnMapClick")]
+    public void OnMapClick(double lat, double lng)
+    {
+        _dto.Latitude  = (decimal)Math.Round(lat, 6);
+        _dto.Longitude = (decimal)Math.Round(lng, 6);
+        StateHasChanged();
+    }
+
+    private async Task GetCurrentLocation()
+    {
+        try
+        {
+            var coords = await JS.InvokeAsync<double[]>("recMap.getLocation");
+            if (coords?.Length >= 2)
+            {
+                _dto.Latitude  = (decimal)Math.Round(coords[0], 6);
+                _dto.Longitude = (decimal)Math.Round(coords[1], 6);
+                if (_showMap)
+                    await JS.InvokeVoidAsync("recMap.setMarker",
+                        (double)_dto.Latitude.Value, (double)_dto.Longitude.Value);
+            }
+        }
+        catch { _error = "تعذّر الحصول على الموقع الحالي. تحقق من إذن الوصول للموقع في المتصفح."; }
+    }
+
+    private async Task UpdateMapMarker()
+    {
+        if (_showMap && _dto.Latitude.HasValue && _dto.Longitude.HasValue)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("recMap.setMarker",
+                    (double)_dto.Latitude.Value, (double)_dto.Longitude.Value);
+            }
+            catch { }
+        }
+    }
+
+    private void ClearCoords() { _dto.Latitude = null; _dto.Longitude = null; }
+
+    // ── Save ──────────────────────────────────────────────────────
     private async Task SaveAsync()
     {
-        _v = true;
-        if (!_dto.EstAnonyme && _dto.CitoyenId == 0)   { _error = "يرجى تحديد المواطن أو تفعيل خيار المجهول."; return; }
-        if (_dto.TypeReclamationId == 0)                { _error = "يرجى اختيار نوع الشكوى."; return; }
-        if (_dto.CategorieId == 0)                      { _error = "يرجى اختيار الفئة."; return; }
-        if (string.IsNullOrEmpty(_dto.Objet))           { _error = "موضوع الشكوى مطلوب."; return; }
-        if (string.IsNullOrEmpty(_dto.Description))     { _error = "وصف الشكوى مطلوب."; return; }
+        _v = true; _error = null;
 
-        _saving = true; _error = null;
+        if (!_dto.EstAnonyme && _dto.CitoyenId == 0)
+        { _error = "يرجى تحديد المواطن أو تفعيل خيار الشكوى المجهولة."; return; }
+        if (_dto.TypeReclamationId == 0) { _error = "يرجى اختيار نوع الشكوى."; return; }
+        if (_dto.CategorieId == 0)       { _error = "يرجى اختيار فئة الشكوى."; return; }
+        if (string.IsNullOrEmpty(_dto.Objet))       { _error = "موضوع الشكوى مطلوب."; return; }
+        if (string.IsNullOrEmpty(_dto.Description)) { _error = "الوصف التفصيلي مطلوب."; return; }
+
+        _saving = true;
         try
         {
             var result = await Api.DeposerAsync(_dto);
-            if (result != null)
+            if (result == null) { _error = "حدث خطأ أثناء حفظ الشكوى. حاول مرة أخرى."; return; }
+
+            // توجيه فوري إن طُلب
+            if (_assignServiceId > 0)
             {
-                _success = $"تم تسجيل الشكوى بنجاح — رقم: {result.NumeroReclamation}";
-                await Task.Delay(1500);
-                Nav.NavigateTo($"/complaints/list/{result.Id}");
+                await Api.AssignerAsync(result.Id, new AssignerReclamationDto
+                {
+                    ServiceConcerneId = _assignServiceId,
+                    AffecteAId  = string.IsNullOrEmpty(_assignEmployeId) ? null : _assignEmployeId,
+                    Commentaire = string.IsNullOrEmpty(_assignComment)   ? null : _assignComment
+                });
             }
-            else { _error = "حدث خطأ أثناء حفظ الشكوى."; }
+
+            _success = $"✓ تم تسجيل الشكوى بنجاح — الرقم: {result.NumeroReclamation}";
+            StateHasChanged();
+            await Task.Delay(1800);
+            Nav.NavigateTo($"/complaints/list/{result.Id}");
         }
         catch (Exception ex) { _error = ex.Message; }
         finally { _saving = false; }

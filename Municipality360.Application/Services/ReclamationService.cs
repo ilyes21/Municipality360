@@ -361,3 +361,168 @@ public class CitoyenService : ICitoyenService
         NombreReclamations = c.Reclamations?.Count ?? 0
     };
 }
+
+// ════════════════════════════════════════════════════════════════
+//  TYPE RÉCLAMATION SERVICE
+// ════════════════════════════════════════════════════════════════
+
+public class TypeReclamationService : ITypeReclamationService
+{
+    private readonly ITypeReclamationRepository _repo;
+    public TypeReclamationService(ITypeReclamationRepository repo) => _repo = repo;
+
+    public async Task<List<TypeReclamationDto>> GetAllActiveAsync()
+    {
+        var list = await _repo.GetAllActiveAsync();
+        return list.Select(MapToDto).ToList();
+    }
+
+    public async Task<TypeReclamationDto> GetByIdAsync(int id)
+    {
+        var t = await _repo.GetByIdAsync(id)
+            ?? throw new KeyNotFoundException($"Type réclamation #{id} introuvable.");
+        return MapToDto(t);
+    }
+
+    public async Task<TypeReclamationDto> CreateAsync(CreateTypeReclamationDto dto)
+    {
+        if (await _repo.CodeExistsAsync(dto.Code))
+            throw new InvalidOperationException($"Le code '{dto.Code}' existe déjà.");
+
+        var t = new TypeReclamation
+        {
+            Code = dto.Code,
+            Libelle = dto.Libelle,
+            Description = dto.Description,
+            DelaiTraitementJours = dto.DelaiTraitementJours,
+            ServiceResponsableId = dto.ServiceResponsableId,
+            IsActive = true
+        };
+        await _repo.AddAsync(t);
+        return MapToDto(t);
+    }
+
+    public async Task<TypeReclamationDto> UpdateAsync(int id, CreateTypeReclamationDto dto)
+    {
+        var t = await _repo.GetByIdAsync(id)
+            ?? throw new KeyNotFoundException($"Type réclamation #{id} introuvable.");
+
+        if (await _repo.CodeExistsAsync(dto.Code, id))
+            throw new InvalidOperationException($"Le code '{dto.Code}' est déjà utilisé.");
+
+        t.Code = dto.Code;
+        t.Libelle = dto.Libelle;
+        t.Description = dto.Description;
+        t.DelaiTraitementJours = dto.DelaiTraitementJours;
+        t.ServiceResponsableId = dto.ServiceResponsableId;
+        t.UpdatedAt = DateTime.UtcNow;
+        await _repo.UpdateAsync(t);
+        return MapToDto(t);
+    }
+
+    public async Task DeleteAsync(int id)
+    {
+        var t = await _repo.GetByIdAsync(id)
+            ?? throw new KeyNotFoundException($"Type réclamation #{id} introuvable.");
+        await _repo.DeleteAsync(t);
+    }
+
+    private static TypeReclamationDto MapToDto(TypeReclamation t) => new()
+    {
+        Id = t.Id,
+        Code = t.Code,
+        Libelle = t.Libelle,
+        Description = t.Description,
+        DelaiTraitementJours = t.DelaiTraitementJours,
+        ServiceResponsableId = t.ServiceResponsableId,
+        ServiceResponsableNom = t.ServiceResponsable?.Nom,
+        IsActive = t.IsActive
+    };
+}
+
+// ════════════════════════════════════════════════════════════════
+//  CATÉGORIE RÉCLAMATION SERVICE
+// ════════════════════════════════════════════════════════════════
+
+public class CategorieReclamationService : ICategorieReclamationService
+{
+    private readonly ICategorieReclamationRepository _repo;
+    public CategorieReclamationService(ICategorieReclamationRepository repo) => _repo = repo;
+
+    public async Task<List<CategorieReclamationDto>> GetHierarchieAsync()
+    {
+        var list = await _repo.GetHierarchieAsync();
+        // ✅ Utiliser x => MapToDto(x) pour lever l'ambiguïté
+        return list.Select(x => MapToDto(x)).ToList();
+    }
+
+    /// <summary>Retourne toutes les catégories à plat (parents + enfants) pour les dropdowns</summary>
+    public async Task<List<CategorieReclamationDto>> GetFlatAsync()
+    {
+        var parents = await _repo.GetHierarchieAsync();
+        var flat = new List<CategorieReclamationDto>();
+
+        foreach (var p in parents)
+        {
+            flat.Add(MapToDto(p, includeSubs: false));
+            foreach (var sub in p.SousCategories.Where(s => s.IsActive))
+                flat.Add(MapToDto(sub, includeSubs: false));
+        }
+        return flat;
+    }
+
+    public async Task<CategorieReclamationDto> GetByIdAsync(int id)
+    {
+        var c = await _repo.GetByIdAsync(id)
+            ?? throw new KeyNotFoundException($"Catégorie #{id} introuvable.");
+        return MapToDto(c);
+    }
+
+    public async Task<CategorieReclamationDto> CreateAsync(CreateCategorieReclamationDto dto)
+    {
+        if (await _repo.CodeExistsAsync(dto.Code))
+            throw new InvalidOperationException($"Le code '{dto.Code}' existe déjà.");
+
+        var c = new CategorieReclamation
+        {
+            Code = dto.Code,
+            Libelle = dto.Libelle,
+            Icone = dto.Icone,
+            CouleurHex = dto.CouleurHex,
+            ParentId = dto.ParentId,
+            Niveau = dto.ParentId.HasValue ? 2 : 1,
+            IsActive = true
+        };
+        await _repo.AddAsync(c);
+        return MapToDto(c);
+    }
+
+    public async Task DeleteAsync(int id)
+    {
+        var c = await _repo.GetByIdAsync(id)
+            ?? throw new KeyNotFoundException($"Catégorie #{id} introuvable.");
+        await _repo.DeleteAsync(c);
+    }
+
+    private static CategorieReclamationDto MapToDto(CategorieReclamation c, bool includeSubs = true) => new()
+    {
+        Id = c.Id,
+        Code = c.Code,
+        Libelle = c.Libelle,
+        Icone = c.Icone,
+        CouleurHex = c.CouleurHex,
+        ParentId = c.ParentId,
+        ParentLibelle = c.Parent?.Libelle,
+        Niveau = c.Niveau,
+        IsActive = c.IsActive,
+
+        // ✅ SOLUTION : Utiliser une lambda (s => MapToDto(s, false)) 
+        // au lieu de la syntaxe de groupe de méthodes
+        SousCategories = includeSubs
+        ? c.SousCategories
+            .Where(s => s.IsActive)
+            .Select(s => MapToDto(s, false)) // Modification ici
+            .ToList()
+        : new List<CategorieReclamationDto>()
+    };
+}
