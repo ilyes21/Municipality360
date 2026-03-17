@@ -45,11 +45,11 @@ public static class DbSeeder
         var usersData = new[]
         {
             ("ilyescherif21@gmail.com", "Ilyes21",   "Ilyes",   "Cherif",   "Admin@123456", "SuperAdmin"),
-            ("admin@mairie.dz",         "admin.dz",  "Mohamed", "Bensalem", "Admin@123456", "Admin"),
-            ("bo@mairie.dz",            "agent.bo",  "Fatima",  "Ouali",    "Agent@123456", "BureauOrdre"),
-            ("urb@mairie.dz",           "agent.urb", "Karim",   "Meziane",  "Agent@123456", "Urbanisme"),
-            ("rec@mairie.dz",           "agent.rec", "Amina",   "Hadj",     "Agent@123456", "Reclamations"),
-            ("fin@mairie.dz",           "agent.fin", "Youcef",  "Belaid",   "Agent@123456", "Finances"),
+            ("zekrimourad1@gmail.com",  "MouradZ",  "Mourad", "Zekri", "Admin@123456", "Admin"),
+            ("thouraya@gmail.com",      "thouraya",  "thouraya",  "kalabi",    "Agent@123456", "BureauOrdre"),
+            ("mouhamedZgal@gmail.com", "Mouhamed", "Mouhamed",   "Zgal",  "Agent@123456", "Urbanisme"),
+            ("Nadiahammemi@gmail.com",  "Nadia", "Nadia",   "Hammemi",     "Agent@123456", "Reclamations"),
+            ("Hatem2019@gmail.com",   "Hatem", "Hatem",  "Hachicha",   "Agent@123456", "Finances"),
         };
 
         var createdUsers = new Dictionary<string, ApplicationUser>();
@@ -89,11 +89,10 @@ public static class DbSeeder
         {
             var depts = new[]
             {
-                new Departement { Nom = "Administration Générale",   Code = "ADM", Description = "Direction et coordination générale"   },
-                new Departement { Nom = "Finances et Budget",        Code = "FIN", Description = "Gestion financière et budgétaire"     },
-                new Departement { Nom = "Urbanisme et Construction", Code = "URB", Description = "Permis de construire et aménagement"  },
-                new Departement { Nom = "État Civil",                Code = "EC",  Description = "Registre civil et documents"          },
-                new Departement { Nom = "Environnement",             Code = "ENV", Description = "Propreté et espace vert"              },
+                new Departement { Nom = "الكاتب العام",   Code = "ADM", Description = "الإدارة العامة والتنسيق"   },
+                new Departement { Nom = "إدارة الشؤون المالية",        Code = "FIN", Description = "الإدارة المالية والميزانية"     },
+                new Departement { Nom = "الإدارة الفنية", Code = "URB", Description = "الأشغال وتراخيص البناء والتطوير"  },
+                new Departement { Nom = "إدارة الشؤون الادارية",                Code = "ERH",  Description = "إدارة الشؤون الادارية"          },
             };
             await context.Departements.AddRangeAsync(depts);
             await context.SaveChangesAsync();
@@ -102,10 +101,10 @@ public static class DbSeeder
         if (!context.Postes.IgnoreQueryFilters().Any())
         {
             await context.Postes.AddRangeAsync(
-                new Poste { Titre = "Directeur Général", Code = "DG", SalaireMin = 90000, SalaireMax = 130000 },
-                new Poste { Titre = "Chef de Service", Code = "CS", SalaireMin = 65000, SalaireMax = 95000 },
-                new Poste { Titre = "Cadre Administratif", Code = "CA", SalaireMin = 45000, SalaireMax = 70000 },
-                new Poste { Titre = "Agent Administratif", Code = "AA", SalaireMin = 28000, SalaireMax = 48000 }
+                new Poste { Titre = "مدير", Code = "DG", SalaireMin = 90000, SalaireMax = 130000 },
+                new Poste { Titre = "رئيس مصلحة", Code = "CS", SalaireMin = 65000, SalaireMax = 95000 },
+                new Poste { Titre = "الإطار الإداري", Code = "CA", SalaireMin = 45000, SalaireMax = 70000 },
+                new Poste { Titre = "العامل الإداري", Code = "AA", SalaireMin = 28000, SalaireMax = 48000 }
             );
             await context.SaveChangesAsync();
         }
@@ -115,20 +114,23 @@ public static class DbSeeder
             var adm = context.Departements.IgnoreQueryFilters().FirstOrDefault(d => d.Code == "ADM")!;
             var fin = context.Departements.IgnoreQueryFilters().FirstOrDefault(d => d.Code == "FIN")!;
             var urb = context.Departements.IgnoreQueryFilters().FirstOrDefault(d => d.Code == "URB")!;
-            var ec = context.Departements.IgnoreQueryFilters().FirstOrDefault(d => d.Code == "EC")!;
-            var env = context.Departements.IgnoreQueryFilters().FirstOrDefault(d => d.Code == "ENV")!;
+            var ERH = context.Departements.IgnoreQueryFilters().FirstOrDefault(d => d.Code == "ERH")!;
 
             await context.Services.AddRangeAsync(
-                new Service { Nom = "Secrétariat Général", Code = "ADM-SEC", DepartementId = adm.Id },
-                new Service { Nom = "Ressources Humaines", Code = "ADM-RH", DepartementId = adm.Id },
-                new Service { Nom = "Bureau d'Ordre", Code = "ADM-BO", DepartementId = adm.Id },
-                new Service { Nom = "Comptabilité", Code = "FIN-CPT", DepartementId = fin.Id },
-                new Service { Nom = "Budget", Code = "FIN-BDG", DepartementId = fin.Id },
-                new Service { Nom = "Permis de Construire", Code = "URB-PC", DepartementId = urb.Id },
-                new Service { Nom = "Cadastre et Zonage", Code = "URB-CAD", DepartementId = urb.Id },
-                new Service { Nom = "Naissance et Mariage", Code = "EC-NM", DepartementId = ec.Id },
-                new Service { Nom = "Décès et Succession", Code = "EC-DS", DepartementId = ec.Id },
-                new Service { Nom = "Propreté Urbaine", Code = "ENV-PRO", DepartementId = env.Id }
+                new Service { Nom = "الكاتب العام", Code = "ADM-SEC", DepartementId = adm.Id },
+                new Service { Nom = "مكتب الضبط", Code = "ADM-BO", DepartementId = adm.Id },
+                new Service { Nom = "الإعلامية والأرشيف", Code = "ADM-INF", DepartementId = adm.Id },
+                new Service { Nom = "الحسابية", Code = "FIN-CPT", DepartementId = fin.Id },
+                new Service { Nom = "المزانية", Code = "FIN-BDG", DepartementId = fin.Id },
+                new Service { Nom = "النزاعات والملك البلديوالأسواق", Code = "FIN-SM", DepartementId = fin.Id },
+                new Service { Nom = "الصفقات", Code = "FIN-CON", DepartementId = fin.Id },
+                new Service { Nom = "التأجير", Code = "FIN-PY", DepartementId = fin.Id },
+                new Service { Nom = "رخصة بناء", Code = "URB-PC", DepartementId = urb.Id },
+                new Service { Nom = "الأشغال", Code = "URB-CAD", DepartementId = urb.Id },
+                new Service { Nom = "النظافة العامة والصحة", Code = "ENV-PRO", DepartementId = urb.Id },
+                new Service { Nom = "الموارد البشرية", Code = "ADM-RH", DepartementId = ERH.Id },
+                new Service { Nom = "الحالة المدنية", Code = "EC-NM", DepartementId = ERH.Id }
+                
             );
             await context.SaveChangesAsync();
         }

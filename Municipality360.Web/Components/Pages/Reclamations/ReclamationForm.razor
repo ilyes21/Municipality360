@@ -1,18 +1,22 @@
 @page "/complaints/add"
 @page "/complaints/edit/{Id:int}"
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
 @using Microsoft.JSInterop
 @using Municipality360.Application.DTOs.Reclamations
 @attribute [Authorize(Roles = "SuperAdmin,Admin,Manager,Reclamations")]
 @layout Municipality360.Web.Components.Layout.MainLayout
-@inject IReclamationApiService Api
-@inject ICitoyenApiService CitoyenApi
+
+@inject IReclamationApiService     Api
+@inject ICitoyenApiService         CitoyenApi
 @inject ITypeReclamationApiService TypeApi
 @inject ICategorieReclamationApiService CatApi
-@inject IServiceApiService ServiceApi
-@inject IEmployeApiService EmployeApi
-@inject NavigationManager Nav
-@inject IJSRuntime JS
+@inject IServiceApiService         ServiceApi
+@inject IEmployeApiService         EmployeApi
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager          Nav
+@inject IJSRuntime                 JS
 
 <PageTitle>@(_editId.HasValue ? "تعديل شكوى" : "شكوى جديدة") — Municipality360</PageTitle>
 
@@ -28,7 +32,7 @@
     .btn-primary:hover { transform:translateY(-1px); }
     .btn-secondary { background:#f1f5f9; color:#374151; }
     .btn-secondary:hover { background:#e2e8f0; }
-    .btn-map { background:#e0f2fe; color:#0369a1; border:none; border-radius:9px; padding:.45rem .85rem; cursor:pointer; font-family:'Tajawal',sans-serif; font-size:.84rem; font-weight:600; display:inline-flex; align-items:center; gap:.4rem; transition:all .2s; }
+    .btn-map { background:#e0f2fe; color:#0369a1; border:none; border-radius:9px; padding:.42rem .8rem; cursor:pointer; font-family:'Tajawal',sans-serif; font-size:.83rem; font-weight:600; display:inline-flex; align-items:center; gap:.35rem; transition:all .2s; }
     .btn-map:hover { background:#bae6fd; }
 
     .form-card  { background:#fff; border-radius:14px; box-shadow:0 1px 8px rgba(0,0,0,.07); border:1px solid #f1f5f9; padding:1.5rem; margin-bottom:1.25rem; }
@@ -36,19 +40,19 @@
     .card-title i { color:#f97316; }
 
     .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:.9rem 1.25rem; }
-    .form-group { display:flex; flex-direction:column; gap:.3rem; }
+    .form-group { display:flex; flex-direction:column; gap:.28rem; }
     .form-group.full { grid-column:1/-1; }
     .form-label { font-size:.8rem; font-weight:700; color:#374151; }
     .form-label .req { color:#ef4444; }
     .form-control { height:38px; padding:0 .85rem; border:1.5px solid #e2e8f0; border-radius:9px; font-family:'Tajawal',sans-serif; font-size:.88rem; outline:none; transition:border-color .2s; background:#fff; color:#374151; }
     .form-control:focus { border-color:#f97316; box-shadow:0 0 0 3px rgba(249,115,22,.1); }
-    .form-control.invalid { border-color:#ef4444; }
+    .form-control.invalid { border-color:#ef4444; box-shadow:0 0 0 3px rgba(239,68,68,.08); }
     textarea.form-control { height:110px; resize:vertical; padding:.6rem .85rem; }
     .form-check { display:flex; align-items:center; gap:.5rem; font-size:.86rem; cursor:pointer; }
     .form-check input { width:16px; height:16px; accent-color:#f97316; cursor:pointer; }
 
     /* Citoyen */
-    .suggestions-box { border:1.5px solid #e2e8f0; border-radius:10px; overflow:hidden; margin-top:.4rem; box-shadow:0 4px 18px rgba(0,0,0,.1); }
+    .suggestions-box { border:1.5px solid #e2e8f0; border-radius:10px; overflow:hidden; margin-top:.4rem; box-shadow:0 4px 18px rgba(0,0,0,.1); max-height:260px; overflow-y:auto; }
     .sug-item { padding:.7rem 1rem; cursor:pointer; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; gap:.8rem; }
     .sug-item:hover { background:#fff7ed; }
     .sug-item:last-child { border-bottom:none; }
@@ -58,26 +62,42 @@
     .citoyen-name { font-weight:700; color:#0369a1; font-size:.9rem; }
     .citoyen-meta { font-size:.78rem; color:#64748b; margin-top:.2rem; display:flex; gap:.75rem; flex-wrap:wrap; }
 
+    /* Enregistreur badge */
+    .enr-badge { display:inline-flex; align-items:center; gap:.4rem; padding:.35rem .8rem; border-radius:8px; font-size:.82rem; font-weight:600; }
+    .enr-agent  { background:#dcfce7; color:#15803d; }
+    .enr-citoyen{ background:#dbeafe; color:#1d4ed8; }
+
     /* Map */
     #rec-map { height:340px; width:100%; border-radius:10px; border:1.5px solid #e2e8f0; margin-top:.6rem; }
     .map-hint { font-size:.75rem; color:#94a3b8; margin-top:.35rem; display:flex; align-items:center; gap:.3rem; }
-    .coords-row { display:grid; grid-template-columns:1fr 1fr auto; gap:.6rem; margin-top:.65rem; align-items:end; }
-    .coord-display { background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px; padding:.5rem .85rem; font-size:.82rem; color:#0369a1; font-weight:600; display:flex; align-items:center; gap:.35rem; }
+    .coords-row { display:grid; grid-template-columns:1fr 1fr; gap:.6rem; margin-top:.65rem; }
+    .coord-display { background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px; padding:.45rem .8rem; font-size:.81rem; color:#0369a1; font-weight:600; display:flex; align-items:center; gap:.35rem; }
 
     /* Affectation */
     .affectation-inner { background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:10px; padding:1rem 1.1rem; }
     .aff-title { font-size:.85rem; font-weight:700; color:#374151; margin-bottom:.85rem; display:flex; align-items:center; gap:.4rem; }
 
-    .alert-err { background:#fef2f2; border:1px solid #fca5a5; border-radius:9px; padding:.75rem 1rem; font-size:.85rem; color:#dc2626; margin-bottom:1rem; display:flex; gap:.5rem; align-items:center; }
+    /* Suivi preview */
+    .suivi-preview { background:#fff; border:1.5px solid #f1f5f9; border-radius:10px; padding:1rem; }
+    .suivi-preview-title { font-size:.82rem; font-weight:700; color:#374151; margin-bottom:.65rem; display:flex; align-items:center; gap:.4rem; }
+    .suivi-item { display:flex; gap:.7rem; padding-bottom:.85rem; position:relative; }
+    .suivi-item::before { content:''; position:absolute; right:11px; top:24px; width:2px; bottom:0; background:#f1f5f9; }
+    .suivi-item:last-child::before { display:none; }
+    .suivi-dot { width:22px; height:22px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:.65rem; color:#fff; font-weight:700; }
+    .suivi-content { flex:1; }
+    .suivi-who  { font-size:.82rem; font-weight:600; color:#0f172a; }
+    .suivi-text { font-size:.78rem; color:#64748b; margin-top:.15rem; }
+    .suivi-time { font-size:.72rem; color:#94a3b8; margin-top:.1rem; }
+
+    .alert-err { background:#fef2f2; border:1px solid #fca5a5; border-radius:9px; padding:.75rem 1rem; font-size:.85rem; color:#dc2626; margin-bottom:1rem; display:flex; gap:.5rem; align-items:flex-start; }
     .alert-ok  { background:#f0fdf4; border:1px solid #86efac; border-radius:9px; padding:.75rem 1rem; font-size:.85rem; color:#15803d; margin-bottom:1rem; display:flex; gap:.5rem; align-items:center; }
     .form-footer { display:flex; gap:.75rem; justify-content:flex-end; padding-top:1rem; border-top:1px solid #f1f5f9; }
 
     .loading-inline { display:inline-flex; align-items:center; gap:.5rem; padding:.45rem .75rem; background:#f8fafc; border-radius:8px; font-size:.83rem; color:#94a3b8; }
     .spin { animation:spin .7s linear infinite; }
     @@keyframes spin { to { transform:rotate(360deg); } }
-
-    .type-hint { font-size:.74rem; color:#64748b; margin-top:.25rem; padding:.3rem .6rem; background:#fff7ed; border-radius:6px; display:flex; gap:.5rem; }
-    .badge-canal { display:inline-flex; align-items:center; gap:.3rem; border-radius:6px; padding:.2rem .55rem; font-size:.72rem; font-weight:600; background:#e0f2fe; color:#0369a1; }
+    .type-hint { font-size:.74rem; color:#64748b; margin-top:.25rem; padding:.3rem .6rem; background:#fff7ed; border-radius:6px; display:flex; gap:.5rem; flex-wrap:wrap; }
+    .err-msg { font-size:.75rem; color:#dc2626; margin-top:.15rem; }
 </style>
 
 <div class="page-header">
@@ -89,37 +109,74 @@
         <div class="page-sub">الشكاوى / @(_editId.HasValue ? "تعديل" : "جديدة")</div>
     </div>
     <button class="btn btn-secondary" @onclick='()=>Nav.NavigateTo("/complaints/list")'>
-        <i class="bi bi-arrow-right"></i> رجوع للقائمة
+        <i class="bi bi-arrow-right"></i> رجوع
     </button>
 </div>
 
 @if (!string.IsNullOrEmpty(_error))
 {
-    <div class="alert-err"><i class="bi bi-exclamation-triangle-fill"></i> @_error</div>
+    <div class="alert-err">
+        <i class="bi bi-exclamation-triangle-fill" style="flex-shrink:0"></i>
+        <span>@_error</span>
+    </div>
 }
 @if (!string.IsNullOrEmpty(_success))
 {
     <div class="alert-ok"><i class="bi bi-check-circle-fill"></i> @_success</div>
 }
 
-@* ══ 1. المواطن ══════════════════════════════════════════════════ *@
+@* ══════════════════════════════════════════════════════════════════
+   1. مَن يُسجِّل الشكوى؟  (عون بلدي أو مواطن)
+══════════════════════════════════════════════════════════════════ *@
 <div class="form-card">
-    <div class="card-title"><i class="bi bi-person-fill"></i> المواطن صاحب الشكوى</div>
+    <div class="card-title"><i class="bi bi-person-badge-fill"></i> مُسجِّل الشكوى</div>
 
+    @* Indication automatique qui enregistre *@
+    <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem">
+        @if (_isAgentRegistering)
+        {
+            <span class="enr-badge enr-agent">
+                <i class="bi bi-person-check-fill"></i>
+                عون بلدي: <strong>@_currentUserName</strong>
+            </span>
+            <span style="font-size:.8rem;color:#64748b">
+                — سيُسجَّل هذا في سجل المتابعة كإدخال من قِبَل عون بلدي
+            </span>
+        }
+        else
+        {
+            <span class="enr-badge enr-citoyen">
+                <i class="bi bi-person-fill"></i>
+                مواطن
+            </span>
+            <span style="font-size:.8rem;color:#64748b">
+                — سيُسجَّل هذا كشكوى مقدَّمة من مواطن
+            </span>
+        }
+    </div>
+
+    @* Recherche citoyen *@
     @if (!_dto.EstAnonyme)
     {
         <div style="display:flex;gap:.65rem;align-items:flex-end">
             <div class="form-group" style="flex:1">
-                <label class="form-label">بحث بالاسم أو رقم الهوية <span class="req">*</span></label>
+                <label class="form-label">
+                    المواطن صاحب الشكوى
+                    <span class="req">*</span>
+                </label>
                 <input type="text"
                        class="form-control @(_v && _dto.CitoyenId == 0 ? "invalid" : "")"
-                       placeholder="اكتب الاسم أو رقم الهوية (CIN) للبحث…"
+                       placeholder="ابحث بالاسم أو رقم الهوية (CIN)…"
                        value="@_cinSearch"
                        @oninput="OnSearchInput"
                        autocomplete="off" />
+                @if (_v && _dto.CitoyenId == 0)
+                {
+                    <span class="err-msg"><i class="bi bi-exclamation-circle"></i> يرجى تحديد المواطن</span>
+                }
             </div>
-            <button class="btn btn-secondary" style="margin-bottom:.3rem"
-                    @onclick='()=>Nav.NavigateTo("/complaints/citizens")'>
+            <button class="btn btn-secondary" style="margin-bottom:@(_v && _dto.CitoyenId == 0 ? "1.2rem" : ".3rem")"
+                    @onclick='()=>Nav.NavigateTo("/complaints/citizens")' title="إضافة مواطن جديد">
                 <i class="bi bi-person-plus"></i> جديد
             </button>
         </div>
@@ -127,7 +184,7 @@
         @if (_searchLoading)
         {
             <div class="loading-inline" style="margin-top:.5rem">
-                <i class="bi bi-hourglass-split spin"></i> جارٍ البحث…
+                <i class="bi bi-arrow-clockwise spin"></i> جارٍ البحث…
             </div>
         }
         else if (_citoyens?.Any() == true && _selectedCitoyen == null)
@@ -136,7 +193,7 @@
                 @foreach (var c in _citoyens)
                 {
                     <div class="sug-item" @onclick="()=>SelectCitoyen(c)">
-                        <i class="bi bi-person-circle" style="font-size:1.25rem;color:#f97316;flex-shrink:0"></i>
+                        <i class="bi bi-person-circle" style="font-size:1.2rem;color:#f97316;flex-shrink:0"></i>
                         <div style="flex:1">
                             <div class="sug-name">@c.NomComplet</div>
                             <div class="sug-meta">
@@ -147,20 +204,22 @@
                         </div>
                         @if (c.NombreReclamations > 0)
                         {
-                            <span style="background:#fff7ed;color:#f97316;border-radius:99px;padding:.15rem .6rem;font-size:.72rem;font-weight:700;flex-shrink:0">@c.NombreReclamations ش</span>
+                            <span style="background:#fff7ed;color:#f97316;border-radius:99px;padding:.12rem .55rem;font-size:.7rem;font-weight:700;flex-shrink:0">
+                                @c.NombreReclamations شكوى
+                            </span>
                         }
                     </div>
                 }
             </div>
         }
-        else if (_citoyens?.Any() == false && _cinSearch.Length >= 2 && _selectedCitoyen == null)
+        else if (_cinSearch.Length >= 2 && _citoyens?.Any() == false && _selectedCitoyen == null)
         {
             <div style="margin-top:.4rem;padding:.65rem 1rem;background:#fef2f2;border-radius:8px;font-size:.84rem;color:#dc2626;display:flex;align-items:center;gap:.65rem">
                 <i class="bi bi-person-x-fill"></i>
                 <span>لا يوجد مواطن بهذا الاسم أو رقم الهوية.</span>
                 <button class="btn btn-secondary" style="padding:.2rem .65rem;font-size:.78rem;margin-right:auto"
                         @onclick='()=>Nav.NavigateTo("/complaints/citizens")'>
-                    <i class="bi bi-person-plus"></i> إضافة مواطن جديد
+                    <i class="bi bi-person-plus"></i> إضافة مواطن
                 </button>
             </div>
         }
@@ -189,18 +248,21 @@
         </div>
     }
 
-    <div style="margin-top:.9rem;padding-top:.75rem;border-top:1px solid #f1f5f9">
+    <div style="margin-top:.85rem;padding-top:.75rem;border-top:1px solid #f1f5f9">
         <label class="form-check">
             <input type="checkbox" @bind="_dto.EstAnonyme" @bind:after="OnAnonyme" />
-            <span>تسجيل الشكوى بصفة <strong>مجهولة</strong> — دون الكشف عن هوية المواطن</span>
+            <span>تسجيل بصفة <strong>مجهولة</strong> — دون الكشف عن هوية المواطن</span>
         </label>
     </div>
 </div>
 
-@* ══ 2. التصنيف ════════════════════════════════════════════════════ *@
+@* ══════════════════════════════════════════════════════════════════
+   2. تصنيف الشكوى
+══════════════════════════════════════════════════════════════════ *@
 <div class="form-card">
     <div class="card-title"><i class="bi bi-tags-fill"></i> تصنيف الشكوى</div>
     <div class="form-grid">
+
         <div class="form-group">
             <label class="form-label">نوع الشكوى <span class="req">*</span></label>
             @if (_typesLoading)
@@ -210,27 +272,34 @@
             else if (_types?.Any() == true)
             {
                 <select class="form-control @(_v && _dto.TypeReclamationId == 0 ? "invalid" : "")"
-                        @bind="_dto.TypeReclamationId" @bind:after="OnTypeChanged">
+                        @bind="_dto.TypeReclamationId"
+                        @bind:after="OnTypeChanged">
                     <option value="0">— اختر نوع الشكوى —</option>
                     @foreach (var t in _types)
                     {
                         <option value="@t.Id">@t.Libelle</option>
                     }
                 </select>
+                @if (_v && _dto.TypeReclamationId == 0)
+                {
+                    <span class="err-msg"><i class="bi bi-exclamation-circle"></i> يرجى اختيار نوع الشكوى</span>
+                }
                 @if (_selectedType != null)
                 {
                     <div class="type-hint">
-                        <i class="bi bi-clock"></i> أجل المعالجة: <strong>@_selectedType.DelaiTraitementJours يوم</strong>
+                        <span><i class="bi bi-clock"></i> أجل المعالجة: <strong>@_selectedType.DelaiTraitementJours يوم</strong></span>
                         @if (!string.IsNullOrEmpty(_selectedType.ServiceResponsableNom))
-                        { <text> · <i class="bi bi-building"></i> @_selectedType.ServiceResponsableNom</text> }
+                        {
+                            <span><i class="bi bi-building"></i> المصلحة: <strong>@_selectedType.ServiceResponsableNom</strong></span>
+                        }
                     </div>
                 }
             }
             else
             {
-                <div style="padding:.45rem .75rem;background:#fef2f2;border-radius:8px;font-size:.82rem;color:#dc2626">
+                <div style="padding:.45rem .75rem;background:#fef2f2;border-radius:8px;font-size:.82rem;color:#dc2626;display:flex;align-items:center;gap:.5rem">
                     <i class="bi bi-exclamation-triangle"></i> تعذّر تحميل الأنواع
-                    <button class="btn btn-secondary" style="padding:.2rem .5rem;font-size:.75rem;margin-right:.5rem" @onclick="LoadTypesAsync">إعادة</button>
+                    <button class="btn btn-secondary" style="padding:.2rem .5rem;font-size:.75rem;margin-right:.5rem" @onclick="LoadTypesAsync">إعادة المحاولة</button>
                 </div>
             }
         </div>
@@ -260,12 +329,16 @@
                         }
                     }
                 </select>
+                @if (_v && _dto.CategorieId == 0)
+                {
+                    <span class="err-msg"><i class="bi bi-exclamation-circle"></i> يرجى اختيار الفئة</span>
+                }
             }
             else
             {
-                <div style="padding:.45rem .75rem;background:#fef2f2;border-radius:8px;font-size:.82rem;color:#dc2626">
+                <div style="padding:.45rem .75rem;background:#fef2f2;border-radius:8px;font-size:.82rem;color:#dc2626;display:flex;align-items:center;gap:.5rem">
                     <i class="bi bi-exclamation-triangle"></i> تعذّر تحميل الفئات
-                    <button class="btn btn-secondary" style="padding:.2rem .5rem;font-size:.75rem;margin-right:.5rem" @onclick="LoadCategoriesAsync">إعادة</button>
+                    <button class="btn btn-secondary" style="padding:.2rem .5rem;font-size:.75rem;margin-right:.5rem" @onclick="LoadCategoriesAsync">إعادة المحاولة</button>
                 </div>
             }
         </div>
@@ -296,43 +369,59 @@
             <input type="date" class="form-control" @bind="_dto.DateIncident"
                    max="@DateTime.Today.ToString("yyyy-MM-dd")" />
         </div>
+
     </div>
 </div>
 
-@* ══ 3. المحتوى ════════════════════════════════════════════════════ *@
+@* ══════════════════════════════════════════════════════════════════
+   3. محتوى الشكوى
+══════════════════════════════════════════════════════════════════ *@
 <div class="form-card">
     <div class="card-title"><i class="bi bi-file-text-fill"></i> محتوى الشكوى</div>
     <div class="form-grid">
+
         <div class="form-group full">
             <label class="form-label">موضوع الشكوى <span class="req">*</span></label>
             <input type="text"
                    class="form-control @(_v && string.IsNullOrEmpty(_dto.Objet) ? "invalid" : "")"
                    placeholder="لخّص المشكلة في جملة واضحة ومختصرة…"
                    @bind="_dto.Objet" maxlength="500" />
+            @if (_v && string.IsNullOrEmpty(_dto.Objet))
+            {
+                <span class="err-msg"><i class="bi bi-exclamation-circle"></i> الموضوع مطلوب</span>
+            }
         </div>
+
         <div class="form-group full">
             <label class="form-label">الوصف التفصيلي <span class="req">*</span></label>
             <textarea class="form-control @(_v && string.IsNullOrEmpty(_dto.Description) ? "invalid" : "")"
-                      placeholder="اشرح المشكلة بتفصيل: متى حدثت؟ ما تأثيرها؟ هل تسببت في أضرار؟ هل تتكرر؟…"
+                      placeholder="اشرح المشكلة بتفصيل: متى حدثت؟ ما تأثيرها؟ هل تتكرر؟…"
                       @bind="_dto.Description"></textarea>
+            @if (_v && string.IsNullOrEmpty(_dto.Description))
+            {
+                <span class="err-msg"><i class="bi bi-exclamation-circle"></i> الوصف التفصيلي مطلوب</span>
+            }
         </div>
+
     </div>
 </div>
 
-@* ══ 4. الموقع الجغرافي ══════════════════════════════════════════ *@
+@* ══════════════════════════════════════════════════════════════════
+   4. الموقع الجغرافي
+══════════════════════════════════════════════════════════════════ *@
 <div class="form-card">
     <div class="card-title"><i class="bi bi-geo-alt-fill"></i> الموقع الجغرافي</div>
 
-    <div class="form-group full" style="margin-bottom:.9rem">
+    <div class="form-group" style="margin-bottom:.9rem">
         <label class="form-label">وصف الموقع / العنوان</label>
         <input type="text" class="form-control"
-               placeholder="مثال: شارع الاستقلال، أمام المدرسة الابتدائية…"
+               placeholder="مثال: شارع الاستقلال، أمام المدرسة الابتدائية رقم 3…"
                @bind="_dto.Localisation" />
     </div>
 
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:.5rem">
-        <span class="form-label" style="margin:0">تحديد موقع على الخريطة</span>
-        <div style="display:flex;gap:.5rem">
+        <span class="form-label" style="margin:0">تحديد الموقع على الخريطة</span>
+        <div style="display:flex;gap:.45rem">
             <button type="button" class="btn-map" @onclick="GetCurrentLocation">
                 <i class="bi bi-crosshair2"></i> موقعي الحالي
             </button>
@@ -348,7 +437,7 @@
         <div id="rec-map"></div>
         <div class="map-hint">
             <i class="bi bi-info-circle"></i>
-            انقر على الخريطة لتثبيت الموقع. يمكن سحب العلامة لتعديله.
+            انقر على الخريطة لتثبيت الموقع، أو اسحب العلامة لتعديله.
         </div>
     }
 
@@ -365,52 +454,53 @@
                    placeholder="مثال: 3.086667"
                    @bind="_dto.Longitude" @bind:after="UpdateMapMarker" />
         </div>
-        @if (_dto.Latitude.HasValue && _dto.Longitude.HasValue)
-        {
-            <button type="button" class="btn-map"
-                    style="background:#fee2e2;color:#dc2626;margin-bottom:.3rem"
-                    @onclick="ClearCoords">
-                <i class="bi bi-x-circle"></i>
-            </button>
-        }
     </div>
 
     @if (_dto.Latitude.HasValue && _dto.Longitude.HasValue)
     {
-        <div style="display:flex;gap:.65rem;margin-top:.5rem;flex-wrap:wrap">
+        <div style="display:flex;gap:.6rem;margin-top:.5rem;flex-wrap:wrap;align-items:center">
             <div class="coord-display"><i class="bi bi-geo-alt"></i> Lat: @_dto.Latitude.Value.ToString("F6")</div>
             <div class="coord-display"><i class="bi bi-geo"></i> Lng: @_dto.Longitude.Value.ToString("F6")</div>
+            <button type="button" class="btn-map" style="background:#fee2e2;color:#dc2626" @onclick="ClearCoords">
+                <i class="bi bi-x-circle"></i> مسح
+            </button>
         </div>
     }
 </div>
 
-@* ══ 5. التوجيه والإسناد ══════════════════════════════════════════ *@
+@* ══════════════════════════════════════════════════════════════════
+   5. التوجيه والإسناد الفوري
+══════════════════════════════════════════════════════════════════ *@
 <div class="form-card">
     <div class="card-title">
         <i class="bi bi-arrow-right-circle-fill"></i>
-        التوجيه والإسناد
-        <span style="font-size:.73rem;font-weight:400;color:#94a3b8;margin-right:.25rem">(اختياري — يمكن تعيينه بعد الإنشاء)</span>
+        التوجيه الفوري
+        <span style="font-size:.73rem;font-weight:400;color:#94a3b8;margin-right:.25rem">(اختياري — يمكن التعيين لاحقاً)</span>
     </div>
     <div class="affectation-inner">
-        <div class="aff-title"><i class="bi bi-building" style="color:#0369a1"></i> المصلحة المعنية بالمعالجة</div>
+        <div class="aff-title"><i class="bi bi-building" style="color:#0369a1"></i> اختر المصلحة المعنية بالمعالجة</div>
+
         <div class="form-grid">
             <div class="form-group full">
                 @if (_servicesLoading)
                 {
                     <div class="loading-inline"><i class="bi bi-arrow-clockwise spin"></i> تحميل المصالح…</div>
                 }
-                else
+                else if (_services?.Any() == true)
                 {
                     <select class="form-control" @bind="_assignServiceId" @bind:after="OnServiceChanged">
-                        <option value="0">— اختر المصلحة (اختياري) —</option>
-                        @if (_services != null)
+                        <option value="0">— لا توجيه فوري —</option>
+                        @foreach (var s in _services)
                         {
-                            @foreach (var s in _services)
-                            {
-                                <option value="@s.Id">@s.Nom @(!string.IsNullOrEmpty(s.DepartementNom) ? $"— {s.DepartementNom}" : "")</option>
-                            }
+                            <option value="@s.Id">@s.Nom @(!string.IsNullOrEmpty(s.DepartementNom) ? $" — {s.DepartementNom}" : "")</option>
                         }
                     </select>
+                }
+                else
+                {
+                    <div style="padding:.45rem .75rem;background:#f8fafc;border-radius:8px;font-size:.82rem;color:#94a3b8">
+                        <i class="bi bi-info-circle"></i> لا توجد مصالح متاحة.
+                    </div>
                 }
             </div>
 
@@ -419,7 +509,7 @@
                 <div class="form-group full">
                     <label class="form-label">
                         <i class="bi bi-person-workspace"></i>
-                        الموظف المكلف بالملف
+                        الموظف المكلّف
                         <span style="font-weight:400;color:#94a3b8">(اختياري)</span>
                     </label>
                     @if (_employesLoading)
@@ -458,6 +548,85 @@
     </div>
 </div>
 
+@* ══════════════════════════════════════════════════════════════════
+   6. معاينة سجل المتابعة
+══════════════════════════════════════════════════════════════════ *@
+<div class="form-card">
+    <div class="card-title"><i class="bi bi-clock-history"></i> معاينة سجل المتابعة</div>
+    <p style="font-size:.8rem;color:#64748b;margin-bottom:.85rem">
+        ما سيُسجَّل تلقائياً في جدول <code>SuivisReclamation</code> عند الحفظ:
+    </p>
+    <div class="suivi-preview">
+        @* Entrée 1: Dépôt *@
+        <div class="suivi-item">
+            <div class="suivi-dot" style="background:#0369a1">1</div>
+            <div class="suivi-content">
+                <div class="suivi-who">
+                    @if (_isAgentRegistering)
+                    {
+                        <i class="bi bi-person-check-fill" style="color:#15803d"></i> <strong>@_currentUserName</strong>
+                        <span style="background:#dcfce7;color:#15803d;border-radius:99px;padding:.1rem .4rem;font-size:.68rem;font-weight:700">عون بلدي</span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-person-fill" style="color:#1d4ed8"></i> <strong>مواطن</strong>
+                        <span style="background:#dbeafe;color:#1d4ed8;border-radius:99px;padding:.1rem .4rem;font-size:.68rem;font-weight:700">مواطن</span>
+                    }
+                </div>
+                <div class="suivi-text">
+                    <strong>الإجراء:</strong> تسجيل الشكوى •
+                    <strong>الحالة:</strong> جديدة •
+                    <strong>القناة:</strong> @CanalLabel(_dto.Canal)
+                    @if (_isAgentRegistering)
+                    {
+                        <text> — عبر الشباك</text>
+                    }
+                </div>
+                <div class="suivi-text" style="color:#94a3b8">
+                    مرئي للمواطن: نعم
+                </div>
+                <div class="suivi-time"><i class="bi bi-clock"></i> @DateTime.Now.ToString("dd/MM/yyyy HH:mm")</div>
+            </div>
+        </div>
+
+        @* Entrée 2: Transmission si service sélectionné *@
+        @if (_assignServiceId > 0)
+        {
+            var serviceName = _services?.FirstOrDefault(s => s.Id == _assignServiceId)?.Nom ?? $"مصلحة #{_assignServiceId}";
+            var employeName = string.IsNullOrEmpty(_assignEmployeId) ? null
+                : _employes?.FirstOrDefault(e => e.Identifiant == _assignEmployeId)?.NomComplet;
+
+            <div class="suivi-item">
+                <div class="suivi-dot" style="background:#b45309">2</div>
+                <div class="suivi-content">
+                    <div class="suivi-who">
+                        <i class="bi bi-arrow-right-circle-fill" style="color:#b45309"></i>
+                        <strong>@(string.IsNullOrEmpty(_currentUserName) ? "عون بلدي" : _currentUserName)</strong>
+                        <span style="background:#fef3c7;color:#b45309;border-radius:99px;padding:.1rem .4rem;font-size:.68rem;font-weight:700">توجيه</span>
+                    </div>
+                    <div class="suivi-text">
+                        <strong>الإجراء:</strong> توجيه الشكوى إلى <strong style="color:#0369a1">@serviceName</strong>
+                        @if (!string.IsNullOrEmpty(employeName))
+                        {
+                            <text> — مكلَّف: <strong>@employeName</strong></text>
+                        }
+                    </div>
+                    <div class="suivi-text">
+                        <strong>الحالة الجديدة:</strong> قيد المعالجة
+                        <span style="color:#94a3b8"> — مرئي للمواطن: لا</span>
+                    </div>
+                    @if (!string.IsNullOrEmpty(_assignComment))
+                    {
+                        <div class="suivi-text" style="background:#f8fafc;border-radius:6px;padding:.35rem .6rem;margin-top:.2rem">
+                            <i class="bi bi-chat-left-text"></i> @_assignComment
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
 <div class="form-footer">
     <button class="btn btn-secondary" @onclick='()=>Nav.NavigateTo("/complaints/list")'>
         <i class="bi bi-x"></i> إلغاء
@@ -481,13 +650,19 @@
 @code {
     [Parameter] public int? Id { get; set; }
 
-    private int? _editId;
+    // ── Auth ──────────────────────────────────────────────────────
+    private string _currentUserId   = string.Empty;
+    private string _currentUserName = string.Empty;
+    private bool   _isAgentRegistering = true; // true = عون بلدي يسجّل
+
+    // ── Form ──────────────────────────────────────────────────────
+    private int?  _editId;
     private CreateReclamationDto _dto = new() { Priorite = "Moyenne", Canal = "Guichet" };
 
     // Citoyen
     private CitoyenDto?        _selectedCitoyen;
     private List<CitoyenDto>?  _citoyens;
-    private string             _cinSearch    = string.Empty;
+    private string             _cinSearch = string.Empty;
     private bool               _searchLoading;
 
     // Référentiels
@@ -508,7 +683,7 @@
     private bool _showMap;
     private bool _mapReady;
 
-    // Form
+    // Validation & messages
     private bool    _saving, _v;
     private string? _error, _success;
 
@@ -516,7 +691,16 @@
     protected override async Task OnInitializedAsync()
     {
         _editId = Id;
-        await Task.WhenAll(LoadTypesAsync(), LoadCategoriesAsync(), LoadServicesAsync());
+
+        // Récupérer l'identité de l'utilisateur connecté
+        await LoadCurrentUserAsync();
+
+        // Charger les référentiels en parallèle
+        await Task.WhenAll(
+            LoadTypesAsync(),
+            LoadCategoriesAsync(),
+            LoadServicesAsync()
+        );
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -526,6 +710,45 @@
             _mapReady = true;
             await Task.Yield();
             await InitMapAsync();
+        }
+    }
+
+    // ── Auth : qui est connecté ? ─────────────────────────────────
+    private async Task LoadCurrentUserAsync()
+    {
+        try
+        {
+            var state = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user  = state.User;
+
+            if (user.Identity?.IsAuthenticated == true)
+            {
+                _currentUserId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
+
+                // Construire le nom affiché
+                var firstName = user.FindFirst("firstName")?.Value ?? string.Empty;
+                var lastName  = user.FindFirst("lastName")?.Value  ?? string.Empty;
+                _currentUserName = $"{firstName} {lastName}".Trim();
+                if (string.IsNullOrEmpty(_currentUserName))
+                    _currentUserName = user.FindFirst(ClaimTypes.Name)?.Value
+                                    ?? user.FindFirst(ClaimTypes.Email)?.Value
+                                    ?? "عون بلدي";
+
+                // L'utilisateur est un agent (accès back-office)
+                _isAgentRegistering = true;
+            }
+            else
+            {
+                // Non authentifié = dépôt via Flutter/mobile
+                _isAgentRegistering = false;
+                _currentUserId      = "citoyen";
+                _currentUserName    = "مواطن";
+            }
+        }
+        catch
+        {
+            _isAgentRegistering = false;
+            _currentUserName    = "مواطن";
         }
     }
 
@@ -543,12 +766,11 @@
         _catsLoading = true; StateHasChanged();
         try
         {
-            // Essayer d'abord GetFlatAsync (endpoint /flat)
             _categories = await CatApi.GetFlatAsync() ?? new();
         }
         catch
         {
-            // Fallback: hiérarchie manuelle
+            // Fallback : aplatir la hiérarchie manuellement
             try
             {
                 var hier = await CatApi.GetHierarchieAsync() ?? new();
@@ -583,7 +805,11 @@
         try
         {
             var result = await ServiceApi.GetAllAsync();
-            _services = result?.Data?.Where(s => s.IsActive).OrderBy(s => s.Nom).ToList() ?? new();
+            _services  = result?.Data?
+                .Where(s => s.IsActive)
+                .OrderBy(s => s.DepartementNom)
+                .ThenBy(s => s.Nom)
+                .ToList() ?? new();
         }
         catch { _services = new(); }
         _servicesLoading = false;
@@ -591,6 +817,7 @@
 
     // ── Citoyen ───────────────────────────────────────────────────
     private System.Threading.CancellationTokenSource? _cts;
+
     private async Task OnSearchInput(ChangeEventArgs e)
     {
         _cinSearch       = e.Value?.ToString() ?? string.Empty;
@@ -638,14 +865,20 @@
 
     private void OnAnonyme()
     {
-        if (_dto.EstAnonyme) { _dto.CitoyenId = 1; ClearCitoyen(); }
+        if (_dto.EstAnonyme)
+        {
+            // CitoyenId=1 = citoyen "Anonyme" créé dans le seed
+            _dto.CitoyenId = 1;
+            ClearCitoyen();
+        }
         else { _dto.CitoyenId = 0; }
     }
 
-    // ── Type → pré-remplir service ────────────────────────────────
+    // ── Type → pré-remplir service responsable ────────────────────
     private void OnTypeChanged()
     {
         _selectedType = _types?.FirstOrDefault(t => t.Id == _dto.TypeReclamationId);
+        // Si le type a une mصلحة responsable et qu'aucune n'est encore sélectionnée
         if (_selectedType?.ServiceResponsableId.HasValue == true && _assignServiceId == 0)
         {
             _assignServiceId = _selectedType.ServiceResponsableId.Value;
@@ -668,9 +901,8 @@
         try
         {
             var r = await EmployeApi.GetPagedAsync(new EmployeFilterDto
-            { ServiceId = serviceId, PageNumber = 1, PageSize = 100 });
+            { ServiceId = serviceId, PageNumber = 1, PageSize = 100, Statut = "Actif" });
             _employes = r?.Data?.Items?
-                .Where(e => e.Statut == "Actif")
                 .OrderBy(e => e.NomComplet)
                 .ToList() ?? new();
         }
@@ -685,7 +917,7 @@
         _mapReady = false;
         if (!_showMap) return;
         StateHasChanged();
-        await Task.Delay(120);
+        await Task.Delay(100);
         await InitMapAsync();
     }
 
@@ -698,7 +930,7 @@
             await JS.InvokeVoidAsync("recMap.init", "rec-map", lat, lng,
                 DotNetObjectReference.Create(this));
         }
-        catch { /* Leaflet pas encore chargé */ }
+        catch { }
     }
 
     [JSInvokable("OnMapClick")]
@@ -723,7 +955,7 @@
                         (double)_dto.Latitude.Value, (double)_dto.Longitude.Value);
             }
         }
-        catch { _error = "تعذّر الحصول على الموقع الحالي. تحقق من إذن الوصول للموقع في المتصفح."; }
+        catch { _error = "تعذّر الحصول على الموقع الحالي. تحقق من إذن الوصول في المتصفح."; }
     }
 
     private async Task UpdateMapMarker()
@@ -741,41 +973,101 @@
 
     private void ClearCoords() { _dto.Latitude = null; _dto.Longitude = null; }
 
-    // ── Save ──────────────────────────────────────────────────────
+    // ── Sauvegarde ────────────────────────────────────────────────
     private async Task SaveAsync()
     {
         _v = true; _error = null;
 
+        // ── Validation ──────────────────────────────────────────
         if (!_dto.EstAnonyme && _dto.CitoyenId == 0)
         { _error = "يرجى تحديد المواطن أو تفعيل خيار الشكوى المجهولة."; return; }
-        if (_dto.TypeReclamationId == 0) { _error = "يرجى اختيار نوع الشكوى."; return; }
-        if (_dto.CategorieId == 0)       { _error = "يرجى اختيار فئة الشكوى."; return; }
-        if (string.IsNullOrEmpty(_dto.Objet))       { _error = "موضوع الشكوى مطلوب."; return; }
-        if (string.IsNullOrEmpty(_dto.Description)) { _error = "الوصف التفصيلي مطلوب."; return; }
+        if (_dto.TypeReclamationId == 0)
+        { _error = "يرجى اختيار نوع الشكوى."; return; }
+        if (_dto.CategorieId == 0)
+        { _error = "يرجى اختيار فئة الشكوى."; return; }
+        if (string.IsNullOrEmpty(_dto.Objet))
+        { _error = "موضوع الشكوى مطلوب."; return; }
+        if (string.IsNullOrEmpty(_dto.Description))
+        { _error = "الوصف التفصيلي مطلوب."; return; }
 
         _saving = true;
         try
         {
-            var result = await Api.DeposerAsync(_dto);
-            if (result == null) { _error = "حدث خطأ أثناء حفظ الشكوى. حاول مرة أخرى."; return; }
+            // ── Étape 1: Déposer la shikwa ──────────────────────
+            // Le service ReclamationService.DeposerAsync va créer automatiquement
+            // la première entrée dans SuiviReclamation avec:
+            //   - UtilisateurId  = agentId (fourni par le Controller via ClaimTypes)
+            //   - UtilisateurNom = nom de l'agent ou "مواطن"
+            //   - NouveauStatut  = Nouvelle
+            //   - ActionEffectuee = "تسجيل الشكوى"
+            //   - Commentaire    = "تم تسجيل الشكوى عبر [canal] بواسطة عون بلدي"
+            //   - VisibleCitoyen = true
 
-            // توجيه فوري إن طُلب
+            var result = await Api.DeposerAsync(_dto);
+            if (result == null)
+            {
+                _error = "حدث خطأ أثناء حفظ الشكوى. حاول مرة أخرى.";
+                return;
+            }
+
+            // ── Étape 2: Transmission immédiate si service sélectionné ──
+            // Le service ReclamationService.AssignerAsync va créer une 2ème entrée dans SuiviReclamation:
+            //   - UtilisateurId  = agentId
+            //   - UtilisateurNom = nom de l'agent
+            //   - StatutPrecedent = Nouvelle
+            //   - NouveauStatut  = EnCours
+            //   - ActionEffectuee = "توجيه الشكوى إلى [nom service]"
+            //   - Commentaire    = commentaire + nom service + nom employé
+            //   - VisibleCitoyen = false (détail interne)
+
             if (_assignServiceId > 0)
             {
+                var serviceName = _services?.FirstOrDefault(s => s.Id == _assignServiceId)?.Nom
+                               ?? $"مصلحة #{_assignServiceId}";
+                var employeName = string.IsNullOrEmpty(_assignEmployeId) ? null
+                               : _employes?.FirstOrDefault(e => e.Identifiant == _assignEmployeId)?.NomComplet;
+
+                string commentaireTransmission = !string.IsNullOrEmpty(_assignComment)
+                    ? _assignComment
+                    : $"تم توجيه الشكوى إلى مصلحة: {serviceName}";
+
+                if (!string.IsNullOrEmpty(employeName))
+                    commentaireTransmission += $" — المكلّف: {employeName}";
+
                 await Api.AssignerAsync(result.Id, new AssignerReclamationDto
                 {
                     ServiceConcerneId = _assignServiceId,
-                    AffecteAId  = string.IsNullOrEmpty(_assignEmployeId) ? null : _assignEmployeId,
-                    Commentaire = string.IsNullOrEmpty(_assignComment)   ? null : _assignComment
+                    AffecteAId        = string.IsNullOrEmpty(_assignEmployeId) ? null : _assignEmployeId,
+                    Commentaire       = commentaireTransmission
                 });
             }
 
-            _success = $"✓ تم تسجيل الشكوى بنجاح — الرقم: {result.NumeroReclamation}";
+            // ── Succès ───────────────────────────────────────────
+            var msgTransmis = _assignServiceId > 0
+                ? $" وتم توجيهها إلى {_services?.FirstOrDefault(s=>s.Id==_assignServiceId)?.Nom ?? "المصلحة"}"
+                : string.Empty;
+
+            _success = $"✓ تم تسجيل الشكوى بنجاح — الرقم: {result.NumeroReclamation}{msgTransmis}";
             StateHasChanged();
+
             await Task.Delay(1800);
             Nav.NavigateTo($"/complaints/list/{result.Id}");
         }
-        catch (Exception ex) { _error = ex.Message; }
+        catch (Exception ex)
+        {
+            _error = $"خطأ: {ex.Message}";
+        }
         finally { _saving = false; }
     }
+
+    // ── Helpers ───────────────────────────────────────────────────
+    private static string CanalLabel(string c) => c switch
+    {
+        "Guichet"   => "الشباك",
+        "Telephone" => "الهاتف",
+        "Email"     => "البريد الإلكتروني",
+        "Web"       => "الموقع الإلكتروني",
+        "Mobile"    => "تطبيق الجوال",
+        _           => c
+    };
 }

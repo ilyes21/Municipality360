@@ -23,7 +23,9 @@ public class ReclamationService : IReclamationService
         _repo = repo; _seq = seq; _notif = notif;
     }
 
-    // ── Lectures ────────────────────────────────────────────────────
+    // ════════════════════════════════════════════════════════════
+    //  LECTURES
+    // ════════════════════════════════════════════════════════════
 
     public Task<PagedResult<ReclamationDto>> GetPagedAsync(ReclamationFilterDto filter)
         => _repo.GetPagedAsync(filter);
@@ -35,7 +37,6 @@ public class ReclamationService : IReclamationService
         return MapToDetail(r);
     }
 
-    /// <summary>Vue publique pour Flutter — sans authentification</summary>
     public async Task<ReclamationPublicDto> GetByNumeroPublicAsync(string numero)
     {
         var r = await _repo.GetByNumeroAsync(numero)
@@ -71,7 +72,9 @@ public class ReclamationService : IReclamationService
     public Task<ReclamationStatsDto> GetStatsAsync(int? serviceId = null)
         => _repo.GetStatsAsync(serviceId);
 
-    // ── Dépôt ───────────────────────────────────────────────────────
+    // ════════════════════════════════════════════════════════════
+    //  DÉPÔT — ✅ SUIVI AMÉLIORÉ
+    // ════════════════════════════════════════════════════════════
 
     public async Task<ReclamationDetailDto> DeposerAsync(
         CreateReclamationDto dto, string? agentId)
@@ -100,29 +103,52 @@ public class ReclamationService : IReclamationService
 
         await _repo.AddAsync(rec);
 
-        // Suivi initial
+        // ✅ Suivi initial enrichi
+        // Détermine qui a déposé : citoyen via app mobile/web ou agent au guichet
+        bool estParAgent = !string.IsNullOrEmpty(agentId) && agentId != "citoyen";
+        bool estMobile = dto.Canal == "Mobile" || dto.Canal == "Web";
+        string auteurId = estParAgent ? agentId! : (dto.EstAnonyme ? "anonyme" : $"citoyen_{dto.CitoyenId}");
+        string auteurNom = estParAgent ? "عون بلدي"
+                                  : estMobile ? "مواطن (تطبيق الجوال)"
+                                  : dto.Canal == "Email" ? "مواطن (بريد إلكتروني)"
+                                  : "مواطن";
+        string canalLabel = dto.Canal switch
+        {
+            "Guichet" => "الشباك",
+            "Telephone" => "الهاتف",
+            "Email" => "البريد الإلكتروني",
+            "Web" => "الموقع الإلكتروني",
+            "Mobile" => "تطبيق الجوال",
+            _ => dto.Canal
+        };
+
         rec.Suivis.Add(new SuiviReclamation
         {
             ReclamationId = rec.Id,
             NouveauStatut = StatutReclamation.Nouvelle,
-            UtilisateurId = agentId ?? "citoyen",
-            UtilisateurNom = agentId != null ? "Agent" : "Citoyen",
-            Commentaire = "Réclamation enregistrée.",
+            UtilisateurId = auteurId,
+            UtilisateurNom = auteurNom,
+            Commentaire = estParAgent
+                ? $"تم تسجيل الشكوى عبر {canalLabel} بواسطة عون بلدي."
+                : $"تم إيداع الشكوى عبر {canalLabel}.",
+            ActionEffectuee = "تسجيل الشكوى",
             VisibleCitoyen = true
         });
 
         await _repo.UpdateAsync(rec);
 
-        // Notification agents Réclamations
+        // Notification
         await _notif.NotifierAgentAsync(
             string.Empty, TypeNotification.NouvelleReclamation,
-            $"Nouvelle réclamation {numero} : {dto.Objet}",
+            $"شكوى جديدة {numero} : {dto.Objet}",
             rec.Id.ToString(), "Reclamation");
 
         return await GetByIdAsync(rec.Id);
     }
 
-    // ── Assignation ─────────────────────────────────────────────────
+    // ════════════════════════════════════════════════════════════
+    //  ASSIGNATION — ✅ SUIVI ENRICHI
+    // ════════════════════════════════════════════════════════════
 
     public async Task AssignerAsync(
         int id, AssignerReclamationDto dto, string agentId, string agentNom)
@@ -134,11 +160,22 @@ public class ReclamationService : IReclamationService
         r.ServiceConcerneId = dto.ServiceConcerneId;
         r.AffecteAId = dto.AffecteAId;
         r.DateAffectation = DateTime.UtcNow;
+
+        // Passer en "EnCours" si elle était "Nouvelle"
         if (r.Statut == StatutReclamation.Nouvelle)
             r.Statut = StatutReclamation.EnCours;
-        r.UpdatedAt = DateTime.UtcNow;
 
+        r.UpdatedAt = DateTime.UtcNow;
         await _repo.UpdateAsync(r);
+
+        // ✅ Suivi de la transmission avec détails
+        string serviceNom = dto.ServiceConcerneId.HasValue
+            ? $"المصلحة #{dto.ServiceConcerneId}"
+            : "مصلحة غير محددة";
+
+        string commentaireSuivi = dto.Commentaire ?? $"تم توجيه الشكوى إلى {serviceNom}.";
+        if (!string.IsNullOrEmpty(dto.AffecteAId))
+            commentaireSuivi += $" مكلّف: {dto.AffecteAId}.";
 
         r.Suivis.Add(new SuiviReclamation
         {
@@ -146,21 +183,36 @@ public class ReclamationService : IReclamationService
             StatutPrecedent = ancienStatut,
             NouveauStatut = r.Statut,
             UtilisateurId = agentId,
-            UtilisateurNom = agentNom,
-            Commentaire = dto.Commentaire ?? "Réclamation assignée.",
-            VisibleCitoyen = false
+            UtilisateurNom = string.IsNullOrEmpty(agentNom) ? "عون بلدي" : agentNom,
+            Commentaire = commentaireSuivi,
+            ActionEffectuee = string.IsNullOrEmpty(dto.AffecteAId)
+                ? $"توجيه الشكوى إلى {serviceNom}"
+                : $"توجيه الشكوى إلى {serviceNom} وإسنادها للموظف: {dto.AffecteAId}",
+            VisibleCitoyen = false   // le citoyen n'a pas besoin de voir les détails internes
         });
 
         await _repo.UpdateAsync(r);
 
-        if (dto.AffecteAId != null)
+        // Notifier l'agent affecté
+        if (!string.IsNullOrEmpty(dto.AffecteAId))
             await _notif.NotifierAgentAsync(
-                dto.AffecteAId, TypeNotification.ReclamationAssignee,
-                $"Réclamation {r.NumeroReclamation} vous a été assignée.",
+                dto.AffecteAId,
+                TypeNotification.ReclamationAssignee,
+                $"شكوى {r.NumeroReclamation} أُسندت إليك: {r.Objet}",
+                r.Id.ToString(), "Reclamation");
+
+        // Notifier le service
+        if (dto.ServiceConcerneId.HasValue)
+            await _notif.NotifierServiceAsync(
+                dto.ServiceConcerneId.Value,
+                TypeNotification.ReclamationAssignee,
+                $"شكوى جديدة موجَّهة لمصلحتكم: {r.NumeroReclamation}",
                 r.Id.ToString(), "Reclamation");
     }
 
-    // ── Changement de statut ────────────────────────────────────────
+    // ════════════════════════════════════════════════════════════
+    //  CHANGEMENT DE STATUT — ✅ SUIVI ENRICHI
+    // ════════════════════════════════════════════════════════════
 
     public async Task ChangerStatutAsync(
         int id, ChangerStatutReclamationDto dto, string agentId, string agentNom)
@@ -184,32 +236,61 @@ public class ReclamationService : IReclamationService
 
         await _repo.UpdateAsync(r);
 
+        // ✅ Libellés arabes pour les statuts
+        string statutLabel = nouveauStatut switch
+        {
+            StatutReclamation.Nouvelle => "جديدة",
+            StatutReclamation.EnCours => "قيد المعالجة",
+            StatutReclamation.Traitee => "تمت المعالجة",
+            StatutReclamation.Rejetee => "مرفوضة",
+            StatutReclamation.Fermee => "مغلقة",
+            _ => nouveauStatut.ToString()
+        };
+
+        string actionDefaut = nouveauStatut switch
+        {
+            StatutReclamation.EnCours => "استلام الشكوى وبدء المعالجة",
+            StatutReclamation.Traitee => "إغلاق الملف — تمت المعالجة",
+            StatutReclamation.Rejetee => "رفض الشكوى",
+            StatutReclamation.Fermee => "إغلاق الملف",
+            _ => $"تغيير الحالة إلى: {statutLabel}"
+        };
+
         r.Suivis.Add(new SuiviReclamation
         {
             ReclamationId = r.Id,
             StatutPrecedent = ancienStatut,
             NouveauStatut = nouveauStatut,
             UtilisateurId = agentId,
-            UtilisateurNom = agentNom,
+            UtilisateurNom = string.IsNullOrEmpty(agentNom) ? "عون بلدي" : agentNom,
             Commentaire = dto.Commentaire,
-            ActionEffectuee = dto.ActionEffectuee,
+            ActionEffectuee = string.IsNullOrEmpty(dto.ActionEffectuee)
+                ? actionDefaut
+                : dto.ActionEffectuee,
             VisibleCitoyen = dto.VisibleCitoyen
         });
 
         await _repo.UpdateAsync(r);
 
-        // Notification citoyen si résolution
-        if (nouveauStatut == StatutReclamation.Traitee || nouveauStatut == StatutReclamation.Rejetee)
+        // Notifications citoyen si résolution ou rejet
+        if (nouveauStatut == StatutReclamation.Traitee)
             await _notif.NotifierCitoyenAsync(
                 r.CitoyenId.ToString(),
-                nouveauStatut == StatutReclamation.Traitee
-                    ? TypeNotification.ReclamationResolue
-                    : TypeNotification.ReclamationRejetee,
-                $"Votre réclamation {r.NumeroReclamation} a été {nouveauStatut.ToString().ToLower()}.",
+                TypeNotification.ReclamationResolue,
+                $"تم معالجة شكواكم {r.NumeroReclamation} بنجاح.",
+                r.Id.ToString(), "Reclamation");
+
+        else if (nouveauStatut == StatutReclamation.Rejetee)
+            await _notif.NotifierCitoyenAsync(
+                r.CitoyenId.ToString(),
+                TypeNotification.ReclamationRejetee,
+                $"تم رفض شكواكم {r.NumeroReclamation}.",
                 r.Id.ToString(), "Reclamation");
     }
 
-    // ── Mapping privé ───────────────────────────────────────────────
+    // ════════════════════════════════════════════════════════════
+    //  MAPPING
+    // ════════════════════════════════════════════════════════════
 
     private static ReclamationDetailDto MapToDetail(Reclamation r) => new()
     {
@@ -242,8 +323,9 @@ public class ReclamationService : IReclamationService
         SatisfactionCitoyen = r.SatisfactionCitoyen,
         NombrePiecesJointes = r.PiecesJointes?.Count ?? 0,
         CreatedAt = r.CreatedAt,
+
         Suivis = r.Suivis?
-            .OrderByDescending(s => s.DateChangement)
+            .OrderBy(s => s.DateChangement)      // chronologique — du plus ancien au plus récent
             .Select(s => new SuiviReclamationDto
             {
                 Id = s.Id,
@@ -255,6 +337,7 @@ public class ReclamationService : IReclamationService
                 ActionEffectuee = s.ActionEffectuee,
                 VisibleCitoyen = s.VisibleCitoyen
             }).ToList() ?? new(),
+
         PiecesJointes = r.PiecesJointes?
             .Select(p => new PieceJointeReclamationDto
             {
@@ -268,13 +351,12 @@ public class ReclamationService : IReclamationService
 }
 
 // ════════════════════════════════════════════════════════════════
-//  CITOYEN SERVICE
+//  CITOYEN SERVICE (inchangé)
 // ════════════════════════════════════════════════════════════════
 
 public class CitoyenService : ICitoyenService
 {
     private readonly ICitoyenRepository _repo;
-
     public CitoyenService(ICitoyenRepository repo) => _repo = repo;
 
     public Task<PagedResult<CitoyenDto>> GetPagedAsync(CitoyenFilterDto filter)
@@ -297,7 +379,7 @@ public class CitoyenService : ICitoyenService
     public async Task<CitoyenDto> CreateAsync(CreateCitoyenDto dto)
     {
         if (await _repo.CINExistsAsync(dto.CIN))
-            throw new InvalidOperationException($"Un citoyen avec CIN={dto.CIN} existe déjà.");
+            throw new InvalidOperationException($"مواطن برقم هوية {dto.CIN} موجود مسبقاً.");
 
         var c = new Citoyen
         {
@@ -327,7 +409,7 @@ public class CitoyenService : ICitoyenService
             ?? throw new KeyNotFoundException($"Citoyen #{id} introuvable.");
 
         if (await _repo.CINExistsAsync(dto.CIN, id))
-            throw new InvalidOperationException($"CIN={dto.CIN} déjà utilisé.");
+            throw new InvalidOperationException($"رقم الهوية {dto.CIN} مستخدم مسبقاً.");
 
         c.CIN = dto.CIN; c.Nom = dto.Nom; c.Prenom = dto.Prenom;
         c.DateNaissance = dto.DateNaissance; c.LieuNaissance = dto.LieuNaissance;
