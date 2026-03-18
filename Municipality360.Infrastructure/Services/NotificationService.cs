@@ -87,24 +87,26 @@ public class NotificationService : INotificationService
     // ── Envoi vers tous les agents d'un service ─────────────────────
 
     public async Task NotifierServiceAsync(
-        int serviceId, TypeNotification type, string message,
-        string? entiteId = null, string? entiteType = null)
+    int serviceId, TypeNotification type, string message,
+    string? entiteId = null, string? entiteType = null)
     {
-        //var employes = await _serviceRepo.GetEmployesAsync(serviceId);
+        // ✅ FIXED: استدعاء GetEmployesAsync المضاف إلى IServiceRepository
+        var employes = await _serviceRepo.GetEmployesAsync(serviceId);
 
-        //foreach (var emp in employes.Where(e => e.UserId != null))
-        //    await NotifierAgentAsync(emp.UserId!, type, message, entiteId, entiteType);
+        foreach (var emp in employes.Where(e => e.UserId != null))
+            await NotifierAgentAsync(emp.UserId!, type, message, entiteId, entiteType);
 
-        //await _hub.Clients
-        //    .Group(NotificationHub.GroupeService(serviceId))
-        //    .SendAsync("NouvelleNotification", new
-        //    {
-        //        Type = type.ToString(),
-        //        Message = message,
-        //        EntiteId = entiteId,
-        //        EntiteType = entiteType,
-        //        Date = DateTime.UtcNow
-        //    });
+        // إشعار لمجموعة الخدمة الكاملة عبر SignalR
+        await _hub.Clients
+            .Group(NotificationHub.GroupeService(serviceId))
+            .SendAsync("NouvelleNotification", new
+            {
+                Type = type.ToString(),
+                Message = message,
+                EntiteId = entiteId,
+                EntiteType = entiteType,
+                Date = DateTime.UtcNow
+            });
     }
 
     // ── Envoi vers un citoyen (Flutter app) ─────────────────────────

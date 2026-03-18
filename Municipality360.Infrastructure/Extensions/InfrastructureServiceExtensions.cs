@@ -156,6 +156,9 @@ public static class InfrastructureServiceExtensions
         services.AddScoped<IArchitecteService, ArchitecteService>();
         services.AddScoped<IDemandePermisBatirService, DemandePermisBatirService>();
 
+        // ── . تسجيل ICitoyenAuthService في DI ─────────────────────────
+        services.AddScoped<ICitoyenAuthService, CitoyenAuthService>();
+
         return services;
     }
 }

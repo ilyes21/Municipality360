@@ -1,6 +1,7 @@
 using Municipality360.Application.Common;
 using Municipality360.Application.DTOs.BureauOrdre;
 using Municipality360.Application.DTOs.Identity;
+using Municipality360.Application.DTOs.Mobile;
 using Municipality360.Application.DTOs.Notifications;
 using Municipality360.Application.DTOs.PermisBatir;
 using Municipality360.Application.DTOs.Reclamations;
@@ -242,4 +243,14 @@ public interface INotificationService
     Task NotifierAgentAsync(string agentId, TypeNotification type, string message, string? entiteId = null, string? entiteType = null);
     Task NotifierServiceAsync(int serviceId, TypeNotification type, string message, string? entiteId = null, string? entiteType = null);
     Task NotifierCitoyenAsync(string citoyenId, TypeNotification type, string message, string? entiteId = null, string? entiteType = null);
+}
+
+// ── Citoyen Service ─────────────────────────────────────────────────
+public interface ICitoyenAuthService
+{
+    Task<Result<CitoyenAuthResponseDto>> RegisterAsync(CitoyenRegisterMobileDto dto);
+    Task<Result<CitoyenAuthResponseDto>> LoginAsync(CitoyenLoginMobileDto dto);
+    Task<Result<CitoyenProfileMobileDto>> GetProfileAsync(int citoyenId);
+    Task<Result> UpdateFcmTokenAsync(int citoyenId, string fcmToken);
+    Task<Result<CitoyenDashboardStatsDto>> GetDashboardStatsAsync(int citoyenId);
 }

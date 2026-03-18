@@ -27,6 +27,12 @@ builder.Services.AddEndpointsApiExplorer();
 // ── CORS ──────────────────────────────────────────────────────────
 builder.Services.AddCors(options =>
 {
+    options.AddPolicy("MobileApp", policy =>
+          policy
+              .AllowAnyOrigin()           // Flutter يعمل على منافذ مختلفة
+              .AllowAnyMethod()
+              .AllowAnyHeader());
+
     options.AddPolicy("Municipality.ELAIN.360Policy", policy =>
         policy.WithOrigins(
                 "https://localhost:7173",
@@ -35,6 +41,13 @@ builder.Services.AddCors(options =>
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials());   // obligatoire pour SignalR
+});
+// ──  SignalR ───────────────────────────────────────────────────
+builder.Services.AddSignalR(options =>
+{
+    options.EnableDetailedErrors = builder.Environment.IsDevelopment();
+    options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+    options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
 });
 
 // ── Swagger avec JWT ──────────────────────────────────────────────
@@ -97,7 +110,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseCors("Municipality.ELAIN.360Policy");
+// ── 4. تطبيق CORS  ─────────────────
+app.UseCors("Municipality.ELAIN.360Policy");     // للـ admin dashboard
+app.UseCors("MobileApp");   // للتطبيق المحمول
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

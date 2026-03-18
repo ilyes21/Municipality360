@@ -89,6 +89,8 @@ public class Employe : BaseEntity
     // FK
     public int ServiceId { get; set; }
     public int PosteId { get; set; }
+    public string? UserId { get; set; }
+
 
     // Navigation
     public Service Service { get; set; } = null!;
@@ -387,6 +389,8 @@ public class Citoyen : BaseEntity
     public string? Email { get; set; }
     public SituationFamiliale? SituationFamiliale { get; set; }
     public bool IsActive { get; set; } = true;
+    public string? PasswordHash { get; set; }
+    public string? FcmToken { get; set; }
 
     public string NomComplet => $"{Prenom} {Nom}".Trim();
     public ICollection<Reclamation> Reclamations { get; set; } = new List<Reclamation>();
