@@ -77,6 +77,10 @@ builder.Services.AddScoped<ICitoyenApiService, CitoyenApiService>();
 builder.Services.AddScoped<ITypeReclamationApiService, TypeReclamationApiService>();
 builder.Services.AddScoped<ICategorieReclamationApiService, CategorieReclamationApiService>();
 
+// ── ✅ Notifications (SignalR + API) ──────────────────────
+builder.Services.AddScoped<INotificationApiService, NotificationApiService>();
+builder.Services.AddScoped<ISignalRNotificationService, SignalRNotificationService>();
+
 // ═══════════════════════════════════════════════════════════
 var app = builder.Build();
 // ═══════════════════════════════════════════════════════════

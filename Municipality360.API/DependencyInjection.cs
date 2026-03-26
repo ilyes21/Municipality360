@@ -13,7 +13,7 @@ using Municipality360.Application.Services;
 using Municipality360.Infrastructure.Data;
 using Municipality360.Infrastructure.Repositories;
 using Municipality360.Infrastructure.Services;
-using Municipality360.API.Hubs;
+using Municipality360.Infrastructure.Hubs;
 
 namespace Municipality360.API;
 

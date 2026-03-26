@@ -1,0 +1,1754 @@
+@page "/inbox"
+@using Municipality360.Application.DTOs.BureauOrdre
+@using Municipality360.Application.DTOs.Reclamations
+@using Municipality360.Application.DTOs.Notifications
+@using Municipality360.Web.Services
+@using System.Security.Claims
+@inject ICourrierEntrantApiService CourrierApi
+@inject IReclamationApiService ReclamationApi
+@inject INotificationApiService NotifApi
+@inject ISignalRNotificationService SignalRNotif
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Nav
+@implements IDisposable
+
+<PageTitle>صندوق الوارد</PageTitle>
+
+<style>
+    @@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap');
+
+    * { box-sizing: border-box; }
+
+    .inbox-root {
+        font-family: 'Tajawal', sans-serif;
+        display: flex;
+        gap: 0;
+        height: calc(100vh - 62px - 3rem);
+        min-height: 600px;
+        background: #f0f4f8;
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 4px 24px rgba(0,0,0,.08);
+    }
+
+    /* ══ LEFT PANE ═════════════════════════════════════════ */
+    .inbox-left {
+        width: 320px;
+        flex-shrink: 0;
+        background: #fff;
+        border-left: 1px solid #e2e8f0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .inbox-left-header {
+        padding: 1rem 1.1rem .75rem;
+        border-bottom: 1px solid #f1f5f9;
+        flex-shrink: 0;
+    }
+
+    .inbox-welcome {
+        font-size: .8rem;
+        color: #94a3b8;
+        margin-bottom: .2rem;
+    }
+
+    .inbox-user-name {
+        font-size: 1rem;
+        font-weight: 800;
+        color: #0f172a;
+    }
+
+    /* ── Tab bar ── */
+    .inbox-tabs {
+        display: flex;
+        gap: 0;
+        border-bottom: 1px solid #f1f5f9;
+        flex-shrink: 0;
+    }
+
+    .itab {
+        flex: 1;
+        padding: .65rem .3rem;
+        border: none;
+        background: none;
+        font-family: 'Tajawal', sans-serif;
+        font-size: .75rem;
+        font-weight: 600;
+        color: #94a3b8;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: .2rem;
+        transition: all .18s;
+        border-bottom: 2px solid transparent;
+        position: relative;
+    }
+
+    .itab i { font-size: 1rem; }
+
+    .itab.active {
+        color: #0ea5e9;
+        border-bottom-color: #0ea5e9;
+        background: #f0f9ff;
+    }
+
+    .itab:hover:not(.active) {
+        color: #64748b;
+        background: #f8fafc;
+    }
+
+    .itab-badge {
+        position: absolute;
+        top: 6px;
+        right: calc(50% - 18px);
+        background: #ef4444;
+        color: #fff;
+        border-radius: 99px;
+        font-size: .58rem;
+        font-weight: 700;
+        min-width: 16px;
+        height: 16px;
+        padding: 0 3px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1.5px solid #fff;
+    }
+
+    /* ── Search ── */
+    .inbox-search {
+        padding: .6rem .9rem;
+        border-bottom: 1px solid #f1f5f9;
+        flex-shrink: 0;
+    }
+
+    .inbox-search-input {
+        width: 100%;
+        padding: .42rem .8rem .42rem 2rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 9px;
+        font-family: 'Tajawal', sans-serif;
+        font-size: .8rem;
+        color: #0f172a;
+        background: #f8fafc url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398l3.85 3.85a1 1 0 0 0 1.415-1.415l-3.868-3.833zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z'/%3E%3C/svg%3E") no-repeat 0.55rem center;
+        outline: none;
+        transition: border-color .15s;
+    }
+
+    .inbox-search-input:focus { border-color: #0ea5e9; background-color: #fff; }
+
+    /* ── List ── */
+    .inbox-list {
+        flex: 1;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: #e2e8f0 transparent;
+    }
+
+    .inbox-list::-webkit-scrollbar { width: 4px; }
+    .inbox-list::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 2px; }
+
+    .inbox-item {
+        display: flex;
+        align-items: flex-start;
+        gap: .65rem;
+        padding: .8rem 1rem;
+        border-bottom: 1px solid #f8fafc;
+        cursor: pointer;
+        transition: background .13s;
+        position: relative;
+    }
+
+    .inbox-item:hover { background: #f8fafc; }
+    .inbox-item.selected { background: #f0f9ff; }
+
+    .inbox-item.unread::before {
+        content: '';
+        position: absolute;
+        right: 0; top: 0; bottom: 0;
+        width: 3px;
+        background: #0ea5e9;
+        border-radius: 0 3px 3px 0;
+    }
+
+    .inbox-item-icon {
+        width: 36px; height: 36px;
+        border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: .9rem; flex-shrink: 0;
+    }
+
+    .ii-mail    { background: #fef3c7; color: #b45309; }
+    .ii-recl    { background: #dbeafe; color: #1d4ed8; }
+    .ii-notif   { background: #f3e8ff; color: #7c3aed; }
+    .ii-urgent  { background: #fee2e2; color: #b91c1c; }
+
+    .inbox-item-body { flex: 1; min-width: 0; }
+
+    .iib-from {
+        font-size: .75rem;
+        font-weight: 700;
+        color: #0f172a;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .inbox-item.unread .iib-from { color: #0369a1; }
+
+    .iib-subject {
+        font-size: .78rem;
+        color: #374151;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin: .08rem 0;
+    }
+
+    .inbox-item.unread .iib-subject { font-weight: 600; }
+
+    .iib-meta {
+        display: flex;
+        align-items: center;
+        gap: .45rem;
+    }
+
+    .iib-time {
+        font-size: .67rem;
+        color: #94a3b8;
+    }
+
+    .iib-badge {
+        font-size: .6rem;
+        font-weight: 700;
+        padding: .1em .4em;
+        border-radius: 4px;
+    }
+
+    .badge-urgent   { background: #fef2f2; color: #b91c1c; }
+    .badge-encours  { background: #fef3c7; color: #b45309; }
+    .badge-nouvelle { background: #dbeafe; color: #1d4ed8; }
+    .badge-traitee  { background: #dcfce7; color: #15803d; }
+    .badge-retard   { background: #fee2e2; color: #b91c1c; }
+
+    .inbox-empty-pane {
+        padding: 3rem 1.5rem;
+        text-align: center;
+        color: #94a3b8;
+    }
+
+    .inbox-empty-pane i {
+        font-size: 2.2rem;
+        display: block;
+        margin-bottom: .6rem;
+        color: #cbd5e1;
+    }
+
+    .inbox-loading {
+        padding: 2.5rem;
+        text-align: center;
+        color: #94a3b8;
+        font-size: .85rem;
+    }
+
+    @@keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { animation: spin .75s linear infinite; display: inline-block; }
+
+    /* ══ RIGHT PANE ════════════════════════════════════════ */
+    .inbox-right {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        background: #f8fafc;
+    }
+
+    /* ── Detail header ── */
+    .detail-header {
+        padding: 1rem 1.5rem .85rem;
+        background: #fff;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        align-items: flex-start;
+        gap: 1rem;
+        flex-shrink: 0;
+    }
+
+    .detail-header-icon {
+        width: 44px; height: 44px;
+        border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.15rem; flex-shrink: 0;
+    }
+
+    .detail-title {
+        font-size: 1rem;
+        font-weight: 800;
+        color: #0f172a;
+        line-height: 1.3;
+    }
+
+    .detail-sub {
+        font-size: .75rem;
+        color: #64748b;
+        margin-top: .2rem;
+        display: flex;
+        align-items: center;
+        gap: .6rem;
+        flex-wrap: wrap;
+    }
+
+    .detail-actions {
+        margin-right: auto;
+        display: flex;
+        gap: .5rem;
+        flex-shrink: 0;
+        align-items: center;
+    }
+
+    /* ── Action buttons ── */
+    .btn-action {
+        padding: .45rem .9rem;
+        border-radius: 9px;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        font-family: 'Tajawal', sans-serif;
+        font-size: .78rem;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex; align-items: center; gap: .35rem;
+        transition: all .18s;
+        color: #374151;
+    }
+
+    .btn-action:hover { background: #f1f5f9; }
+
+    .btn-action.primary {
+        background: #0ea5e9;
+        border-color: #0ea5e9;
+        color: #fff;
+    }
+
+    .btn-action.primary:hover { background: #0369a1; }
+
+    .btn-action.success {
+        background: #22c55e;
+        border-color: #22c55e;
+        color: #fff;
+    }
+
+    .btn-action.danger {
+        background: #ef4444;
+        border-color: #ef4444;
+        color: #fff;
+    }
+
+    .btn-action.warning {
+        background: #f59e0b;
+        border-color: #f59e0b;
+        color: #fff;
+    }
+
+    /* ── Detail body ── */
+    .detail-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1.25rem 1.5rem;
+        scrollbar-width: thin;
+        scrollbar-color: #e2e8f0 transparent;
+    }
+
+    .detail-body::-webkit-scrollbar { width: 5px; }
+    .detail-body::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 3px; }
+
+    /* ── Info cards ── */
+    .info-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: .75rem;
+        margin-bottom: 1.1rem;
+    }
+
+    @@media (max-width: 900px) { .info-grid { grid-template-columns: 1fr; } }
+
+    .info-card {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: .9rem 1rem;
+    }
+
+    .info-card-title {
+        font-size: .68rem;
+        font-weight: 700;
+        color: #94a3b8;
+        letter-spacing: .07em;
+        text-transform: uppercase;
+        margin-bottom: .6rem;
+    }
+
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        padding: .28rem 0;
+        border-bottom: 1px solid #f8fafc;
+        font-size: .8rem;
+    }
+
+    .info-row:last-child { border-bottom: none; }
+    .info-row-label { color: #64748b; }
+    .info-row-value { font-weight: 600; color: #0f172a; text-align: left; }
+
+    /* ── Description ── */
+    .desc-card {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .desc-card-title {
+        font-size: .72rem;
+        font-weight: 700;
+        color: #94a3b8;
+        letter-spacing: .07em;
+        text-transform: uppercase;
+        margin-bottom: .65rem;
+    }
+
+    .desc-text {
+        font-size: .85rem;
+        color: #374151;
+        line-height: 1.65;
+        white-space: pre-wrap;
+    }
+
+    /* ── Timeline ── */
+    .timeline {
+        margin-bottom: 1rem;
+    }
+
+    .tl-title {
+        font-size: .72rem;
+        font-weight: 700;
+        color: #94a3b8;
+        letter-spacing: .07em;
+        text-transform: uppercase;
+        margin-bottom: .75rem;
+        padding: 0 .2rem;
+    }
+
+    .tl-item {
+        display: flex;
+        gap: .75rem;
+        position: relative;
+        padding-bottom: 1rem;
+    }
+
+    .tl-item::before {
+        content: '';
+        position: absolute;
+        right: 17px;
+        top: 28px;
+        bottom: 0;
+        width: 1px;
+        background: #e2e8f0;
+    }
+
+    .tl-item:last-child::before { display: none; }
+
+    .tl-dot {
+        width: 34px; height: 34px;
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: .8rem; flex-shrink: 0;
+        background: #f1f5f9;
+        color: #64748b;
+        border: 2px solid #e2e8f0;
+        z-index: 1;
+    }
+
+    .tl-dot.green  { background: #dcfce7; color: #15803d; border-color: #86efac; }
+    .tl-dot.blue   { background: #dbeafe; color: #1d4ed8; border-color: #93c5fd; }
+    .tl-dot.amber  { background: #fef3c7; color: #b45309; border-color: #fcd34d; }
+    .tl-dot.red    { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
+
+    .tl-content { flex: 1; }
+
+    .tl-action {
+        font-size: .8rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: .18rem;
+    }
+
+    .tl-comment {
+        font-size: .76rem;
+        color: #64748b;
+        line-height: 1.45;
+        margin-bottom: .22rem;
+    }
+
+    .tl-meta {
+        font-size: .68rem;
+        color: #94a3b8;
+        display: flex;
+        gap: .5rem;
+    }
+
+    /* ── Action drawer ── */
+    .action-drawer {
+        background: #fff;
+        border-top: 1px solid #e2e8f0;
+        padding: 1rem 1.5rem;
+        flex-shrink: 0;
+    }
+
+    .action-drawer-title {
+        font-size: .75rem;
+        font-weight: 700;
+        color: #64748b;
+        margin-bottom: .7rem;
+        display: flex;
+        align-items: center;
+        gap: .4rem;
+    }
+
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr auto;
+        gap: .65rem;
+        align-items: end;
+    }
+
+    @@media (max-width: 900px) { .form-row { grid-template-columns: 1fr; } }
+
+    .form-group { display: flex; flex-direction: column; gap: .3rem; }
+
+    .form-label {
+        font-size: .72rem;
+        font-weight: 600;
+        color: #64748b;
+    }
+
+    .form-select, .form-textarea, .form-input {
+        padding: .45rem .7rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        font-family: 'Tajawal', sans-serif;
+        font-size: .8rem;
+        color: #0f172a;
+        background: #f8fafc;
+        outline: none;
+        transition: border-color .15s;
+        width: 100%;
+    }
+
+    .form-select:focus, .form-textarea:focus, .form-input:focus {
+        border-color: #0ea5e9;
+        background: #fff;
+    }
+
+    .form-textarea { resize: vertical; min-height: 60px; }
+
+    /* ── Empty detail state ── */
+    .detail-empty {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: #94a3b8;
+        gap: .75rem;
+    }
+
+    .detail-empty i { font-size: 3.5rem; color: #e2e8f0; }
+    .detail-empty-title { font-size: 1rem; font-weight: 700; color: #64748b; }
+    .detail-empty-sub { font-size: .82rem; }
+
+    /* ── Status pill ── */
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: .3rem;
+        padding: .22em .7em;
+        border-radius: 99px;
+        font-size: .72rem;
+        font-weight: 700;
+    }
+
+    .sp-nouvelle    { background: #dbeafe; color: #1d4ed8; }
+    .sp-encours     { background: #fef3c7; color: #b45309; }
+    .sp-traitee     { background: #dcfce7; color: #15803d; }
+    .sp-rejetee     { background: #fee2e2; color: #b91c1c; }
+    .sp-enregistre  { background: #f3e8ff; color: #7c3aed; }
+    .sp-archive     { background: #f1f5f9; color: #64748b; }
+
+    /* ── Toast confirm ── */
+    .toast-confirm {
+        position: fixed;
+        bottom: 1.5rem;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #1e293b;
+        color: #f1f5f9;
+        padding: .75rem 1.5rem;
+        border-radius: 12px;
+        font-size: .82rem;
+        font-weight: 600;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        gap: .6rem;
+        box-shadow: 0 8px 30px rgba(0,0,0,.25);
+        animation: toast-slide .3s ease;
+    }
+
+    @@keyframes toast-slide {
+        from { opacity: 0; transform: translateX(-50%) translateY(12px); }
+        to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+
+    .toast-confirm.success { border-bottom: 3px solid #22c55e; }
+    .toast-confirm.error   { border-bottom: 3px solid #ef4444; }
+
+    /* ── Stats bar ── */
+    .stats-bar {
+        display: flex;
+        gap: .6rem;
+        padding: .7rem 1rem;
+        background: #fff;
+        border-bottom: 1px solid #f1f5f9;
+        flex-shrink: 0;
+        flex-wrap: wrap;
+    }
+
+    .stat-chip {
+        display: flex;
+        align-items: center;
+        gap: .3rem;
+        padding: .28rem .7rem;
+        border-radius: 99px;
+        font-size: .72rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all .15s;
+    }
+
+    .stat-chip.active { box-shadow: 0 0 0 2px currentColor; }
+
+    .sc-all     { background: #f1f5f9; color: #374151; }
+    .sc-unread  { background: #fef2f2; color: #b91c1c; }
+    .sc-waiting { background: #fef3c7; color: #b45309; }
+    .sc-late    { background: #fee2e2; color: #b91c1c; }
+</style>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+
+<div class="inbox-root">
+
+    <!-- ══ LEFT: قائمة الوارد ══════════════════════════════ -->
+    <div class="inbox-left">
+
+        <!-- Header -->
+        <div class="inbox-left-header">
+            <div class="inbox-welcome">مرحباً،</div>
+            <div class="inbox-user-name">@UserName</div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="inbox-tabs">
+            <button class="itab @(ActiveTab == "mail" ? "active" : "")" @onclick='() => SwitchTab("mail")'>
+                <i class="bi bi-envelope-fill"></i>
+                <span>البريد</span>
+                @if (UnreadMailCount > 0)
+                {
+                    <span class="itab-badge">@UnreadMailCount</span>
+                }
+            </button>
+            <button class="itab @(ActiveTab == "reclamations" ? "active" : "")" @onclick='() => SwitchTab("reclamations")'>
+                <i class="bi bi-chat-square-text-fill"></i>
+                <span>الشكاوى</span>
+                @if (UnreadReclCount > 0)
+                {
+                    <span class="itab-badge">@UnreadReclCount</span>
+                }
+            </button>
+            <button class="itab @(ActiveTab == "notifications" ? "active" : "")" @onclick='() => SwitchTab("notifications")'>
+                <i class="bi bi-bell-fill"></i>
+                <span>الإشعارات</span>
+                @if (SignalRNotif.UnreadCount > 0)
+                {
+                    <span class="itab-badge">@SignalRNotif.UnreadCount</span>
+                }
+            </button>
+        </div>
+
+        <!-- Stats bar -->
+        <div class="stats-bar">
+            <span class="stat-chip sc-all @(SubFilter=="all"?"active":"")"
+                  @onclick='()=>SubFilter="all"'>
+                الكل <strong>@CurrentListCount</strong>
+            </span>
+            @if (ActiveTab != "notifications")
+            {
+                <span class="stat-chip sc-unread @(SubFilter=="unread"?"active":"")"
+                      @onclick='()=>SubFilter="unread"'>
+                    <i class="bi bi-circle-fill" style="font-size:.45rem;"></i> جديد
+                </span>
+                <span class="stat-chip sc-late @(SubFilter=="late"?"active":"")"
+                      @onclick='()=>SubFilter="late"'>
+                    <i class="bi bi-exclamation-triangle-fill"></i> متأخر
+                </span>
+            }
+        </div>
+
+        <!-- Search -->
+        <div class="inbox-search">
+            <input class="inbox-search-input" type="text" placeholder="بحث..."
+                   @bind="SearchTerm" @bind:event="oninput" />
+        </div>
+
+        <!-- List -->
+        <div class="inbox-list">
+            @if (IsLoadingList)
+            {
+                <div class="inbox-loading">
+                    <i class="bi bi-arrow-clockwise spinner"></i> جارٍ التحميل...
+                </div>
+            }
+            else if (!GetCurrentList().Any())
+            {
+                <div class="inbox-empty-pane">
+                    <i class="bi @(ActiveTab == "mail" ? "bi-envelope-slash" : ActiveTab == "reclamations" ? "bi-chat-square-x" : "bi-bell-slash")"></i>
+                    <div style="font-size:.82rem;">لا توجد عناصر</div>
+                </div>
+            }
+            else
+            {
+                @foreach (var item in GetCurrentList())
+                {
+                    <div class="inbox-item @(IsUnread(item) ? "unread" : "") @(SelectedId == GetItemId(item) ? "selected" : "")"
+                         @onclick="() => SelectItem(item)">
+                        <div class="inbox-item-icon @GetItemIconClass(item)">
+                            <i class="bi @GetItemIcon(item)"></i>
+                        </div>
+                        <div class="inbox-item-body">
+                            <div class="iib-from">@GetItemFrom(item)</div>
+                            <div class="iib-subject">@GetItemSubject(item)</div>
+                            <div class="iib-meta">
+                                <span class="iib-time">@GetItemTime(item)</span>
+                                <span class="iib-badge @GetItemBadgeClass(item)">@GetItemBadgeText(item)</span>
+                                @if (IsLate(item))
+                                {
+                                    <span class="iib-badge badge-retard">
+                                        <i class="bi bi-exclamation-triangle-fill"></i> متأخر
+                                    </span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+
+    <!-- ══ RIGHT: تفاصيل + إجراءات ══════════════════════ -->
+    <div class="inbox-right">
+        @if (SelectedItem == null)
+        {
+            <!-- Empty state -->
+            <div class="detail-empty">
+                <i class="bi bi-layout-text-sidebar-reverse"></i>
+                <div class="detail-empty-title">اختر عنصراً من القائمة</div>
+                <div class="detail-empty-sub">انقر على بريد أو شكوى أو إشعار لعرض تفاصيله</div>
+            </div>
+        }
+        else if (SelectedItem is CourrierEntrantDetailDto mail)
+        {
+            <!-- ═══ DETAIL: COURRIER ENTRANT ═══ -->
+            <div class="detail-header">
+                <div class="detail-header-icon ii-mail"><i class="bi bi-envelope-fill"></i></div>
+                <div style="flex:1;min-width:0;">
+                    <div class="detail-title">@mail.ObjetCourrier</div>
+                    <div class="detail-sub">
+                        <span><i class="bi bi-hash"></i> @mail.NumeroOrdre</span>
+                        <span><i class="bi bi-person"></i> @mail.ExpediteurNom</span>
+                        <span><i class="bi bi-calendar3"></i> @mail.DateReception.ToString("dd/MM/yyyy")</span>
+                        <span class="status-pill @GetMailStatusClass(mail.Statut)">@GetMailStatusLabel(mail.Statut)</span>
+                    </div>
+                </div>
+                <div class="detail-actions">
+                    @if (mail.Statut != "Traite" && mail.Statut != "Archive")
+                    {
+                        <button class="btn-action primary" @onclick='() => ShowMailAction("reply")'>
+                            <i class="bi bi-reply-fill"></i> رد
+                        </button>
+                        <button class="btn-action success" @onclick="() => MarkMailTraite(mail.Id)">
+                            <i class="bi bi-check-circle-fill"></i> معالجة
+                        </button>
+                        <button class="btn-action warning" @onclick='() => ShowMailAction("forward")'>
+                            <i class="bi bi-forward-fill"></i> إحالة
+                        </button>
+                    }
+                </div>
+            </div>
+
+            <div class="detail-body">
+                <!-- معلومات البريد -->
+                <div class="info-grid">
+                    <div class="info-card">
+                        <div class="info-card-title"><i class="bi bi-info-circle me-1"></i> معلومات البريد</div>
+                        <div class="info-row"><span class="info-row-label">رقم التسجيل</span><span class="info-row-value">@mail.NumeroOrdre</span></div>
+                        <div class="info-row"><span class="info-row-label">نوع الوثيقة</span><span class="info-row-value">@mail.TypeDocument</span></div>
+                        <div class="info-row"><span class="info-row-label">طريقة الاستقبال</span><span class="info-row-value">@mail.ModeReception</span></div>
+                        <div class="info-row"><span class="info-row-label">الأولوية</span><span class="info-row-value">@GetPriorityLabel(mail.Priorite)</span></div>
+                        <div class="info-row"><span class="info-row-label">يتطلب رداً</span><span class="info-row-value">@(mail.NecessiteReponse ? "نعم" : "لا")</span></div>
+                        @if (mail.DelaiReponse.HasValue)
+                        {
+                            <div class="info-row">
+                                <span class="info-row-label">أجل الرد</span>
+                                <span class="info-row-value" style="color:@(mail.EnRetard ? "#b91c1c" : "inherit")">
+                                    @mail.DelaiReponse.Value.ToString("dd/MM/yyyy")
+                                    @if (mail.EnRetard) { <text> ⚠</text> }
+                                </span>
+                            </div>
+                        }
+                    </div>
+                    <div class="info-card">
+                        <div class="info-card-title"><i class="bi bi-buildings me-1"></i> التوجيه</div>
+                        @if (!string.IsNullOrEmpty(mail.ServiceDestinataireNom))
+                        {
+                            <div class="info-row"><span class="info-row-label">المصلحة المعنية</span><span class="info-row-value">@mail.ServiceDestinataireNom</span></div>
+                        }
+                        @if (!string.IsNullOrEmpty(mail.AgentDestinataireId))
+                        {
+                            <div class="info-row"><span class="info-row-label">الموظف المكلف</span><span class="info-row-value">@mail.AgentDestinataireNom</span></div>
+                        }
+                        @if (!string.IsNullOrEmpty(mail.CategorieLibelle))
+                        {
+                            <div class="info-row"><span class="info-row-label">الصنف</span><span class="info-row-value">@mail.CategorieLibelle</span></div>
+                        }
+                        @if (!string.IsNullOrEmpty(mail.DossierIntitule))
+                        {
+                            <div class="info-row"><span class="info-row-label">الملف</span><span class="info-row-value">@mail.DossierIntitule</span></div>
+                        }
+                        <div class="info-row"><span class="info-row-label">المرفقات</span><span class="info-row-value">@mail.NombrePiecesJointes ملف</span></div>
+                        <div class="info-row"><span class="info-row-label">مراحل التدفق</span><span class="info-row-value">@mail.NombreEtapesCircuit مرحلة</span></div>
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(mail.Observation))
+                {
+                    <div class="desc-card">
+                        <div class="desc-card-title"><i class="bi bi-chat-left-text me-1"></i> الملاحظات</div>
+                        <div class="desc-text">@mail.Observation</div>
+                    </div>
+                }
+
+                <!-- Circuit de traitement -->
+                @if (mail.Circuit?.Any() == true)
+                {
+                    <div class="timeline">
+                        <div class="tl-title"><i class="bi bi-diagram-3 me-1"></i> دائرة المعالجة</div>
+                        @foreach (var etape in mail.Circuit.OrderBy(e => e.NumeroEtape))
+                        {
+                            <div class="tl-item">
+                                <div class="tl-dot @GetCircuitDotClass(etape.StatutEtape)">
+                                    <i class="bi @GetCircuitIcon(etape.TypeAction)"></i>
+                                </div>
+                                <div class="tl-content">
+                                    <div class="tl-action">
+                                        المرحلة @etape.NumeroEtape — @GetActionLabel(etape.TypeAction)
+                                        → @etape.ServiceRecepteurNom
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(etape.InstructionTransmission))
+                                    {
+                                        <div class="tl-comment">@etape.InstructionTransmission</div>
+                                    }
+                                    @if (!string.IsNullOrEmpty(etape.CommentaireTraitement))
+                                    {
+                                        <div class="tl-comment" style="color:#374151;">@etape.CommentaireTraitement</div>
+                                    }
+                                    <div class="tl-meta">
+                                        <span>@etape.DateTransmission.ToString("dd/MM/yyyy HH:mm")</span>
+                                        <span class="status-pill @GetCircuitStatusClass(etape.StatutEtape)" style="font-size:.62rem;padding:.1em .4em;">
+                                            @GetCircuitStatusLabel(etape.StatutEtape)
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <!-- Action drawer -->
+            @if (ActiveMailAction != null)
+            {
+                <div class="action-drawer">
+                    <div class="action-drawer-title">
+                        <i class="bi @(ActiveMailAction == "reply" ? "bi-reply-fill" : "bi-forward-fill")"></i>
+                        @(ActiveMailAction == "reply" ? "رد على البريد" : "إحالة البريد")
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">الإجراء المتخذ</label>
+                            <input class="form-input" @bind="ActionComment"
+                                   placeholder="وصف الإجراء..." />
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">الحالة الجديدة</label>
+                            <select class="form-select" @bind="NewMailStatus">
+                                <option value="">-- اختر --</option>
+                                <option value="EnCours">قيد المعالجة</option>
+                                <option value="Traite">تمت المعالجة</option>
+                                <option value="Rejete">مرفوض</option>
+                            </select>
+                        </div>
+                        <div style="display:flex;gap:.4rem;">
+                            <button class="btn-action primary" @onclick="SubmitMailAction" disabled="@IsSaving">
+                                @if (IsSaving) { <i class="bi bi-arrow-clockwise spinner"></i> }
+                                else { <i class="bi bi-check2"></i> }
+                                تأكيد
+                            </button>
+                            <button class="btn-action" @onclick='() => ActiveMailAction = null'>
+                                <i class="bi bi-x"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+        else if (SelectedItem is ReclamationDetailDto recl)
+        {
+            <!-- ═══ DETAIL: RÉCLAMATION ═══ -->
+            <div class="detail-header">
+                <div class="detail-header-icon ii-recl"><i class="bi bi-chat-square-text-fill"></i></div>
+                <div style="flex:1;min-width:0;">
+                    <div class="detail-title">@recl.Objet</div>
+                    <div class="detail-sub">
+                        <span><i class="bi bi-hash"></i> @recl.NumeroReclamation</span>
+                        <span><i class="bi bi-person"></i> @recl.CitoyenNomComplet</span>
+                        <span><i class="bi bi-calendar3"></i> @recl.DateDepot.ToString("dd/MM/yyyy")</span>
+                        <span class="status-pill @GetReclStatusClass(recl.Statut)">@GetReclStatusLabel(recl.Statut)</span>
+                        @if (recl.Priorite == "Critique")
+                        {
+                            <span class="status-pill sp-rejetee"><i class="bi bi-exclamation-triangle-fill"></i> حرجة</span>
+                        }
+                    </div>
+                </div>
+                <div class="detail-actions">
+                    @if (recl.Statut != "Traitee" && recl.Statut != "Rejetee" && recl.Statut != "Fermee")
+                    {
+                        <button class="btn-action primary" @onclick='() => ShowReclAction("treat")'>
+                            <i class="bi bi-check-circle-fill"></i> معالجة
+                        </button>
+                        <button class="btn-action warning" @onclick='() => ShowReclAction("assign")'>
+                            <i class="bi bi-person-fill-gear"></i> إسناد
+                        </button>
+                        <button class="btn-action danger" @onclick='() => ShowReclAction("reject")'>
+                            <i class="bi bi-x-circle-fill"></i> رفض
+                        </button>
+                    }
+                </div>
+            </div>
+
+            <div class="detail-body">
+                <div class="info-grid">
+                    <div class="info-card">
+                        <div class="info-card-title"><i class="bi bi-person me-1"></i> معلومات المواطن</div>
+                        <div class="info-row"><span class="info-row-label">الاسم الكامل</span><span class="info-row-value">@recl.CitoyenNomComplet</span></div>
+                        <div class="info-row"><span class="info-row-label">الهاتف</span><span class="info-row-value">@recl.CitoyenTelephone</span></div>
+                        <div class="info-row"><span class="info-row-label">قناة الإيداع</span><span class="info-row-value">@GetCanalLabel(recl.Canal)</span></div>
+                        <div class="info-row"><span class="info-row-label">مجهول الهوية</span><span class="info-row-value">@(recl.EstAnonyme ? "نعم" : "لا")</span></div>
+                        @if (recl.DateIncident.HasValue)
+                        {
+                            <div class="info-row"><span class="info-row-label">تاريخ الحادثة</span><span class="info-row-value">@recl.DateIncident.Value.ToString("dd/MM/yyyy")</span></div>
+                        }
+                    </div>
+                    <div class="info-card">
+                        <div class="info-card-title"><i class="bi bi-tags me-1"></i> التصنيف والتكليف</div>
+                        <div class="info-row"><span class="info-row-label">النوع</span><span class="info-row-value">@recl.TypeReclamationLibelle</span></div>
+                        <div class="info-row"><span class="info-row-label">الفئة</span><span class="info-row-value">@recl.CategorieLibelle</span></div>
+                        <div class="info-row"><span class="info-row-label">الأولوية</span><span class="info-row-value">@GetPriorityLabel(recl.Priorite)</span></div>
+                        @if (!string.IsNullOrEmpty(recl.ServiceConcerneNom))
+                        {
+                            <div class="info-row"><span class="info-row-label">المصلحة المعنية</span><span class="info-row-value">@recl.ServiceConcerneNom</span></div>
+                        }
+                        @if (recl.DateAffectation.HasValue)
+                        {
+                            <div class="info-row"><span class="info-row-label">تاريخ الإسناد</span><span class="info-row-value">@recl.DateAffectation.Value.ToString("dd/MM/yyyy")</span></div>
+                        }
+                        @if (recl.DateCloture.HasValue)
+                        {
+                            <div class="info-row"><span class="info-row-label">تاريخ الإغلاق</span><span class="info-row-value">@recl.DateCloture.Value.ToString("dd/MM/yyyy")</span></div>
+                        }
+                    </div>
+                </div>
+
+                <div class="desc-card">
+                    <div class="desc-card-title"><i class="bi bi-file-text me-1"></i> وصف الشكوى</div>
+                    <div class="desc-text">@recl.Description</div>
+                    @if (!string.IsNullOrEmpty(recl.Localisation))
+                    {
+                        <div style="margin-top:.6rem;font-size:.78rem;color:#64748b;">
+                            <i class="bi bi-geo-alt-fill" style="color:#0ea5e9;"></i> @recl.Localisation
+                        </div>
+                    }
+                </div>
+
+                @if (!string.IsNullOrEmpty(recl.SolutionApportee))
+                {
+                    <div class="desc-card" style="border-color:#86efac;">
+                        <div class="desc-card-title" style="color:#15803d;"><i class="bi bi-check-circle-fill me-1"></i> الحل المُقدَّم</div>
+                        <div class="desc-text">@recl.SolutionApportee</div>
+                    </div>
+                }
+
+                <!-- Timeline des suivis -->
+                @if (recl.Suivis?.Any() == true)
+                {
+                    <div class="timeline">
+                        <div class="tl-title"><i class="bi bi-clock-history me-1"></i> سجل المعالجة</div>
+                        @foreach (var s in recl.Suivis.OrderByDescending(x => x.DateChangement))
+                        {
+                            <div class="tl-item">
+                                <div class="tl-dot @GetSuiviDotClass(s.NouveauStatut)">
+                                    <i class="bi @GetSuiviIcon(s.NouveauStatut)"></i>
+                                </div>
+                                <div class="tl-content">
+                                    <div class="tl-action">@(s.ActionEffectuee ?? GetReclStatusLabel(s.NouveauStatut))</div>
+                                    @if (!string.IsNullOrEmpty(s.Commentaire))
+                                    {
+                                        <div class="tl-comment">@s.Commentaire</div>
+                                    }
+                                    <div class="tl-meta">
+                                        <span>@s.UtilisateurNom</span>
+                                        <span>@s.DateChangement.ToString("dd/MM/yyyy HH:mm")</span>
+                                        @if (s.VisibleCitoyen)
+                                        {
+                                            <span style="color:#0ea5e9;font-weight:600;">
+                                                <i class="bi bi-eye-fill"></i> مرئي للمواطن
+                                            </span>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <!-- Action drawer reclamation -->
+            @if (ActiveReclAction != null)
+            {
+                <div class="action-drawer">
+                    <div class="action-drawer-title">
+                        @if (ActiveReclAction == "treat")
+                        { <i class="bi bi-check-circle-fill" style="color:#22c55e;"></i><text> تحديد الشكوى كمعالجة</text> }
+                        else if (ActiveReclAction == "assign")
+                        { <i class="bi bi-person-fill-gear" style="color:#f59e0b;"></i><text> إسناد الشكوى</text> }
+                        else
+                        { <i class="bi bi-x-circle-fill" style="color:#ef4444;"></i><text> رفض الشكوى</text> }
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">تعليق / ملاحظة</label>
+                            <input class="form-input" @bind="ActionComment"
+                                   placeholder="أدخل تعليقك..." />
+                        </div>
+                        @if (ActiveReclAction == "treat")
+                        {
+                            <div class="form-group">
+                                <label class="form-label">الحل المُقدَّم (اختياري)</label>
+                                <input class="form-input" @bind="SolutionText"
+                                       placeholder="وصف الحل..." />
+                            </div>
+                        }
+                        <div style="display:flex;gap:.4rem;align-items:flex-end;">
+                            <button class="btn-action @(ActiveReclAction == "treat" ? "success" : ActiveReclAction == "reject" ? "danger" : "warning")"
+                                    @onclick="SubmitReclAction" disabled="@IsSaving">
+                                @if (IsSaving) { <i class="bi bi-arrow-clockwise spinner"></i> }
+                                تأكيد
+                            </button>
+                            <button class="btn-action" @onclick='() => ActiveReclAction = null'>
+                                <i class="bi bi-x"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+        else if (SelectedItem is NotificationDto notif)
+        {
+            <!-- ═══ DETAIL: NOTIFICATION ═══ -->
+            <div class="detail-header">
+                <div class="detail-header-icon ii-notif"><i class="bi bi-bell-fill"></i></div>
+                <div style="flex:1;">
+                    <div class="detail-title">@notif.Titre</div>
+                    <div class="detail-sub">
+                        <span><i class="bi bi-calendar3"></i> @notif.DateCreation.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                        <span class="status-pill @(notif.EstLue ? "sp-archive" : "sp-nouvelle")">
+                            @(notif.EstLue ? "مقروء" : "غير مقروء")
+                        </span>
+                    </div>
+                </div>
+                @if (!notif.EstLue)
+                {
+                    <div class="detail-actions">
+                        <button class="btn-action primary" @onclick="() => MarkNotifRead(notif)">
+                            <i class="bi bi-check2-all"></i> تحديد كمقروء
+                        </button>
+                    </div>
+                }
+            </div>
+            <div class="detail-body">
+                <div class="desc-card">
+                    <div class="desc-card-title">محتوى الإشعار</div>
+                    <div class="desc-text" style="font-size:.92rem;line-height:1.8;">@notif.Message</div>
+                </div>
+                @if (!string.IsNullOrEmpty(notif.LienNavigation))
+                {
+                    <button class="btn-action primary" style="margin-top:.5rem;"
+                            @onclick="() => Nav.NavigateTo(notif.LienNavigation!)">
+                        <i class="bi bi-arrow-left-circle-fill"></i> الذهاب للعنصر المرتبط
+                    </button>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Toast -->
+@if (!string.IsNullOrEmpty(ToastMessage))
+{
+    <div class="toast-confirm @ToastClass">
+        <i class="bi @(ToastClass == "success" ? "bi-check-circle-fill" : "bi-exclamation-circle-fill")"></i>
+        @ToastMessage
+    </div>
+}
+
+@code {
+    // ── Auth ─────────────────────────────────────────────
+    private string UserName    = "مستخدم";
+    private string UserId      = "";
+    private List<string> Roles = new();
+
+    // ── Tab / filter state ───────────────────────────────
+    private string ActiveTab  = "mail";
+    private string SubFilter  = "all";
+    private string SearchTerm = "";
+
+    // ── Data ─────────────────────────────────────────────
+    private List<CourrierEntrantDetailDto> Mails        = new();
+    private List<ReclamationDetailDto>     Reclamations = new();
+    private bool IsLoadingList = true;
+
+    // ── Selection ────────────────────────────────────────
+    private object?  SelectedItem = null;
+    private int      SelectedId   = 0;
+
+    // ── Actions ──────────────────────────────────────────
+    private string?  ActiveMailAction = null;
+    private string?  ActiveReclAction = null;
+    private string   ActionComment    = "";
+    private string   NewMailStatus    = "";
+    private string   SolutionText     = "";
+    private bool     IsSaving         = false;
+
+    // ── Toast ─────────────────────────────────────────────
+    private string ToastMessage = "";
+    private string ToastClass   = "success";
+
+    // ── Computed counts ──────────────────────────────────
+    private int UnreadMailCount => Mails.Count(m => m.Statut is "Enregistre" or "Recu");
+    private int UnreadReclCount => Reclamations.Count(r => r.Statut is "Nouvelle");
+    private int CurrentListCount => GetCurrentList().Count;
+
+    // ══════════════════════════════════════════════════════
+    //  LIFECYCLE
+    // ══════════════════════════════════════════════════════
+
+    protected override async Task OnInitializedAsync()
+    {
+        SignalRNotif.OnChanged += Refresh;
+        SignalRNotif.OnNotificationReceived += OnNewNotification;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        var state = await AuthState.GetAuthenticationStateAsync();
+        var user  = state.User;
+        if (!user.Identity?.IsAuthenticated ?? true) return;
+
+        UserName = user.FindFirst("firstName")?.Value is { Length: > 0 } fn
+                 ? fn + " " + (user.FindFirst("lastName")?.Value ?? "")
+                 : user.Identity?.Name ?? "مستخدم";
+
+        UserId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value
+              ?? user.FindFirst("sub")?.Value ?? "";
+
+        Roles = user.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
+
+        await LoadAllData();
+        StateHasChanged();
+    }
+
+    private async Task LoadAllData()
+    {
+        IsLoadingList = true;
+        StateHasChanged();
+
+        try
+        {
+            // بريد وارد: جلب ما هو مخصص للمستخدم
+            var mailFilter = new CourrierEntrantFilterDto
+            {
+                PageSize = 50, PageNumber = 1
+            };
+            var mailPage = await CourrierApi.GetPagedAsync(mailFilter);
+            Mails = new();
+            if (mailPage?.Items != null)
+            {
+                foreach (var m in mailPage.Items)
+                {
+                    try
+                    {
+                        var detail = await CourrierApi.GetByIdAsync(m.Id);
+                        if (detail != null) Mails.Add(detail);
+                    }
+                    catch { }
+                }
+            }
+
+            // شكاوى: جلب ما هو مخصص للمستخدم
+            var reclFilter = new ReclamationFilterDto { PageSize = 50, PageNumber = 1 };
+            var reclPage = await ReclamationApi.GetPagedAsync(reclFilter);
+            Reclamations = new();
+            if (reclPage?.Items != null)
+            {
+                foreach (var r in reclPage.Items)
+                {
+                    try
+                    {
+                        var detail = await ReclamationApi.GetByIdAsync(r.Id);
+                        if (detail != null) Reclamations.Add(detail);
+                    }
+                    catch { }
+                }
+            }
+
+            // إشعارات: تحميل إذا فارغة
+            if (!SignalRNotif.Notifications.Any())
+            {
+                var notifs = await NotifApi.GetMyNotificationsAsync();
+                SignalRNotif.LoadInitialNotifications(notifs);
+            }
+        }
+        catch { }
+        finally
+        {
+            IsLoadingList = false;
+        }
+    }
+
+    // ══════════════════════════════════════════════════════
+    //  TAB SWITCHING
+    // ══════════════════════════════════════════════════════
+
+    private async Task SwitchTab(string tab)
+    {
+        ActiveTab      = tab;
+        SubFilter      = "all";
+        SearchTerm     = "";
+        SelectedItem   = null;
+        SelectedId     = 0;
+        ActiveMailAction = null;
+        ActiveReclAction = null;
+    }
+
+    // ══════════════════════════════════════════════════════
+    //  LIST LOGIC
+    // ══════════════════════════════════════════════════════
+
+    private List<object> GetCurrentList()
+    {
+        if (ActiveTab == "mail")
+        {
+            var list = Mails.AsEnumerable();
+            if (SubFilter == "unread") list = list.Where(m => m.Statut is "Enregistre" or "Recu");
+            if (SubFilter == "late")   list = list.Where(m => m.EnRetard);
+            if (!string.IsNullOrEmpty(SearchTerm))
+                list = list.Where(m => m.ObjetCourrier.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase)
+                                    || m.ExpediteurNom.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase)
+                                    || m.NumeroOrdre.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase));
+            return list.OrderByDescending(m => m.DateReception).Cast<object>().ToList();
+        }
+        else if (ActiveTab == "reclamations")
+        {
+            var list = Reclamations.AsEnumerable();
+            if (SubFilter == "unread") list = list.Where(r => r.Statut == "Nouvelle");
+            if (SubFilter == "late")   list = list.Where(r => r.Statut != "Traitee" && r.Statut != "Rejetee"
+                                                              && r.DateDepot < DateTime.UtcNow.AddDays(-15));
+            if (!string.IsNullOrEmpty(SearchTerm))
+                list = list.Where(r => r.Objet.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase)
+                                    || r.CitoyenNomComplet.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase)
+                                    || r.NumeroReclamation.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase));
+            return list.OrderByDescending(r => r.DateDepot).Cast<object>().ToList();
+        }
+        else // notifications
+        {
+            var list = SignalRNotif.Notifications.AsEnumerable();
+            if (SubFilter == "unread") list = list.Where(n => !n.EstLue);
+            if (!string.IsNullOrEmpty(SearchTerm))
+                list = list.Where(n => n.Titre.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase)
+                                    || n.Message.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase));
+            return list.OrderByDescending(n => n.DateCreation).Cast<object>().ToList();
+        }
+    }
+
+    // ══════════════════════════════════════════════════════
+    //  ITEM SELECTION
+    // ══════════════════════════════════════════════════════
+
+    private async Task SelectItem(object item)
+    {
+        SelectedItem     = item;
+        ActiveMailAction = null;
+        ActiveReclAction = null;
+        ActionComment    = "";
+        NewMailStatus    = "";
+        SolutionText     = "";
+        SelectedId       = GetItemId(item);
+
+        // Mark notification as read
+        if (item is NotificationDto n && !n.EstLue)
+        {
+            await SignalRNotif.MarkAsReadAsync(n.Id);
+            try { await NotifApi.MarkAsReadAsync(n.Id); } catch { }
+        }
+    }
+
+    private int GetItemId(object item) => item switch
+    {
+        CourrierEntrantDetailDto m => m.Id,
+        ReclamationDetailDto     r => r.Id,
+        NotificationDto          n => n.Id,
+        _ => 0
+    };
+
+    // ══════════════════════════════════════════════════════
+    //  MAIL ACTIONS
+    // ══════════════════════════════════════════════════════
+
+    private void ShowMailAction(string action)
+    {
+        ActiveMailAction = action;
+        ActiveReclAction = null;
+        ActionComment    = "";
+        NewMailStatus    = "";
+    }
+
+    private async Task MarkMailTraite(int id)
+    {
+        IsSaving = true;
+        try
+        {
+            var dto = new ChangerStatutEntrantDto { NouveauStatut = "Traite", Commentaire = "تمت المعالجة" };
+            await CourrierApi.ChangerStatutAsync(id, dto);
+            await ReloadMail(id);
+            ShowToast("تم تحديد البريد كمعالج ✓", "success");
+        }
+        catch { ShowToast("حدث خطأ أثناء التحديث", "error"); }
+        finally { IsSaving = false; }
+    }
+
+    private async Task SubmitMailAction()
+    {
+        if (SelectedItem is not CourrierEntrantDetailDto mail) return;
+        if (string.IsNullOrEmpty(NewMailStatus)) return;
+
+        IsSaving = true;
+        try
+        {
+            var dto = new ChangerStatutEntrantDto
+            {
+                NouveauStatut = NewMailStatus,
+                Commentaire   = ActionComment
+            };
+            await CourrierApi.ChangerStatutAsync(mail.Id, dto);
+            await ReloadMail(mail.Id);
+            ActiveMailAction = null;
+            ActionComment    = "";
+            NewMailStatus    = "";
+            ShowToast("تم تحديث حالة البريد ✓", "success");
+        }
+        catch { ShowToast("حدث خطأ أثناء التحديث", "error"); }
+        finally { IsSaving = false; }
+    }
+
+    private async Task ReloadMail(int id)
+    {
+        try
+        {
+            var updated = await CourrierApi.GetByIdAsync(id);
+            if (updated != null)
+            {
+                var idx = Mails.FindIndex(m => m.Id == id);
+                if (idx >= 0) Mails[idx] = updated;
+                if (SelectedItem is CourrierEntrantDetailDto) SelectedItem = updated;
+            }
+        }
+        catch { }
+    }
+
+    // ══════════════════════════════════════════════════════
+    //  RECLAMATION ACTIONS
+    // ══════════════════════════════════════════════════════
+
+    private void ShowReclAction(string action)
+    {
+        ActiveReclAction = action;
+        ActiveMailAction = null;
+        ActionComment    = "";
+        SolutionText     = "";
+    }
+
+    private async Task SubmitReclAction()
+    {
+        if (SelectedItem is not ReclamationDetailDto recl) return;
+        IsSaving = true;
+        try
+        {
+            var nouveauStatut = ActiveReclAction switch
+            {
+                "treat"  => "Traitee",
+                "reject" => "Rejetee",
+                _        => "EnCours"
+            };
+
+            var dto = new ChangerStatutReclamationDto
+            {
+                NouveauStatut   = nouveauStatut,
+                Commentaire     = ActionComment,
+                SolutionApportee = ActiveReclAction == "treat" ? SolutionText : null,
+                VisibleCitoyen  = true
+            };
+            await ReclamationApi.ChangerStatutAsync(recl.Id, dto);
+            await ReloadReclamation(recl.Id);
+            ActiveReclAction = null;
+            ActionComment    = "";
+            SolutionText     = "";
+            ShowToast(nouveauStatut == "Traitee" ? "تمت معالجة الشكوى ✓"
+                    : nouveauStatut == "Rejetee"  ? "تم رفض الشكوى"
+                    : "تم تحديث حالة الشكوى ✓", "success");
+        }
+        catch { ShowToast("حدث خطأ أثناء التحديث", "error"); }
+        finally { IsSaving = false; }
+    }
+
+    private async Task ReloadReclamation(int id)
+    {
+        try
+        {
+            var updated = await ReclamationApi.GetByIdAsync(id);
+            if (updated != null)
+            {
+                var idx = Reclamations.FindIndex(r => r.Id == id);
+                if (idx >= 0) Reclamations[idx] = updated;
+                if (SelectedItem is ReclamationDetailDto) SelectedItem = updated;
+            }
+        }
+        catch { }
+    }
+
+    // ══════════════════════════════════════════════════════
+    //  NOTIFICATION ACTIONS
+    // ══════════════════════════════════════════════════════
+
+    private async Task MarkNotifRead(NotificationDto n)
+    {
+        await SignalRNotif.MarkAsReadAsync(n.Id);
+        try { await NotifApi.MarkAsReadAsync(n.Id); } catch { }
+    }
+
+    private void OnNewNotification(NotificationDto n) => InvokeAsync(StateHasChanged);
+    private void Refresh() => InvokeAsync(StateHasChanged);
+
+    // ══════════════════════════════════════════════════════
+    //  TOAST
+    // ══════════════════════════════════════════════════════
+
+    private void ShowToast(string msg, string cls)
+    {
+        ToastMessage = msg;
+        ToastClass   = cls;
+        StateHasChanged();
+        Task.Delay(3200).ContinueWith(_ => InvokeAsync(() =>
+        {
+            ToastMessage = "";
+            StateHasChanged();
+        }));
+    }
+
+    // ══════════════════════════════════════════════════════
+    //  ITEM HELPERS
+    // ══════════════════════════════════════════════════════
+
+    private bool IsUnread(object item) => item switch
+    {
+        CourrierEntrantDetailDto m => m.Statut is "Enregistre" or "Recu",
+        ReclamationDetailDto     r => r.Statut == "Nouvelle",
+        NotificationDto          n => !n.EstLue,
+        _ => false
+    };
+
+    private bool IsLate(object item) => item switch
+    {
+        CourrierEntrantDetailDto m => m.EnRetard,
+        ReclamationDetailDto     r => r.Statut != "Traitee" && r.Statut != "Rejetee"
+                                    && r.DateDepot < DateTime.UtcNow.AddDays(-15),
+        _ => false
+    };
+
+    private string GetItemFrom(object item) => item switch
+    {
+        CourrierEntrantDetailDto m => m.ExpediteurNom,
+        ReclamationDetailDto     r => r.CitoyenNomComplet,
+        NotificationDto          n => "النظام",
+        _ => ""
+    };
+
+    private string GetItemSubject(object item) => item switch
+    {
+        CourrierEntrantDetailDto m => m.ObjetCourrier,
+        ReclamationDetailDto     r => r.Objet,
+        NotificationDto          n => n.Titre,
+        _ => ""
+    };
+
+    private string GetItemTime(object item) => item switch
+    {
+        CourrierEntrantDetailDto m => FormatTime(m.DateReception),
+        ReclamationDetailDto     r => FormatTime(r.DateDepot),
+        NotificationDto          n => FormatTime(n.DateCreation),
+        _ => ""
+    };
+
+    private string GetItemIconClass(object item) => item switch
+    {
+        CourrierEntrantDetailDto m => m.Priorite is "Urgent" or "TresUrgent" ? "ii-urgent" : "ii-mail",
+        ReclamationDetailDto     r => r.Priorite == "Critique" ? "ii-urgent" : "ii-recl",
+        NotificationDto          _  => "ii-notif",
+        _ => "ii-mail"
+    };
+
+    private string GetItemIcon(object item) => item switch
+    {
+        CourrierEntrantDetailDto m => m.Priorite is "Urgent" or "TresUrgent" ? "bi-envelope-exclamation-fill" : "bi-envelope-fill",
+        ReclamationDetailDto     r => r.Priorite == "Critique" ? "bi-exclamation-triangle-fill" : "bi-chat-square-text-fill",
+        NotificationDto          n => GetNotifIcon(n.Type),
+        _ => "bi-bell"
+    };
+
+    private string GetItemBadgeClass(object item) => item switch
+    {
+        CourrierEntrantDetailDto m => m.Statut switch
+        {
+            "Enregistre" or "Recu" => "badge-nouvelle",
+            "EnCours"              => "badge-encours",
+            _                      => ""
+        },
+        ReclamationDetailDto r => r.Statut switch
+        {
+            "Nouvelle" => "badge-nouvelle",
+            "EnCours"  => "badge-encours",
+            "Traitee"  => "badge-traitee",
+            _          => ""
+        },
+        _ => ""
+    };
+
+    private string GetItemBadgeText(object item) => item switch
+    {
+        CourrierEntrantDetailDto m => GetMailStatusLabel(m.Statut),
+        ReclamationDetailDto     r => GetReclStatusLabel(r.Statut),
+        NotificationDto          n => GetNotifTypeLabel(n.Type),
+        _ => ""
+    };
+
+    // ══════════════════════════════════════════════════════
+    //  LABEL HELPERS
+    // ══════════════════════════════════════════════════════
+
+    private string GetMailStatusLabel(string s) => s switch
+    {
+        "Recu"        => "مستلم",
+        "Enregistre"  => "مسجل",
+        "EnCours"     => "قيد المعالجة",
+        "Traite"      => "معالج",
+        "Archive"     => "مؤرشف",
+        "Rejete"      => "مرفوض",
+        _ => s
+    };
+
+    private string GetMailStatusClass(string s) => s switch
+    {
+        "Recu" or "Enregistre" => "sp-nouvelle",
+        "EnCours"              => "sp-encours",
+        "Traite"               => "sp-traitee",
+        "Archive"              => "sp-archive",
+        "Rejete"               => "sp-rejetee",
+        _ => "sp-enregistre"
+    };
+
+    private string GetReclStatusLabel(string? s) => s switch
+    {
+        "Nouvelle"  => "جديدة",
+        "EnCours"   => "قيد المعالجة",
+        "Traitee"   => "معالجة",
+        "Rejetee"   => "مرفوضة",
+        "Fermee"    => "مغلقة",
+        _ => s ?? ""
+    };
+
+    private string GetReclStatusClass(string s) => s switch
+    {
+        "Nouvelle"  => "sp-nouvelle",
+        "EnCours"   => "sp-encours",
+        "Traitee"   => "sp-traitee",
+        "Rejetee"   => "sp-rejetee",
+        "Fermee"    => "sp-archive",
+        _ => ""
+    };
+
+    private string GetPriorityLabel(string p) => p switch
+    {
+        "Normal"     or "Basse"    => "عادية",
+        "Urgent"     or "Moyenne"  => "متوسطة",
+        "TresUrgent" or "Haute"    => "عالية",
+        "Confidentiel" or "Critique" => "حرجة",
+        _ => p
+    };
+
+    private string GetCanalLabel(string c) => c switch
+    {
+        "Guichet"   => "الشباك",
+        "Telephone" => "الهاتف",
+        "Email"     => "البريد الإلكتروني",
+        "Web"       => "الموقع الإلكتروني",
+        "Mobile"    => "تطبيق الجوال",
+        _ => c
+    };
+
+    private string GetActionLabel(string a) => a switch
+    {
+        "PourAction"      => "للإجراء",
+        "PourDecision"    => "للقرار",
+        "PourInformation" => "للعلم",
+        "PourSignature"   => "للتوقيع",
+        "PourSuite"       => "للمتابعة",
+        _ => a
+    };
+
+    private string GetCircuitDotClass(string s) => s switch
+    {
+        "Traite"   => "green",
+        "EnCours"  => "blue",
+        "Retourne" => "red",
+        _ => ""
+    };
+
+    private string GetCircuitIcon(string t) => t switch
+    {
+        "PourAction"      => "bi-lightning-fill",
+        "PourDecision"    => "bi-check2-square",
+        "PourInformation" => "bi-info-circle-fill",
+        "PourSignature"   => "bi-pen-fill",
+        "PourSuite"       => "bi-arrow-right-circle-fill",
+        _ => "bi-arrow-right"
+    };
+
+    private string GetCircuitStatusClass(string s) => s switch
+    {
+        "Traite"    => "sp-traitee",
+        "EnCours"   => "sp-encours",
+        "Retourne"  => "sp-rejetee",
+        "EnAttente" => "sp-nouvelle",
+        _ => "sp-archive"
+    };
+
+    private string GetCircuitStatusLabel(string s) => s switch
+    {
+        "EnAttente" => "قيد الانتظار",
+        "EnCours"   => "قيد المعالجة",
+        "Traite"    => "معالج",
+        "Retourne"  => "مُعاد",
+        _ => s
+    };
+
+    private string GetSuiviDotClass(string? s) => s switch
+    {
+        "Traitee"  => "green",
+        "EnCours"  => "blue",
+        "Rejetee"  => "red",
+        "Nouvelle" => "amber",
+        _ => ""
+    };
+
+    private string GetSuiviIcon(string? s) => s switch
+    {
+        "Traitee"  => "bi-check-circle-fill",
+        "Rejetee"  => "bi-x-circle-fill",
+        "EnCours"  => "bi-arrow-repeat",
+        "Nouvelle" => "bi-plus-circle-fill",
+        _ => "bi-dot"
+    };
+
+    private string GetNotifIcon(string t) => t switch
+    {
+        "NouveauCourrier"        => "bi-envelope",
+        "CourrierAssigne"        => "bi-envelope-arrow-down",
+        "CourrierTraite"         => "bi-envelope-check",
+        "NouvelleReclamation"    => "bi-chat-square-text",
+        "ReclamationAssignee"    => "bi-chat-square-arrow",
+        "ReclamationResolue"     => "bi-check-circle",
+        "ReclamationRejetee"     => "bi-x-circle",
+        "NouvelleDemandePermis"  => "bi-building",
+        "DemandePermisApprouvee" => "bi-building-check",
+        "PermisDelivre"          => "bi-file-earmark-check",
+        _ => "bi-bell"
+    };
+
+    private string GetNotifTypeLabel(string t) => t switch
+    {
+        var x when x.Contains("Courrier")    => "بريد",
+        var x when x.Contains("Reclamation") => "شكوى",
+        var x when x.Contains("Permis")      => "رخصة",
+        _ => "إشعار"
+    };
+
+    private string FormatTime(DateTime dt)
+    {
+        var diff = DateTime.UtcNow - dt;
+        return diff.TotalMinutes < 1  ? "الآن"
+             : diff.TotalMinutes < 60 ? $"منذ {(int)diff.TotalMinutes} دق"
+             : diff.TotalHours < 24   ? $"منذ {(int)diff.TotalHours} سا"
+             : diff.TotalDays < 7     ? $"منذ {(int)diff.TotalDays} أيام"
+             : dt.ToString("dd/MM/yy");
+    }
+
+    public void Dispose()
+    {
+        SignalRNotif.OnChanged              -= Refresh;
+        SignalRNotif.OnNotificationReceived -= OnNewNotification;
+    }
+}

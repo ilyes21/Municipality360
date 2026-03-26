@@ -35,9 +35,12 @@ builder.Services.AddCors(options =>
 
     options.AddPolicy("Municipality.ELAIN.360Policy", policy =>
         policy.WithOrigins(
-                "https://localhost:7173",
-                "http://localhost:5155",
-                "http://localhost:3000")
+                "https://localhost:7173",   // API نفسه (Swagger)
+                "http://localhost:5155",    // Blazor dev
+                "https://localhost:7174",   // Blazor dev HTTPS
+                "http://localhost:3000",    // React/Next dev
+                "http://localhost:5000",
+                "https://localhost:5001")
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials());   // obligatoire pour SignalR
@@ -111,8 +114,18 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 // ── 4. تطبيق CORS  ─────────────────
-app.UseCors("Municipality.ELAIN.360Policy");     // للـ admin dashboard
-app.UseCors("MobileApp");   // للتطبيق المحمول
+//app.UseCors("Municipality.ELAIN.360Policy");     // للـ admin dashboard
+//app.UseCors("MobileApp");   // للتطبيق المحمول
+// ✅ CORS: سياسة واحدة قبل Authentication
+// نطبق MobilePolicy على مسارات /api/mobile فقط
+app.UseWhen(
+    ctx => ctx.Request.Path.StartsWithSegments("/api/mobile"),
+    branch => branch.UseCors("MobileApp"));
+
+// باقي المسارات (Blazor dashboard + SignalR)
+app.UseWhen(
+    ctx => !ctx.Request.Path.StartsWithSegments("/api/mobile"),
+    branch => branch.UseCors("Municipality.ELAIN.360Policy"));
 
 app.UseAuthentication();
 app.UseAuthorization();

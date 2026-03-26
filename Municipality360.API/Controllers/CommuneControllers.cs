@@ -1241,4 +1241,6 @@ public class NotificationsController : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> GetByCitoyen(string citoyenId, [FromQuery] bool seulementNonLues = false)
         => Ok(await _service.GetByCitoyenAsync(citoyenId, seulementNonLues));
+
+
 }

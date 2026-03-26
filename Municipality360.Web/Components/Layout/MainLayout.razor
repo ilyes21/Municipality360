@@ -943,6 +943,16 @@
         <NavLink class="sb-link" href="/" Match="NavLinkMatch.All">
             <i class="bi bi-speedometer2"></i><span>لوحة التحكم</span>
         </NavLink>
+        <NavLink class="sb-link" href="/inbox">
+            <i class="bi bi-tray-fill"></i>
+            <span>صندوق الوارد</span>
+            @if ((UnreadComplaints + Notifications.Count(n => !n.IsRead)) > 0)
+            {
+                <span class="sb-badge red" style="margin-right:auto;">
+                    @(UnreadComplaints + Notifications.Count(n => !n.IsRead))
+                </span>
+            }
+        </NavLink>
 
         @* ══════════════════════════════════════════════════
            الإدارة اليومية
