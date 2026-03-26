@@ -1,0 +1,204 @@
+@* ═══════════════════════════════════════════════════════════════════
+   PermitsStats.razor — /permits/stats
+   Statistiques et indicateurs du module Permis de Bâtir
+═══════════════════════════════════════════════════════════════════ *@
+
+@page "/permits/stats"
+@using Municipality360.Application.DTOs.PermisBatir
+@using Municipality360.Web.Services
+@inject IPermisBatirApiService PermisApi
+@inject NavigationManager Nav
+
+<PageTitle>إحصائيات رخص البناء</PageTitle>
+
+<style>
+    @@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap');
+    * { box-sizing: border-box; }
+    .ps-root { font-family: 'Tajawal', sans-serif; }
+    .ps-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem; flex-wrap:wrap; gap:.75rem; }
+    .ps-title { font-size:1.3rem; font-weight:800; color:#0f172a; }
+    .ps-sub   { font-size:.8rem; color:#64748b; margin-top:.2rem; }
+
+    .ps-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:1rem; margin-bottom:1.5rem; }
+    .ps-card {
+        background:#fff; border:1px solid #e2e8f0; border-radius:16px;
+        padding:1.25rem; box-shadow:0 2px 8px rgba(0,0,0,.04);
+    }
+    .ps-card-icon {
+        width:46px;height:46px;border-radius:12px;
+        display:flex;align-items:center;justify-content:center;
+        font-size:1.2rem;margin-bottom:.65rem;
+    }
+    .ci-blue   { background:#dbeafe; color:#1d4ed8; }
+    .ci-purple { background:#f3e8ff; color:#7c3aed; }
+    .ci-amber  { background:#fef3c7; color:#b45309; }
+    .ci-green  { background:#dcfce7; color:#15803d; }
+    .ci-red    { background:#fee2e2; color:#b91c1c; }
+    .ci-teal   { background:#cffafe; color:#0e7490; }
+    .ci-orange { background:#fff7ed; color:#c2410c; }
+    .ps-card-val  { font-size:2rem; font-weight:800; color:#0f172a; line-height:1; }
+    .ps-card-lbl  { font-size:.78rem; color:#64748b; margin-top:.3rem; }
+    .ps-card-sub  { font-size:.72rem; color:#94a3b8; margin-top:.2rem; }
+
+    .ps-progress-card {
+        background:#fff; border:1px solid #e2e8f0; border-radius:16px;
+        padding:1.25rem; box-shadow:0 2px 8px rgba(0,0,0,.04); margin-bottom:1rem;
+    }
+    .ps-progress-title { font-size:.85rem; font-weight:700; color:#0f172a; margin-bottom:1rem; }
+    .progress-row { margin-bottom:.85rem; }
+    .progress-label { display:flex; justify-content:space-between; font-size:.78rem; margin-bottom:.3rem; }
+    .progress-label span:first-child { color:#374151; font-weight:600; }
+    .progress-label span:last-child  { color:#64748b; }
+    .progress-bar-bg {
+        height:8px; background:#f1f5f9; border-radius:99px; overflow:hidden;
+    }
+    .progress-bar-fill {
+        height:100%; border-radius:99px; transition:width .6s ease;
+    }
+
+    .btn { padding:.48rem 1rem; border-radius:9px; border:none; font-family:'Tajawal',sans-serif; font-size:.82rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:.4rem; transition:all .18s; }
+    .btn-outline { background:#fff; color:#374151; border:1px solid #e2e8f0; }
+    .btn-outline:hover { background:#f8fafc; }
+    .btn-primary { background:#0ea5e9; color:#fff; }
+
+    @@keyframes spin { to { transform:rotate(360deg); } }
+    .spinner { animation:spin .75s linear infinite; }
+    .ps-loading { padding:4rem; text-align:center; color:#94a3b8; }
+</style>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+
+<div class="ps-root">
+    <div class="ps-header">
+        <div>
+            <div class="ps-title"><i class="bi bi-bar-chart-line-fill" style="color:#0ea5e9;margin-left:.4rem;"></i>إحصائيات رخص البناء</div>
+            <div class="ps-sub">لوحة مؤشرات الأداء لوحدة التعمير</div>
+        </div>
+        <div style="display:flex;gap:.5rem;">
+            <button class="btn btn-primary" @onclick='() => Nav.NavigateTo("/permits/new")'>
+                <i class="bi bi-plus-lg"></i> طلب جديد
+            </button>
+            <button class="btn btn-outline" @onclick='() => Nav.NavigateTo("/permits")'>
+                <i class="bi bi-list"></i> القائمة
+            </button>
+        </div>
+    </div>
+
+    @if (IsLoading)
+    {
+        <div class="ps-loading">
+            <i class="bi bi-arrow-clockwise spinner" style="font-size:2rem;display:block;margin-bottom:.5rem;"></i>
+            جارٍ تحميل الإحصائيات...
+        </div>
+    }
+    else if (Stats != null)
+    {
+        <!-- ── KPI Cards ── -->
+        <div class="ps-grid">
+            <div class="ps-card">
+                <div class="ps-card-icon ci-blue"><i class="bi bi-folder2"></i></div>
+                <div class="ps-card-val">@Stats.TotalDemandes</div>
+                <div class="ps-card-lbl">إجمالي الطلبات</div>
+            </div>
+            <div class="ps-card">
+                <div class="ps-card-icon ci-purple"><i class="bi bi-inbox"></i></div>
+                <div class="ps-card-val">@Stats.Deposees</div>
+                <div class="ps-card-lbl">طلبات مودعة</div>
+                <div class="ps-card-sub">في انتظار المعالجة</div>
+            </div>
+            <div class="ps-card">
+                <div class="ps-card-icon ci-amber"><i class="bi bi-search"></i></div>
+                <div class="ps-card-val">@Stats.EnExamen</div>
+                <div class="ps-card-lbl">قيد الدراسة</div>
+                <div class="ps-card-sub">تحت المراجعة الإدارية</div>
+            </div>
+            <div class="ps-card">
+                <div class="ps-card-icon ci-green"><i class="bi bi-check-circle-fill"></i></div>
+                <div class="ps-card-val">@Stats.Approuvees</div>
+                <div class="ps-card-lbl">موافق عليها</div>
+                <div class="ps-card-sub">@(Stats.TotalDemandes > 0 ? $"{Stats.Approuvees * 100 / Stats.TotalDemandes}%" : "—") من الإجمالي</div>
+            </div>
+            <div class="ps-card">
+                <div class="ps-card-icon ci-red"><i class="bi bi-x-circle-fill"></i></div>
+                <div class="ps-card-val">@Stats.Rejetees</div>
+                <div class="ps-card-lbl">مرفوضة</div>
+                <div class="ps-card-sub">@(Stats.TotalDemandes > 0 ? $"{Stats.Rejetees * 100 / Stats.TotalDemandes}%" : "—") من الإجمالي</div>
+            </div>
+            <div class="ps-card">
+                <div class="ps-card-icon ci-teal"><i class="bi bi-award-fill"></i></div>
+                <div class="ps-card-val">@Stats.TotalPermisDelivres</div>
+                <div class="ps-card-lbl">رخص مُسلَّمة</div>
+                <div class="ps-card-sub">رخص نافذة</div>
+            </div>
+            @if (Stats.EnRetard > 0)
+            {
+                <div class="ps-card" style="border-color:#fca5a5;">
+                    <div class="ps-card-icon" style="background:#fee2e2;color:#b91c1c;"><i class="bi bi-alarm-fill"></i></div>
+                    <div class="ps-card-val" style="color:#b91c1c;">@Stats.EnRetard</div>
+                    <div class="ps-card-lbl">طلبات متأخرة</div>
+                    <div class="ps-card-sub" style="color:#b91c1c;">تجاوزت الآجال المحددة</div>
+                </div>
+            }
+            @if (Stats.MontantTaxesEnAttente > 0)
+            {
+                <div class="ps-card">
+                    <div class="ps-card-icon ci-orange"><i class="bi bi-cash-coin"></i></div>
+                    <div class="ps-card-val" style="font-size:1.3rem;">@Stats.MontantTaxesEnAttente.ToString("N0")</div>
+                    <div class="ps-card-lbl">رسوم معلقة (د.ت)</div>
+                </div>
+            }
+            @if (Stats.DelaiMoyenJours > 0)
+            {
+                <div class="ps-card">
+                    <div class="ps-card-icon ci-blue"><i class="bi bi-clock-history"></i></div>
+                    <div class="ps-card-val" style="font-size:1.5rem;">@Stats.DelaiMoyenJours.ToString("F0")</div>
+                    <div class="ps-card-lbl">متوسط أيام المعالجة</div>
+                </div>
+            }
+        </div>
+
+        <!-- ── Progress by status ── -->
+        @if (Stats.TotalDemandes > 0)
+        {
+            <div class="ps-progress-card">
+                <div class="ps-progress-title"><i class="bi bi-pie-chart-fill" style="color:#0ea5e9;margin-left:.35rem;"></i>توزيع الطلبات حسب الحالة</div>
+                @{
+                    var total = (double)Stats.TotalDemandes;
+                    var items = new[]
+                    {
+                        ("مودعة",       Stats.Deposees,   "#7c3aed", "92%"),
+                        ("قيد الدراسة", Stats.EnExamen,   "#b45309", "92%"),
+                        ("موافق عليها", Stats.Approuvees, "#15803d", "92%"),
+                        ("مرفوضة",      Stats.Rejetees,   "#b91c1c", "92%"),
+                    };
+                }
+                @foreach (var (label, count, color, _) in items)
+                {
+                    var pct = total > 0 ? (int)(count * 100 / total) : 0;
+                    <div class="progress-row">
+                        <div class="progress-label">
+                            <span>@label</span>
+                            <span>@count طلب (@pct%)</span>
+                        </div>
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill" style="width:@(pct)%;background:@color;"></div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private PermisStatsDto? Stats;
+    private bool IsLoading = true;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try { Stats = await PermisApi.GetStatsAsync(); }
+        catch { }
+        finally { IsLoading = false; StateHasChanged(); }
+    }
+}

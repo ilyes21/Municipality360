@@ -81,6 +81,12 @@ builder.Services.AddScoped<ICategorieReclamationApiService, CategorieReclamation
 builder.Services.AddScoped<INotificationApiService, NotificationApiService>();
 builder.Services.AddScoped<ISignalRNotificationService, SignalRNotificationService>();
 
+// ── ✅ Permis Batir ──────────────────────
+builder.Services.AddScoped<IPermisBatirApiService, PermisBatirApiService>();
+builder.Services.AddScoped<IDemandeurApiService, DemandeurApiService>();
+builder.Services.AddScoped<IArchitecteApiService, ArchitecteApiService>();
+builder.Services.AddScoped<IPermisReferentielsApiService, PermisReferentielsApiService>();
+
 // ═══════════════════════════════════════════════════════════
 var app = builder.Build();
 // ═══════════════════════════════════════════════════════════

@@ -9,12 +9,15 @@
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Municipality360.Application.DTOs.BureauOrdre;
 using Municipality360.Application.DTOs.Notifications;
 using Municipality360.Application.DTOs.PermisBatir;
 using Municipality360.Application.DTOs.Reclamations;
 using Municipality360.Application.DTOs.Structure;
 using Municipality360.Application.Interfaces.Services;
+using Municipality360.Domain.Entities;
+using Municipality360.Infrastructure.Data;
 using System.Security.Claims;
 
 namespace Municipality360.API.Controllers;
@@ -1123,6 +1126,7 @@ public class PermisBatirController : ControllerBase
     }
 }
 
+
 // ════════════════════════════════════════════════════════════════
 //  DEMANDEURS & ARCHITECTES
 // ════════════════════════════════════════════════════════════════
@@ -1195,7 +1199,300 @@ public class ArchitectesController : ControllerBase
         catch (InvalidOperationException ex) { return Conflict(new { message = ex.Message }); }
     }
 }
+// ════════════════════════════════════════════════════════════════
+//  ZONAGE URBANISME
+// ════════════════════════════════════════════════════════════════
 
+[ApiController]
+[Route("api/zonages-urbanisme")]
+[Authorize]
+public class ZonagesUrbanismeController : ControllerBase
+{
+    private readonly ApplicationDbContext _ctx;
+    public ZonagesUrbanismeController(ApplicationDbContext ctx) => _ctx = ctx;
+
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        var list = await _ctx.Set<ZonageUrbanisme>()
+            .Where(z => !z.IsDeleted)
+            .OrderBy(z => z.Code)
+            .Select(z => new ZonageUrbanismeDto
+            {
+                Id = z.Id,
+                Code = z.Code,
+                Libelle = z.Libelle,
+                Description = z.Description,
+                CoefficientOccupationSol = z.CoefficientOccupationSol,
+                CoefficientUtilisationSol = z.CoefficientUtilisationSol,
+                HauteurMaximale = z.HauteurMaximale,
+                IsActive = z.IsActive
+            }).ToListAsync();
+        return Ok(list);
+    }
+
+    [HttpGet("{id:int}")]
+    public async Task<IActionResult> GetById(int id)
+    {
+        var z = await _ctx.Set<ZonageUrbanisme>().FindAsync(id);
+        if (z == null || z.IsDeleted) return NotFound();
+        return Ok(new ZonageUrbanismeDto
+        {
+            Id = z.Id,
+            Code = z.Code,
+            Libelle = z.Libelle,
+            Description = z.Description,
+            CoefficientOccupationSol = z.CoefficientOccupationSol,
+            CoefficientUtilisationSol = z.CoefficientUtilisationSol,
+            HauteurMaximale = z.HauteurMaximale,
+            IsActive = z.IsActive
+        });
+    }
+
+    [HttpPost]
+    [Authorize(Roles = "SuperAdmin,Admin,Urbanisme")]
+    public async Task<IActionResult> Create([FromBody] CreateZonageDto dto)
+    {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+        var z = new ZonageUrbanisme
+        {
+            Code = dto.Code,
+            Libelle = dto.Libelle,
+            Description = dto.Description,
+            CoefficientOccupationSol = dto.CoefficientOccupationSol,
+            CoefficientUtilisationSol = dto.CoefficientUtilisationSol,
+            HauteurMaximale = dto.HauteurMaximale,
+            IsActive = true
+        };
+        _ctx.Set<ZonageUrbanisme>().Add(z);
+        await _ctx.SaveChangesAsync();
+        return CreatedAtAction(nameof(GetById), new { id = z.Id },
+            new ZonageUrbanismeDto { Id = z.Id, Code = z.Code, Libelle = z.Libelle, IsActive = z.IsActive });
+    }
+
+    [HttpPut("{id:int}")]
+    [Authorize(Roles = "SuperAdmin,Admin,Urbanisme")]
+    public async Task<IActionResult> Update(int id, [FromBody] CreateZonageDto dto)
+    {
+        var z = await _ctx.Set<ZonageUrbanisme>().FindAsync(id);
+        if (z == null || z.IsDeleted) return NotFound();
+        z.Code = dto.Code; z.Libelle = dto.Libelle;
+        z.Description = dto.Description;
+        z.CoefficientOccupationSol = dto.CoefficientOccupationSol;
+        z.CoefficientUtilisationSol = dto.CoefficientUtilisationSol;
+        z.HauteurMaximale = dto.HauteurMaximale;
+        z.UpdatedAt = DateTime.UtcNow;
+        await _ctx.SaveChangesAsync();
+        return NoContent();
+    }
+
+    [HttpDelete("{id:int}")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var z = await _ctx.Set<ZonageUrbanisme>().FindAsync(id);
+        if (z == null || z.IsDeleted) return NotFound();
+        z.IsDeleted = true; z.UpdatedAt = DateTime.UtcNow;
+        await _ctx.SaveChangesAsync();
+        return NoContent();
+    }
+}
+
+// ════════════════════════════════════════════════════════════════
+//  TYPE DEMANDE PERMIS
+// ════════════════════════════════════════════════════════════════
+
+[ApiController]
+[Route("api/types-demande-permis")]
+[Authorize]
+public class TypesDemandePermisController : ControllerBase
+{
+    private readonly ApplicationDbContext _ctx;
+    public TypesDemandePermisController(ApplicationDbContext ctx) => _ctx = ctx;
+
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        var list = await _ctx.Set<TypeDemandePermis>()
+            .Where(t => !t.IsDeleted)
+            .OrderBy(t => t.Code)
+            .Select(t => new TypeDemandePermisDto
+            {
+                Id = t.Id,
+                Code = t.Code,
+                Libelle = t.Libelle,
+                DelaiTraitementJours = t.DelaiTraitementJours,
+                TarifBase = t.TarifBase,
+                IsActive = t.IsActive
+            }).ToListAsync();
+        return Ok(list);
+    }
+
+    [HttpPost]
+    [Authorize(Roles = "SuperAdmin,Admin,Urbanisme")]
+    public async Task<IActionResult> Create([FromBody] CreateTypeDemandePermisDto dto)
+    {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+        var t = new TypeDemandePermis
+        {
+            Code = dto.Code,
+            Libelle = dto.Libelle,
+            DelaiTraitementJours = dto.DelaiTraitementJours,
+            TarifBase = dto.TarifBase,
+            IsActive = true
+        };
+        _ctx.Set<TypeDemandePermis>().Add(t);
+        await _ctx.SaveChangesAsync();
+        return Ok(new TypeDemandePermisDto
+        {
+            Id = t.Id,
+            Code = t.Code,
+            Libelle = t.Libelle,
+            DelaiTraitementJours = t.DelaiTraitementJours,
+            TarifBase = t.TarifBase,
+            IsActive = t.IsActive
+        });
+    }
+
+    [HttpPut("{id:int}")]
+    [Authorize(Roles = "SuperAdmin,Admin,Urbanisme")]
+    public async Task<IActionResult> Update(int id, [FromBody] CreateTypeDemandePermisDto dto)
+    {
+        var t = await _ctx.Set<TypeDemandePermis>().FindAsync(id);
+        if (t == null || t.IsDeleted) return NotFound();
+        t.Code = dto.Code; t.Libelle = dto.Libelle;
+        t.DelaiTraitementJours = dto.DelaiTraitementJours;
+        t.TarifBase = dto.TarifBase; t.UpdatedAt = DateTime.UtcNow;
+        await _ctx.SaveChangesAsync();
+        return NoContent();
+    }
+}
+
+// ════════════════════════════════════════════════════════════════
+//  TYPE TAXE
+// ════════════════════════════════════════════════════════════════
+
+[ApiController]
+[Route("api/types-taxe")]
+[Authorize]
+public class TypesTaxeController : ControllerBase
+{
+    private readonly ApplicationDbContext _ctx;
+    public TypesTaxeController(ApplicationDbContext ctx) => _ctx = ctx;
+
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        var list = await _ctx.Set<TypeTaxe>()
+            .Where(t => !t.IsDeleted && t.IsActive)
+            .OrderBy(t => t.Code)
+            .Select(t => new TypeTaxeDto
+            {
+                Id = t.Id,
+                Code = t.Code,
+                Libelle = t.Libelle,
+                TauxCalcul = t.TauxCalcul,
+                UniteCalcul = t.UniteCalcul,
+                IsActive = t.IsActive
+            }).ToListAsync();
+        return Ok(list);
+    }
+
+    [HttpPost]
+    [Authorize(Roles = "SuperAdmin,Admin,Finances")]
+    public async Task<IActionResult> Create([FromBody] CreateTypeTaxeDto dto)
+    {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+        var t = new TypeTaxe
+        {
+            Code = dto.Code,
+            Libelle = dto.Libelle,
+            TauxCalcul = dto.TauxCalcul,
+            UniteCalcul = dto.UniteCalcul,
+            IsActive = true
+        };
+        _ctx.Set<TypeTaxe>().Add(t);
+        await _ctx.SaveChangesAsync();
+        return Ok(new TypeTaxeDto
+        {
+            Id = t.Id,
+            Code = t.Code,
+            Libelle = t.Libelle,
+            TauxCalcul = t.TauxCalcul,
+            UniteCalcul = t.UniteCalcul,
+            IsActive = t.IsActive
+        });
+    }
+}
+
+// ════════════════════════════════════════════════════════════════
+//  COMMISSION EXAMEN
+// ════════════════════════════════════════════════════════════════
+
+[ApiController]
+[Route("api/commissions-examen")]
+[Authorize]
+public class CommissionsExamenController : ControllerBase
+{
+    private readonly ApplicationDbContext _ctx;
+    public CommissionsExamenController(ApplicationDbContext ctx) => _ctx = ctx;
+
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        var list = await _ctx.Set<CommissionExamen>()
+            .Where(c => !c.IsDeleted)
+            .OrderByDescending(c => c.DateReunion)
+            .Select(c => new CommissionExamenDto
+            {
+                Id = c.Id,
+                Libelle = c.Libelle,
+                DateReunion = c.DateReunion,
+                PresidentId = c.PresidentId,
+                StatutReunion = c.StatutReunion.ToString(),
+                ProcesVerbal = c.ProcesVerbal
+            }).ToListAsync();
+        return Ok(list);
+    }
+
+    [HttpPost]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,Urbanisme")]
+    public async Task<IActionResult> Create([FromBody] CreateCommissionExamenDto dto)
+    {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+        var c = new CommissionExamen
+        {
+            Libelle = dto.Libelle,
+            DateReunion = dto.DateReunion,
+            PresidentId = dto.PresidentId,
+            SecretaireId = dto.SecretaireId,
+            StatutReunion = StatutCommission.Programmee
+        };
+        _ctx.Set<CommissionExamen>().Add(c);
+        await _ctx.SaveChangesAsync();
+        return Ok(new CommissionExamenDto
+        {
+            Id = c.Id,
+            Libelle = c.Libelle,
+            DateReunion = c.DateReunion,
+            PresidentId = c.PresidentId,
+            StatutReunion = c.StatutReunion.ToString()
+        });
+    }
+
+    [HttpPatch("{id:int}/tenir")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,Urbanisme")]
+    public async Task<IActionResult> MarquerTenue(int id, [FromBody] string? procesVerbal)
+    {
+        var c = await _ctx.Set<CommissionExamen>().FindAsync(id);
+        if (c == null || c.IsDeleted) return NotFound();
+        c.StatutReunion = StatutCommission.Tenue;
+        c.ProcesVerbal = procesVerbal;
+        c.UpdatedAt = DateTime.UtcNow;
+        await _ctx.SaveChangesAsync();
+        return NoContent();
+    }
+}
 // ════════════════════════════════════════════════════════════════
 //  NOTIFICATIONS
 // ════════════════════════════════════════════════════════════════
