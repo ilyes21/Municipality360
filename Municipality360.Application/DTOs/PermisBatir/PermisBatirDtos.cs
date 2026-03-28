@@ -484,3 +484,30 @@ public class PermisStatsDto
     public double DelaiMoyenJours { get; set; }
     public decimal MontantTaxesEnAttente { get; set; }
 }
+/// <summary>نتيجة البحث عن الرخص برقم بطاقة التعريف</summary>
+public class PermisByCINResultDto
+{
+    public int DemandeurId { get; set; }
+    public string NomComplet { get; set; } = string.Empty;
+    public string CIN { get; set; } = string.Empty;
+    public string Telephone { get; set; } = string.Empty;
+    public int NombreDemandes { get; set; }
+    public List<PermisPublicItemDto> Demandes { get; set; } = new();
+}
+
+/// <summary>عنصر مبسط في قائمة الرخص للمواطن</summary>
+public class PermisPublicItemDto
+{
+    public int Id { get; set; }
+    public string NumeroDemande { get; set; } = string.Empty;
+    public string Statut { get; set; } = string.Empty;
+    public string TypeDemande { get; set; } = string.Empty;
+    public string AdresseProjet { get; set; } = string.Empty;
+    public DateTime DateDepot { get; set; }
+    public DateTime? DateDecision { get; set; }
+    public string? NumeroPermis { get; set; }
+    public DateTime? DateDelivrance { get; set; }
+    public DateTime? DateValidite { get; set; }
+    public bool TaxesPayees { get; set; }
+    public decimal TotalTaxes { get; set; }
+}

@@ -1204,17 +1204,17 @@ public class ArchitectesController : ControllerBase
 // ════════════════════════════════════════════════════════════════
 
 [ApiController]
-[Route("api/zonages-urbanisme")]
+[Route("api/zonages")]
 [Authorize]
-public class ZonagesUrbanismeController : ControllerBase
+public class ZonagesController : ControllerBase
 {
-    private readonly ApplicationDbContext _ctx;
-    public ZonagesUrbanismeController(ApplicationDbContext ctx) => _ctx = ctx;
+    private readonly ApplicationDbContext _db;
+    public ZonagesController(ApplicationDbContext db) => _db = db;
 
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var list = await _ctx.Set<ZonageUrbanisme>()
+        var list = await _db.Set<ZonageUrbanisme>()
             .Where(z => !z.IsDeleted)
             .OrderBy(z => z.Code)
             .Select(z => new ZonageUrbanismeDto
@@ -1234,8 +1234,8 @@ public class ZonagesUrbanismeController : ControllerBase
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(int id)
     {
-        var z = await _ctx.Set<ZonageUrbanisme>().FindAsync(id);
-        if (z == null || z.IsDeleted) return NotFound();
+        var z = await _db.Set<ZonageUrbanisme>().FindAsync(id);
+        if (z == null) return NotFound();
         return Ok(new ZonageUrbanismeDto
         {
             Id = z.Id,
@@ -1253,7 +1253,6 @@ public class ZonagesUrbanismeController : ControllerBase
     [Authorize(Roles = "SuperAdmin,Admin,Urbanisme")]
     public async Task<IActionResult> Create([FromBody] CreateZonageDto dto)
     {
-        if (!ModelState.IsValid) return BadRequest(ModelState);
         var z = new ZonageUrbanisme
         {
             Code = dto.Code,
@@ -1264,37 +1263,24 @@ public class ZonagesUrbanismeController : ControllerBase
             HauteurMaximale = dto.HauteurMaximale,
             IsActive = true
         };
-        _ctx.Set<ZonageUrbanisme>().Add(z);
-        await _ctx.SaveChangesAsync();
-        return CreatedAtAction(nameof(GetById), new { id = z.Id },
-            new ZonageUrbanismeDto { Id = z.Id, Code = z.Code, Libelle = z.Libelle, IsActive = z.IsActive });
+        _db.Set<ZonageUrbanisme>().Add(z);
+        await _db.SaveChangesAsync();
+        return Ok(new ZonageUrbanismeDto { Id = z.Id, Code = z.Code, Libelle = z.Libelle, IsActive = true });
     }
 
     [HttpPut("{id:int}")]
     [Authorize(Roles = "SuperAdmin,Admin,Urbanisme")]
     public async Task<IActionResult> Update(int id, [FromBody] CreateZonageDto dto)
     {
-        var z = await _ctx.Set<ZonageUrbanisme>().FindAsync(id);
-        if (z == null || z.IsDeleted) return NotFound();
-        z.Code = dto.Code; z.Libelle = dto.Libelle;
-        z.Description = dto.Description;
+        var z = await _db.Set<ZonageUrbanisme>().FindAsync(id);
+        if (z == null) return NotFound();
+        z.Code = dto.Code; z.Libelle = dto.Libelle; z.Description = dto.Description;
         z.CoefficientOccupationSol = dto.CoefficientOccupationSol;
         z.CoefficientUtilisationSol = dto.CoefficientUtilisationSol;
         z.HauteurMaximale = dto.HauteurMaximale;
         z.UpdatedAt = DateTime.UtcNow;
-        await _ctx.SaveChangesAsync();
-        return NoContent();
-    }
-
-    [HttpDelete("{id:int}")]
-    [Authorize(Roles = "SuperAdmin,Admin")]
-    public async Task<IActionResult> Delete(int id)
-    {
-        var z = await _ctx.Set<ZonageUrbanisme>().FindAsync(id);
-        if (z == null || z.IsDeleted) return NotFound();
-        z.IsDeleted = true; z.UpdatedAt = DateTime.UtcNow;
-        await _ctx.SaveChangesAsync();
-        return NoContent();
+        await _db.SaveChangesAsync();
+        return Ok();
     }
 }
 
@@ -1307,14 +1293,14 @@ public class ZonagesUrbanismeController : ControllerBase
 [Authorize]
 public class TypesDemandePermisController : ControllerBase
 {
-    private readonly ApplicationDbContext _ctx;
-    public TypesDemandePermisController(ApplicationDbContext ctx) => _ctx = ctx;
+    private readonly ApplicationDbContext _db;
+    public TypesDemandePermisController(ApplicationDbContext db) => _db = db;
 
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var list = await _ctx.Set<TypeDemandePermis>()
-            .Where(t => !t.IsDeleted)
+        var list = await _db.Set<TypeDemandePermis>()
+            .Where(t => !t.IsDeleted && t.IsActive)
             .OrderBy(t => t.Code)
             .Select(t => new TypeDemandePermisDto
             {
@@ -1329,10 +1315,9 @@ public class TypesDemandePermisController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "SuperAdmin,Admin,Urbanisme")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
     public async Task<IActionResult> Create([FromBody] CreateTypeDemandePermisDto dto)
     {
-        if (!ModelState.IsValid) return BadRequest(ModelState);
         var t = new TypeDemandePermis
         {
             Code = dto.Code,
@@ -1341,30 +1326,22 @@ public class TypesDemandePermisController : ControllerBase
             TarifBase = dto.TarifBase,
             IsActive = true
         };
-        _ctx.Set<TypeDemandePermis>().Add(t);
-        await _ctx.SaveChangesAsync();
-        return Ok(new TypeDemandePermisDto
-        {
-            Id = t.Id,
-            Code = t.Code,
-            Libelle = t.Libelle,
-            DelaiTraitementJours = t.DelaiTraitementJours,
-            TarifBase = t.TarifBase,
-            IsActive = t.IsActive
-        });
+        _db.Set<TypeDemandePermis>().Add(t);
+        await _db.SaveChangesAsync();
+        return Ok(new TypeDemandePermisDto { Id = t.Id, Code = t.Code, Libelle = t.Libelle, IsActive = true });
     }
 
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "SuperAdmin,Admin,Urbanisme")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
     public async Task<IActionResult> Update(int id, [FromBody] CreateTypeDemandePermisDto dto)
     {
-        var t = await _ctx.Set<TypeDemandePermis>().FindAsync(id);
-        if (t == null || t.IsDeleted) return NotFound();
+        var t = await _db.Set<TypeDemandePermis>().FindAsync(id);
+        if (t == null) return NotFound();
         t.Code = dto.Code; t.Libelle = dto.Libelle;
         t.DelaiTraitementJours = dto.DelaiTraitementJours;
         t.TarifBase = dto.TarifBase; t.UpdatedAt = DateTime.UtcNow;
-        await _ctx.SaveChangesAsync();
-        return NoContent();
+        await _db.SaveChangesAsync();
+        return Ok();
     }
 }
 
@@ -1377,15 +1354,14 @@ public class TypesDemandePermisController : ControllerBase
 [Authorize]
 public class TypesTaxeController : ControllerBase
 {
-    private readonly ApplicationDbContext _ctx;
-    public TypesTaxeController(ApplicationDbContext ctx) => _ctx = ctx;
+    private readonly ApplicationDbContext _db;
+    public TypesTaxeController(ApplicationDbContext db) => _db = db;
 
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var list = await _ctx.Set<TypeTaxe>()
+        var list = await _db.Set<TypeTaxe>()
             .Where(t => !t.IsDeleted && t.IsActive)
-            .OrderBy(t => t.Code)
             .Select(t => new TypeTaxeDto
             {
                 Id = t.Id,
@@ -1402,7 +1378,6 @@ public class TypesTaxeController : ControllerBase
     [Authorize(Roles = "SuperAdmin,Admin,Finances")]
     public async Task<IActionResult> Create([FromBody] CreateTypeTaxeDto dto)
     {
-        if (!ModelState.IsValid) return BadRequest(ModelState);
         var t = new TypeTaxe
         {
             Code = dto.Code,
@@ -1411,17 +1386,9 @@ public class TypesTaxeController : ControllerBase
             UniteCalcul = dto.UniteCalcul,
             IsActive = true
         };
-        _ctx.Set<TypeTaxe>().Add(t);
-        await _ctx.SaveChangesAsync();
-        return Ok(new TypeTaxeDto
-        {
-            Id = t.Id,
-            Code = t.Code,
-            Libelle = t.Libelle,
-            TauxCalcul = t.TauxCalcul,
-            UniteCalcul = t.UniteCalcul,
-            IsActive = t.IsActive
-        });
+        _db.Set<TypeTaxe>().Add(t);
+        await _db.SaveChangesAsync();
+        return Ok(new TypeTaxeDto { Id = t.Id, Code = t.Code, Libelle = t.Libelle, IsActive = true });
     }
 }
 
@@ -1434,13 +1401,13 @@ public class TypesTaxeController : ControllerBase
 [Authorize]
 public class CommissionsExamenController : ControllerBase
 {
-    private readonly ApplicationDbContext _ctx;
-    public CommissionsExamenController(ApplicationDbContext ctx) => _ctx = ctx;
+    private readonly ApplicationDbContext _db;
+    public CommissionsExamenController(ApplicationDbContext db) => _db = db;
 
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var list = await _ctx.Set<CommissionExamen>()
+        var list = await _db.Set<CommissionExamen>()
             .Where(c => !c.IsDeleted)
             .OrderByDescending(c => c.DateReunion)
             .Select(c => new CommissionExamenDto
@@ -1455,21 +1422,11 @@ public class CommissionsExamenController : ControllerBase
         return Ok(list);
     }
 
-    [HttpPost]
-    [Authorize(Roles = "SuperAdmin,Admin,Manager,Urbanisme")]
-    public async Task<IActionResult> Create([FromBody] CreateCommissionExamenDto dto)
+    [HttpGet("{id:int}")]
+    public async Task<IActionResult> GetById(int id)
     {
-        if (!ModelState.IsValid) return BadRequest(ModelState);
-        var c = new CommissionExamen
-        {
-            Libelle = dto.Libelle,
-            DateReunion = dto.DateReunion,
-            PresidentId = dto.PresidentId,
-            SecretaireId = dto.SecretaireId,
-            StatutReunion = StatutCommission.Programmee
-        };
-        _ctx.Set<CommissionExamen>().Add(c);
-        await _ctx.SaveChangesAsync();
+        var c = await _db.Set<CommissionExamen>().FindAsync(id);
+        if (c == null) return NotFound();
         return Ok(new CommissionExamenDto
         {
             Id = c.Id,
@@ -1480,19 +1437,45 @@ public class CommissionsExamenController : ControllerBase
         });
     }
 
-    [HttpPatch("{id:int}/tenir")]
+    [HttpPost]
     [Authorize(Roles = "SuperAdmin,Admin,Manager,Urbanisme")]
-    public async Task<IActionResult> MarquerTenue(int id, [FromBody] string? procesVerbal)
+    public async Task<IActionResult> Create([FromBody] CreateCommissionExamenDto dto)
     {
-        var c = await _ctx.Set<CommissionExamen>().FindAsync(id);
-        if (c == null || c.IsDeleted) return NotFound();
-        c.StatutReunion = StatutCommission.Tenue;
-        c.ProcesVerbal = procesVerbal;
-        c.UpdatedAt = DateTime.UtcNow;
-        await _ctx.SaveChangesAsync();
-        return NoContent();
+        var c = new CommissionExamen
+        {
+            Libelle = dto.Libelle,
+            DateReunion = dto.DateReunion,
+            PresidentId = dto.PresidentId,
+            SecretaireId = dto.SecretaireId,
+            StatutReunion = StatutCommission.Programmee
+        };
+        _db.Set<CommissionExamen>().Add(c);
+        await _db.SaveChangesAsync();
+        return Ok(new CommissionExamenDto
+        {
+            Id = c.Id,
+            Libelle = c.Libelle,
+            DateReunion = c.DateReunion,
+            StatutReunion = "Programmee"
+        });
+    }
+
+    [HttpPatch("{id:int}/statut")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,Urbanisme")]
+    public async Task<IActionResult> ChangerStatut(int id, [FromBody] string statut)
+    {
+        var c = await _db.Set<CommissionExamen>().FindAsync(id);
+        if (c == null) return NotFound();
+        if (Enum.TryParse<StatutCommission>(statut, out var s))
+        {
+            c.StatutReunion = s;
+            c.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+        }
+        return Ok();
     }
 }
+
 // ════════════════════════════════════════════════════════════════
 //  NOTIFICATIONS
 // ════════════════════════════════════════════════════════════════

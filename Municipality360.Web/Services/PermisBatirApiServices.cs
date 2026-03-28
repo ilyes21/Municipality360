@@ -1,6 +1,6 @@
 ﻿// ═══════════════════════════════════════════════════════════════════
-//  PermisBatirApiServices.cs
-//  Municipality360.Web/Services/PermisBatirApiServices.cs
+//  PermisBatirApiService.cs
+//  Municipality360.Web/Services/PermisBatirApiService.cs
 // ═══════════════════════════════════════════════════════════════════
 
 using Municipality360.Application.Common;
@@ -8,14 +8,12 @@ using Municipality360.Application.DTOs.PermisBatir;
 
 namespace Municipality360.Web.Services;
 
-// ── Demandes Permis ───────────────────────────────────────────────
-
+// ── Interface principale ──────────────────────────────────────────
 public interface IPermisBatirApiService
 {
     Task<PagedResult<DemandePermisDto>?> GetPagedAsync(DemandePermisFilterDto filter);
     Task<DemandePermisDetailDto?> GetByIdAsync(int id);
     Task<DemandePermisSuiviPublicDto?> GetByNumeroPublicAsync(string numero);
-    Task<List<DemandePermisDto>?> GetByDemandeurAsync(int demandeurId);
     Task<List<DemandePermisDto>?> GetEnRetardAsync();
     Task<PermisStatsDto?> GetStatsAsync(int? serviceId = null);
     Task<DemandePermisDetailDto?> DeposerAsync(CreateDemandePermisDto dto);
@@ -40,7 +38,6 @@ public class PermisBatirApiService : IPermisBatirApiService
         if (f.TypeDemandeId.HasValue) q += $"&typeDemandeId={f.TypeDemandeId}";
         if (!string.IsNullOrEmpty(f.TypeConstruction)) q += $"&typeConstruction={f.TypeConstruction}";
         if (f.ServiceInstructeurId.HasValue) q += $"&serviceInstructeurId={f.ServiceInstructeurId}";
-        if (f.CommissionExamenId.HasValue) q += $"&commissionExamenId={f.CommissionExamenId}";
         if (f.TaxesPayees.HasValue) q += $"&taxesPayees={f.TaxesPayees}";
         if (f.DateDebut.HasValue) q += $"&dateDebut={f.DateDebut.Value:yyyy-MM-dd}";
         if (f.DateFin.HasValue) q += $"&dateFin={f.DateFin.Value:yyyy-MM-dd}";
@@ -53,9 +50,6 @@ public class PermisBatirApiService : IPermisBatirApiService
 
     public Task<DemandePermisSuiviPublicDto?> GetByNumeroPublicAsync(string numero) =>
         _api.GetAsync<DemandePermisSuiviPublicDto>($"api/permis-batir/suivi-public/{numero}");
-
-    public Task<List<DemandePermisDto>?> GetByDemandeurAsync(int demandeurId) =>
-        _api.GetAsync<List<DemandePermisDto>>($"api/permis-batir/demandeur/{demandeurId}");
 
     public Task<List<DemandePermisDto>?> GetEnRetardAsync() =>
         _api.GetAsync<List<DemandePermisDto>>("api/permis-batir/en-retard");
@@ -111,10 +105,9 @@ public class PermisBatirApiService : IPermisBatirApiService
 }
 
 // ── Demandeurs ────────────────────────────────────────────────────
-
 public interface IDemandeurApiService
 {
-    Task<List<DemandeurDto>?> SearchAsync(string? term);
+    Task<List<DemandeurDto>?> SearchAsync(string? term = null);
     Task<DemandeurDto?> GetByIdAsync(int id);
     Task<DemandeurDto?> CreateAsync(CreateDemandeurDto dto);
     Task<DemandeurDto?> UpdateAsync(int id, CreateDemandeurDto dto);
@@ -125,25 +118,21 @@ public class DemandeurApiService : IDemandeurApiService
     private readonly ApiService _api;
     public DemandeurApiService(ApiService api) => _api = api;
 
-    public Task<List<DemandeurDto>?> SearchAsync(string? term)
+    public Task<List<DemandeurDto>?> SearchAsync(string? term = null)
     {
         var q = "api/demandeurs";
         if (!string.IsNullOrEmpty(term)) q += $"?term={Uri.EscapeDataString(term)}";
         return _api.GetAsync<List<DemandeurDto>>(q);
     }
-
     public Task<DemandeurDto?> GetByIdAsync(int id) =>
         _api.GetAsync<DemandeurDto>($"api/demandeurs/{id}");
-
     public Task<DemandeurDto?> CreateAsync(CreateDemandeurDto dto) =>
         _api.PostAsync<CreateDemandeurDto, DemandeurDto>("api/demandeurs", dto);
-
     public Task<DemandeurDto?> UpdateAsync(int id, CreateDemandeurDto dto) =>
         _api.PutAsync<CreateDemandeurDto, DemandeurDto>($"api/demandeurs/{id}", dto);
 }
 
 // ── Architectes ───────────────────────────────────────────────────
-
 public interface IArchitecteApiService
 {
     Task<List<ArchitecteDto>?> GetAllAsync();
@@ -158,13 +147,12 @@ public class ArchitecteApiService : IArchitecteApiService
 
     public Task<List<ArchitecteDto>?> GetAllAsync() =>
         _api.GetAsync<List<ArchitecteDto>>("api/architectes");
-
     public Task<ArchitecteDto?> CreateAsync(CreateArchitecteDto dto) =>
         _api.PostAsync<CreateArchitecteDto, ArchitecteDto>("api/architectes", dto);
-
     public Task<ArchitecteDto?> UpdateAsync(int id, CreateArchitecteDto dto) =>
         _api.PutAsync<CreateArchitecteDto, ArchitecteDto>($"api/architectes/{id}", dto);
 }
+
 
 // ── Zonage + TypeDemande + Commission (référentiels) ─────────────
 

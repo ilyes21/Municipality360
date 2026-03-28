@@ -1,0 +1,341 @@
+@* ═══════════════════════════════════════════════════════════════════
+   PermisTrack.razor — /permits/track
+   تتبع رخصة عبر الرقم المرجعي (للمواطن وللعامة — بدون حساب)
+═══════════════════════════════════════════════════════════════════ *@
+@page "/permits/track"
+@using Municipality360.Application.DTOs.PermisBatir
+@using Municipality360.Web.Services
+@inject IPermisBatirApiService PermisApi
+@inject NavigationManager Nav
+
+<PageTitle>تتبع رخصة البناء</PageTitle>
+
+<style>
+    @@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap');
+    .track-root{font-family:'Tajawal',sans-serif;max-width:680px;margin:0 auto;}
+
+    .search-card{
+        background:#fff;border-radius:18px;border:1px solid #e2e8f0;
+        padding:2rem;text-align:center;
+        box-shadow:0 4px 24px rgba(0,0,0,.07);
+        margin-bottom:1.5rem;
+    }
+    .search-icon{
+        width:64px;height:64px;border-radius:18px;
+        background:linear-gradient(135deg,#7c3aed,#a855f7);
+        display:flex;align-items:center;justify-content:center;
+        font-size:1.8rem;color:#fff;margin:0 auto 1.1rem;
+        box-shadow:0 6px 20px rgba(124,58,237,.35);
+    }
+    .search-title{font-size:1.15rem;font-weight:800;color:#0f172a;margin-bottom:.3rem;}
+    .search-sub{font-size:.8rem;color:#94a3b8;margin-bottom:1.25rem;}
+
+    .search-row{
+        display:flex;gap:.65rem;max-width:480px;margin:0 auto;
+    }
+    .search-input{
+        flex:1;padding:.6rem 1rem;border:2px solid #e2e8f0;border-radius:12px;
+        font-family:'Tajawal',sans-serif;font-size:.9rem;color:#0f172a;
+        background:#f8fafc;outline:none;transition:border-color .15s;
+        text-align:center;letter-spacing:.08em;
+    }
+    .search-input:focus{border-color:#7c3aed;background:#fff;}
+    .search-btn{
+        padding:.6rem 1.4rem;border-radius:12px;border:none;
+        background:#7c3aed;color:#fff;font-family:'Tajawal',sans-serif;
+        font-size:.9rem;font-weight:700;cursor:pointer;transition:all .18s;
+        white-space:nowrap;
+    }
+    .search-btn:hover{background:#6d28d9;}
+    .search-btn:disabled{opacity:.5;cursor:not-allowed;}
+
+    /* Result card */
+    .result-card{
+        background:#fff;border-radius:16px;border:1px solid #e2e8f0;
+        box-shadow:0 4px 20px rgba(0,0,0,.07);overflow:hidden;
+    }
+    .result-header{
+        padding:1.25rem 1.5rem;
+        background:linear-gradient(135deg,#7c3aed,#a855f7);
+        color:#fff;
+    }
+    .result-num{font-size:.75rem;opacity:.8;margin-bottom:.2rem;}
+    .result-addr{font-size:1rem;font-weight:800;}
+    .result-meta{display:flex;gap:.65rem;margin-top:.4rem;flex-wrap:wrap;}
+    .result-meta-item{font-size:.75rem;opacity:.85;display:flex;align-items:center;gap:.25rem;}
+
+    .status-progress{
+        display:flex;padding:1.25rem 1.5rem;background:#fafbff;
+        border-bottom:1px solid #f1f5f9;gap:0;
+        overflow-x:auto;
+    }
+    .sp-step{
+        flex:1;display:flex;flex-direction:column;align-items:center;
+        gap:.3rem;position:relative;min-width:80px;
+    }
+    .sp-step::before{
+        content:'';position:absolute;top:14px;right:50%;
+        width:100%;height:2px;background:#e2e8f0;z-index:0;
+    }
+    .sp-step:first-child::before{display:none;}
+    .sp-step.done::before,.sp-step.active::before{background:#7c3aed;}
+
+    .sp-dot{
+        width:28px;height:28px;border-radius:50%;
+        display:flex;align-items:center;justify-content:center;
+        font-size:.75rem;z-index:1;position:relative;
+        background:#e2e8f0;color:#94a3b8;border:2px solid #fff;
+    }
+    .sp-step.done   .sp-dot{background:#7c3aed;color:#fff;}
+    .sp-step.active .sp-dot{background:#7c3aed;color:#fff;box-shadow:0 0 0 4px rgba(124,58,237,.2);}
+    .sp-step.rejected .sp-dot{background:#ef4444;color:#fff;}
+
+    .sp-label{font-size:.64rem;font-weight:600;color:#94a3b8;text-align:center;max-width:70px;}
+    .sp-step.done .sp-label,.sp-step.active .sp-label{color:#7c3aed;font-weight:700;}
+    .sp-step.rejected .sp-label{color:#ef4444;}
+
+    /* Permis delivered */
+    .permis-badge{
+        margin:1rem 1.5rem;padding:1rem 1.25rem;
+        background:linear-gradient(135deg,#f0fdf4,#dcfce7);
+        border:2px solid #86efac;border-radius:14px;
+        display:flex;align-items:center;gap:.9rem;
+    }
+
+    /* Timeline */
+    .tl-card{padding:1.25rem 1.5rem;}
+    .tl-title{font-size:.72rem;font-weight:800;color:#94a3b8;letter-spacing:.08em;text-transform:uppercase;margin-bottom:.9rem;}
+    .tl-item{display:flex;gap:.7rem;padding-bottom:.85rem;position:relative;}
+    .tl-item::before{content:'';position:absolute;right:13px;top:26px;bottom:0;width:1px;background:#e2e8f0;}
+    .tl-item:last-child::before{display:none;}
+    .tl-dot{
+        width:26px;height:26px;border-radius:50%;
+        display:flex;align-items:center;justify-content:center;
+        font-size:.7rem;flex-shrink:0;z-index:1;
+        background:#f1f5f9;color:#64748b;border:2px solid #e2e8f0;
+    }
+    .tl-dot.violet{background:#f3e8ff;color:#7c3aed;border-color:#d8b4fe;}
+    .tl-dot.green {background:#dcfce7;color:#15803d;border-color:#86efac;}
+    .tl-dot.red   {background:#fee2e2;color:#b91c1c;border-color:#fca5a5;}
+    .tl-dot.amber {background:#fef3c7;color:#b45309;border-color:#fcd34d;}
+    .tl-action{font-size:.8rem;font-weight:700;color:#0f172a;}
+    .tl-comment{font-size:.75rem;color:#64748b;line-height:1.4;margin-top:.1rem;}
+    .tl-time{font-size:.68rem;color:#94a3b8;margin-top:.15rem;}
+
+    @@keyframes spin{to{transform:rotate(360deg);}}
+    .spinner{animation:spin .75s linear infinite;}
+    .not-found{
+        padding:2.5rem;text-align:center;color:#94a3b8;
+        background:#fff;border-radius:16px;border:1px solid #e2e8f0;
+    }
+</style>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"/>
+
+<div class="track-root">
+
+    <!-- Search card -->
+    <div class="search-card">
+        <div class="search-icon"><i class="bi bi-search"></i></div>
+        <div class="search-title">تتبع طلب رخصة البناء</div>
+        <div class="search-sub">أدخل رقم طلبك لمتابعة حالته في الوقت الفعلي</div>
+        <div class="search-row">
+            <input class="search-input" type="text"
+                   placeholder="مثال: RB-2025-0001"
+                   @bind="SearchNum" @bind:event="oninput"
+                   @onkeyup="OnKey" />
+            <button class="search-btn" @onclick="DoSearch" disabled="@(IsLoading||string.IsNullOrEmpty(SearchNum))">
+                @if (IsLoading) { <i class="bi bi-arrow-clockwise spinner"></i> }
+                else { <text>بحث</text> }
+            </button>
+        </div>
+        @if (!string.IsNullOrEmpty(SearchError))
+        {
+            <div style="margin-top:.75rem;font-size:.78rem;color:#b91c1c;font-weight:600;">
+                <i class="bi bi-exclamation-triangle-fill me-1"></i> @SearchError
+            </div>
+        }
+    </div>
+
+    <!-- Result -->
+    @if (Result != null)
+    {
+        <div class="result-card">
+
+            <!-- Header -->
+            <div class="result-header">
+                <div class="result-num">رقم الطلب</div>
+                <div class="result-addr">@Result.AdresseProjet</div>
+                <div class="result-meta">
+                    <span class="result-meta-item"><i class="bi bi-hash"></i> @Result.NumeroDemande</span>
+                    <span class="result-meta-item"><i class="bi bi-calendar3"></i> @Result.DateDepot.ToString("dd/MM/yyyy")</span>
+                    <span class="result-meta-item"><i class="bi bi-file-earmark-text"></i> @Result.TypeDemande</span>
+                </div>
+            </div>
+
+            <!-- Status progress bar -->
+            <div class="status-progress">
+                @{
+                    var steps = new[]
+                    {
+                        ("Deposee",   "مودعة",        "bi-inbox-fill"),
+                        ("EnExamen",  "قيد الفحص",    "bi-search"),
+                        ("Approuvee", "موافق عليها",  "bi-check-circle-fill"),
+                        ("Rejetee",   "مرفوضة",       "bi-x-circle-fill"),
+                    };
+                    int currentIdx = Array.FindIndex(steps, s => s.Item1 == Result.Statut);
+                    bool isRejected = Result.Statut == "Rejetee";
+                }
+                @for (int i = 0; i < (isRejected ? 4 : 3); i++)
+                {
+                    var (sval, slabel, sicon) = steps[i];
+                    bool isDone   = isRejected
+                        ? (i < currentIdx)
+                        : (i < currentIdx);
+                    bool isActive = (sval == Result.Statut);
+                    bool isRej    = (sval == "Rejetee" && isRejected);
+                    <div class="sp-step @(isRej?"rejected":isDone?"done":isActive?"active":"")">
+                        <div class="sp-dot">
+                            @if (isDone || isActive) { <i class="bi @sicon"></i> }
+                            else { @((i+1).ToString()) }
+                        </div>
+                        <div class="sp-label">@slabel</div>
+                    </div>
+                }
+                @if (!isRejected)
+                {
+                    bool permisActive = !string.IsNullOrEmpty(Result.NumeroPermis);
+                    <div class="sp-step @(permisActive?"done":"")">
+                        <div class="sp-dot">@if(permisActive){<i class="bi bi-award-fill"></i>}else{<text>4</text>}</div>
+                        <div class="sp-label">الرخصة سُلِّمت</div>
+                    </div>
+                }
+            </div>
+
+            <!-- Permis delivered -->
+            @if (!string.IsNullOrEmpty(Result.NumeroPermis))
+            {
+                <div class="permis-badge">
+                    <div style="width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#16a34a,#22c55e);display:flex;align-items:center;justify-content:center;font-size:1.3rem;color:#fff;flex-shrink:0;">
+                        <i class="bi bi-award-fill"></i>
+                    </div>
+                    <div>
+                        <div style="font-size:.75rem;font-weight:700;color:#15803d;">رخصة البناء سُلِّمت</div>
+                        <div style="font-size:1rem;font-weight:800;color:#0f172a;">@Result.NumeroPermis</div>
+                        @if (Result.DateValiditePermis.HasValue)
+                        {
+                            <div style="font-size:.75rem;color:#64748b;margin-top:.1rem;">
+                                صالحة حتى:
+                                <strong style="color:@(Result.DateValiditePermis.Value < DateTime.Today?"#b91c1c":"#15803d")">
+                                    @Result.DateValiditePermis.Value.ToString("dd/MM/yyyy")
+                                </strong>
+                                @if (Result.DateValiditePermis.Value < DateTime.Today)
+                                {
+                                    <span style="color:#b91c1c;font-weight:700;"> ⚠ منتهية الصلاحية</span>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+
+            <!-- Timeline historique -->
+            <div class="tl-card">
+                <div class="tl-title"><i class="bi bi-clock-history me-1"></i> سجل التطورات</div>
+                @if (Result.Historique?.Any() == true)
+                {
+                    @foreach (var h in Result.Historique.OrderByDescending(x => x.DateChangement))
+                    {
+                        <div class="tl-item">
+                            <div class="tl-dot @GetHistDotClass(h.NouveauStatut)">
+                                <i class="bi @GetHistIcon(h.NouveauStatut)"></i>
+                            </div>
+                            <div>
+                                <div class="tl-action">@GetStatutLabel(h.NouveauStatut ?? "")</div>
+                                @if (!string.IsNullOrEmpty(h.Commentaire))
+                                {
+                                    <div class="tl-comment">@h.Commentaire</div>
+                                }
+                                <div class="tl-time">@h.DateChangement.ToString("dd/MM/yyyy HH:mm")</div>
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div style="color:#94a3b8;font-size:.8rem;padding:.5rem 0;">لا توجد تحديثات مرئية حتى الآن.</div>
+                }
+            </div>
+
+        </div>
+    }
+
+    @if (NotFound)
+    {
+        <div class="not-found">
+            <i class="bi bi-file-earmark-x" style="font-size:2.5rem;display:block;margin-bottom:.75rem;color:#cbd5e1;"></i>
+            <div style="font-size:.92rem;font-weight:700;color:#64748b;margin-bottom:.4rem;">الطلب غير موجود</div>
+            <div style="font-size:.8rem;">تحقق من الرقم المرجعي وحاول مجدداً</div>
+        </div>
+    }
+
+</div>
+
+@code {
+    private string SearchNum  = "";
+    private string SearchError = "";
+    private bool   IsLoading  = false;
+    private bool   NotFound   = false;
+    private DemandePermisSuiviPublicDto? Result;
+
+    private async Task DoSearch()
+    {
+        if (string.IsNullOrEmpty(SearchNum)) return;
+        IsLoading  = true;
+        NotFound   = false;
+        SearchError = "";
+        Result     = null;
+        StateHasChanged();
+
+        try
+        {
+            Result = await PermisApi.GetByNumeroPublicAsync(SearchNum.Trim().ToUpper());
+            if (Result == null) NotFound = true;
+        }
+        catch { NotFound = true; }
+        finally { IsLoading = false; }
+    }
+
+    private async Task OnKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await DoSearch();
+    }
+
+    private string GetStatutLabel(string s) => s switch
+    {
+        "Deposee"   => "تم إيداع الطلب",
+        "EnExamen"  => "قيد الفحص والدراسة",
+        "Approuvee" => "تمت الموافقة",
+        "Rejetee"   => "تم رفض الطلب",
+        "Suspendue" => "الطلب معلق",
+        _ => s
+    };
+
+    private string GetHistDotClass(string? s) => s switch
+    {
+        "Approuvee" => "green",
+        "EnExamen"  => "violet",
+        "Rejetee"   => "red",
+        "Deposee"   => "amber",
+        _ => ""
+    };
+
+    private string GetHistIcon(string? s) => s switch
+    {
+        "Approuvee" => "bi-check-circle-fill",
+        "Rejetee"   => "bi-x-circle-fill",
+        "EnExamen"  => "bi-search",
+        "Deposee"   => "bi-inbox-fill",
+        _ => "bi-dot"
+    };
+}

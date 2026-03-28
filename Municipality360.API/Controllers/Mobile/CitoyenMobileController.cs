@@ -1,9 +1,11 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 using Municipality360.Application.DTOs.Mobile;
+using Municipality360.Application.DTOs.PermisBatir;
 using Municipality360.Application.DTOs.Reclamations;
+using Municipality360.Application.Interfaces.Repositories;
 using Municipality360.Application.Interfaces.Services;
+using System.Security.Claims;
 
 namespace Municipality360.API.Controllers.Mobile;
 
@@ -15,17 +17,20 @@ public class CitoyenMobileController : ControllerBase
     private readonly IReclamationService _reclamationService;
     private readonly INotificationService _notificationService;
     private readonly IDemandePermisBatirService _permisService;
+    private readonly IDemandeurRepository _demandeurRepo;
 
     public CitoyenMobileController(
         ICitoyenAuthService authService,
         IReclamationService reclamationService,
         INotificationService notificationService,
-        IDemandePermisBatirService permisService)
+        IDemandePermisBatirService permisService,
+        IDemandeurRepository demandeurRepo)
     {
         _authService = authService;
         _reclamationService = reclamationService;
         _notificationService = notificationService;
         _permisService = permisService;
+        _demandeurRepo = demandeurRepo;
     }
 
     // ══════════════════════════════════════════
@@ -187,6 +192,54 @@ public class CitoyenMobileController : ControllerBase
         if (id == 0) return Unauthorized();
         await _notificationService.MarquerToutesLuesAsync(id.ToString(), estAgent: false);
         return Ok();
+    }
+
+    [HttpGet("permis/par-cin/{cin}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetPermisByCIN(string cin)
+    {
+        if (string.IsNullOrWhiteSpace(cin) || cin.Length < 6)
+            return BadRequest(new { message = "رقم بطاقة التعريف غير صالح." });
+
+        // 1. البحث عن الـ Demandeur برقم CIN
+        var demandeurs = await _demandeurRepo.SearchAsync(cin.Trim().ToUpper());
+        var demandeur = demandeurs.FirstOrDefault(d =>
+            !string.IsNullOrEmpty(d.CIN) &&
+            d.CIN.Trim().ToUpper() == cin.Trim().ToUpper());
+
+        if (demandeur == null)
+            return NotFound(new { message = "لا يوجد متقدم مسجل بهذا الرقم." });
+
+        // 2. جلب كل طلبات هذا الـ Demandeur
+        var demandes = await _permisService.GetByDemandeurAsync(demandeur.Id);
+
+        if (!demandes.Any())
+            return NotFound(new { message = "لا توجد طلبات رخص مرتبطة بهذا الرقم." });
+
+        // 3. إرجاع النتيجة
+        return Ok(new PermisByCINResultDto
+        {
+            DemandeurId = demandeur.Id,
+            NomComplet = demandeur.NomComplet,
+            CIN = demandeur.CIN ?? "",
+            Telephone = demandeur.Telephone,
+            NombreDemandes = demandes.Count,
+            Demandes = demandes.Select(d => new PermisPublicItemDto
+            {
+                Id = d.Id,
+                NumeroDemande = d.NumeroDemande,
+                Statut = d.Statut,
+                TypeDemande = d.TypeDemandeLibelle,
+                AdresseProjet = d.AdresseProjet,
+                DateDepot = d.DateDepot,
+                DateDecision = d.DateDecision,
+                NumeroPermis = d.NumeroPermis,
+                DateDelivrance = d.DateDelivrance,
+                DateValidite = d.DateValiditePermis,
+                TaxesPayees = d.ToutesLTaxesPayees,
+                TotalTaxes = d.TotalTaxes,
+            }).OrderByDescending(d => d.DateDepot).ToList()
+        });
     }
 
     // ── Helper ──────────────────────────────────────────────────────

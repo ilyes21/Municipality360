@@ -1,0 +1,480 @@
+@page "/permits/dashboard"
+@page "/permits"
+@using Municipality360.Application.DTOs.PermisBatir
+@using Municipality360.Web.Services
+@inject IPermisBatirApiService PermisApi
+@inject ISignalRNotificationService SignalRNotif
+@inject NavigationManager Nav
+@implements IDisposable
+
+<PageTitle>لوحة رخص البناء</PageTitle>
+
+<style>
+    @@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap');
+    .permits-root { font-family:'Tajawal',sans-serif; }
+
+    /* ── KPI cards ── */
+    .kpi-grid {
+        display:grid;
+        grid-template-columns:repeat(4,1fr);
+        gap:1rem;
+        margin-bottom:1.5rem;
+    }
+    @@media(max-width:900px){.kpi-grid{grid-template-columns:repeat(2,1fr);}}
+    @@media(max-width:560px){.kpi-grid{grid-template-columns:1fr;}}
+
+    .kpi-card {
+        background:#fff;
+        border-radius:16px;
+        padding:1.1rem 1.2rem;
+        border:1px solid #e2e8f0;
+        display:flex;
+        gap:.9rem;
+        align-items:center;
+        box-shadow:0 2px 8px rgba(0,0,0,.04);
+        transition:transform .2s,box-shadow .2s;
+        cursor:pointer;
+    }
+    .kpi-card:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.09);}
+
+    .kpi-icon{
+        width:50px;height:50px;border-radius:14px;
+        display:flex;align-items:center;justify-content:center;
+        font-size:1.35rem;flex-shrink:0;
+    }
+    .ki-blue  {background:#dbeafe;color:#1d4ed8;}
+    .ki-amber {background:#fef3c7;color:#b45309;}
+    .ki-green {background:#dcfce7;color:#15803d;}
+    .ki-red   {background:#fee2e2;color:#b91c1c;}
+    .ki-violet{background:#f3e8ff;color:#7c3aed;}
+    .ki-teal  {background:#ccfbf1;color:#0f766e;}
+    .ki-sky   {background:#e0f2fe;color:#0369a1;}
+    .ki-rose  {background:#ffe4e6;color:#be123c;}
+
+    .kpi-val{font-size:1.65rem;font-weight:800;color:#0f172a;line-height:1;}
+    .kpi-lbl{font-size:.75rem;color:#64748b;margin-top:.25rem;}
+    .kpi-trend{font-size:.7rem;font-weight:700;margin-top:.18rem;}
+    .trend-up{color:#15803d;}.trend-down{color:#b91c1c;}
+
+    /* ── Section header ── */
+    .sec-hdr{
+        display:flex;align-items:center;justify-content:space-between;
+        margin-bottom:.85rem;
+    }
+    .sec-title{font-size:.95rem;font-weight:800;color:#0f172a;}
+    .sec-link{font-size:.78rem;color:#0ea5e9;text-decoration:none;font-weight:600;}
+    .sec-link:hover{text-decoration:underline;}
+
+    /* ── Table card ── */
+    .table-card{
+        background:#fff;border-radius:16px;
+        border:1px solid #e2e8f0;
+        overflow:hidden;
+        box-shadow:0 2px 8px rgba(0,0,0,.04);
+        margin-bottom:1.5rem;
+    }
+    .tbl{width:100%;border-collapse:collapse;}
+    .tbl th{
+        padding:.7rem 1rem;
+        font-size:.7rem;font-weight:700;
+        color:#94a3b8;letter-spacing:.07em;text-transform:uppercase;
+        background:#f8fafc;border-bottom:1px solid #f1f5f9;
+        text-align:right;
+    }
+    .tbl td{
+        padding:.75rem 1rem;
+        font-size:.82rem;color:#374151;
+        border-bottom:1px solid #f8fafc;
+        vertical-align:middle;
+    }
+    .tbl tr:last-child td{border-bottom:none;}
+    .tbl tr:hover td{background:#fafbff;cursor:pointer;}
+
+    /* ── Status pill ── */
+    .sp{
+        display:inline-flex;align-items:center;gap:.28rem;
+        padding:.2em .65em;border-radius:99px;
+        font-size:.68rem;font-weight:700;
+    }
+    .sp-deposee   {background:#dbeafe;color:#1d4ed8;}
+    .sp-examen    {background:#fef3c7;color:#b45309;}
+    .sp-approuvee {background:#dcfce7;color:#15803d;}
+    .sp-rejetee   {background:#fee2e2;color:#b91c1c;}
+    .sp-suspendue {background:#f1f5f9;color:#64748b;}
+
+    /* ── Activity feed ── */
+    .feed-card{
+        background:#fff;border-radius:16px;
+        border:1px solid #e2e8f0;
+        padding:1rem;
+        box-shadow:0 2px 8px rgba(0,0,0,.04);
+    }
+    .feed-item{
+        display:flex;gap:.75rem;align-items:flex-start;
+        padding:.7rem 0;border-bottom:1px solid #f8fafc;
+    }
+    .feed-item:last-child{border-bottom:none;}
+    .feed-dot{
+        width:32px;height:32px;border-radius:50%;
+        display:flex;align-items:center;justify-content:center;
+        font-size:.8rem;flex-shrink:0;
+    }
+    .feed-title{font-size:.8rem;font-weight:600;color:#0f172a;margin-bottom:.1rem;}
+    .feed-sub{font-size:.72rem;color:#64748b;}
+
+    /* ── Quick actions ── */
+    .qa-grid{
+        display:grid;grid-template-columns:repeat(3,1fr);
+        gap:.75rem;margin-bottom:1.5rem;
+    }
+    @@media(max-width:700px){.qa-grid{grid-template-columns:1fr;}}
+
+    .qa-btn{
+        background:#fff;border:1px solid #e2e8f0;
+        border-radius:14px;padding:1rem;
+        display:flex;align-items:center;gap:.8rem;
+        cursor:pointer;transition:all .18s;
+        text-decoration:none;
+    }
+    .qa-btn:hover{border-color:#0ea5e9;background:#f0f9ff;transform:translateY(-1px);}
+    .qa-btn-icon{
+        width:40px;height:40px;border-radius:11px;
+        display:flex;align-items:center;justify-content:center;
+        font-size:1rem;flex-shrink:0;
+    }
+    .qa-btn-label{font-size:.82rem;font-weight:700;color:#0f172a;}
+    .qa-btn-sub{font-size:.7rem;color:#94a3b8;margin-top:.08rem;}
+
+    /* ── Progress bar ── */
+    .progress-bar{
+        height:7px;border-radius:99px;
+        background:#f1f5f9;overflow:hidden;margin-top:.35rem;
+    }
+    .progress-fill{height:100%;border-radius:99px;transition:width .5s ease;}
+
+    /* ── Loading ── */
+    @@keyframes spin{to{transform:rotate(360deg);}}
+    .spinner{animation:spin .75s linear infinite;display:inline-block;}
+    .loading-center{
+        display:flex;align-items:center;justify-content:center;
+        padding:3rem;color:#94a3b8;gap:.6rem;font-size:.88rem;
+    }
+
+    /* ── Two col ── */
+    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.5rem;}
+    @@media(max-width:900px){.two-col{grid-template-columns:1fr;}}
+</style>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"/>
+
+<div class="permits-root">
+
+    <!-- Page header -->
+    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;">
+        <div style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,#7c3aed,#a855f7);display:flex;align-items:center;justify-content:center;font-size:1.35rem;color:#fff;box-shadow:0 6px 20px rgba(124,58,237,.35);">
+            <i class="bi bi-building-fill"></i>
+        </div>
+        <div>
+            <h1 style="font-size:1.3rem;font-weight:800;color:#0f172a;margin:0;">رخص البناء والتعمير</h1>
+            <div style="font-size:.78rem;color:#64748b;margin-top:.15rem;">
+                @(IsLoading ? "جارٍ التحميل..." : $"آخر تحديث: {DateTime.Now:HH:mm} · {(SignalRNotif.IsConnected ? "متصل" : "غير متصل")}")
+            </div>
+        </div>
+        <div style="margin-right:auto;display:flex;gap:.6rem;">
+            <button class="qa-btn" style="padding:.5rem .9rem;" @onclick="Reload">
+                <i class="bi bi-arrow-clockwise @(IsLoading?"spinner":"")"></i>
+            </button>
+            <a href="/permits/new" class="qa-btn" style="padding:.5rem 1rem;">
+                <i class="bi bi-plus-lg" style="color:#7c3aed;"></i>
+                <span style="font-size:.82rem;font-weight:700;color:#0f172a;">طلب جديد</span>
+            </a>
+        </div>
+    </div>
+
+    @if (IsLoading && Stats == null)
+    {
+        <div class="loading-center">
+            <i class="bi bi-arrow-clockwise spinner"></i> جارٍ تحميل البيانات...
+        </div>
+    }
+    else
+    {
+        <!-- KPI Grid -->
+        <div class="kpi-grid">
+            <div class="kpi-card" @onclick='()=>Nav.NavigateTo("/permits/list")'>
+                <div class="kpi-icon ki-blue"><i class="bi bi-file-earmark-text-fill"></i></div>
+                <div>
+                    <div class="kpi-val">@(Stats?.TotalDemandes ?? 0)</div>
+                    <div class="kpi-lbl">إجمالي الطلبات</div>
+                </div>
+            </div>
+            <div class="kpi-card" @onclick='()=>Nav.NavigateTo("/permits/list?statut=Deposee")'>
+                <div class="kpi-icon ki-amber"><i class="bi bi-inbox-fill"></i></div>
+                <div>
+                    <div class="kpi-val">@(Stats?.Deposees ?? 0)</div>
+                    <div class="kpi-lbl">طلبات مودعة</div>
+                    @if ((Stats?.Deposees ?? 0) > 0)
+                    {
+                        <div class="kpi-trend trend-down">
+                            <i class="bi bi-exclamation-circle-fill"></i> تنتظر المعالجة
+                        </div>
+                    }
+                </div>
+            </div>
+            <div class="kpi-card" @onclick='()=>Nav.NavigateTo("/permits/list?statut=EnExamen")'>
+                <div class="kpi-icon ki-violet"><i class="bi bi-search"></i></div>
+                <div>
+                    <div class="kpi-val">@(Stats?.EnExamen ?? 0)</div>
+                    <div class="kpi-lbl">قيد الفحص</div>
+                </div>
+            </div>
+            <div class="kpi-card" @onclick='()=>Nav.NavigateTo("/permits/list?statut=Approuvee")'>
+                <div class="kpi-icon ki-green"><i class="bi bi-check-circle-fill"></i></div>
+                <div>
+                    <div class="kpi-val">@(Stats?.Approuvees ?? 0)</div>
+                    <div class="kpi-lbl">موافق عليها</div>
+                    @if ((Stats?.Approuvees ?? 0) > 0)
+                    {
+                        <div class="kpi-trend trend-up">
+                            <i class="bi bi-arrow-up-short"></i> جاهزة للتسليم
+                        </div>
+                    }
+                </div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon ki-teal"><i class="bi bi-award-fill"></i></div>
+                <div>
+                    <div class="kpi-val">@(Stats?.TotalPermisDelivres ?? 0)</div>
+                    <div class="kpi-lbl">رخص سُلِّمت</div>
+                </div>
+            </div>
+            <div class="kpi-card" @onclick='()=>Nav.NavigateTo("/permits/list?statut=Rejetee")'>
+                <div class="kpi-icon ki-red"><i class="bi bi-x-circle-fill"></i></div>
+                <div>
+                    <div class="kpi-val">@(Stats?.Rejetees ?? 0)</div>
+                    <div class="kpi-lbl">مرفوضة</div>
+                </div>
+            </div>
+            <div class="kpi-card" @onclick='()=>Nav.NavigateTo("/permits/late")'>
+                <div class="kpi-icon ki-rose"><i class="bi bi-alarm-fill"></i></div>
+                <div>
+                    <div class="kpi-val">@(Stats?.EnRetard ?? 0)</div>
+                    <div class="kpi-lbl">متأخرة</div>
+                    @if ((Stats?.EnRetard ?? 0) > 0)
+                    {
+                        <div class="kpi-trend trend-down"><i class="bi bi-exclamation-triangle-fill"></i> تجاوزت الأجل</div>
+                    }
+                </div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-icon ki-sky"><i class="bi bi-cash-coin"></i></div>
+                <div>
+                    <div class="kpi-val" style="font-size:1.1rem;">@((Stats?.MontantTaxesEnAttente ?? 0).ToString("N0")) د.ج</div>
+                    <div class="kpi-lbl">رسوم معلقة</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="qa-grid">
+            <a href="/permits/new" class="qa-btn">
+                <div class="qa-btn-icon ki-violet"><i class="bi bi-plus-circle-fill"></i></div>
+                <div><div class="qa-btn-label">طلب رخصة جديد</div><div class="qa-btn-sub">إيداع طلب بناء أو تعمير</div></div>
+            </a>
+            <a href="/permits/list" class="qa-btn">
+                <div class="qa-btn-icon ki-blue"><i class="bi bi-card-list"></i></div>
+                <div><div class="qa-btn-label">قائمة الطلبات</div><div class="qa-btn-sub">تصفح ومتابعة الطلبات</div></div>
+            </a>
+            <a href="/permits/track" class="qa-btn">
+                <div class="qa-btn-icon ki-teal"><i class="bi bi-search"></i></div>
+                <div><div class="qa-btn-label">تتبع رخصة</div><div class="qa-btn-sub">البحث برقم الطلب</div></div>
+            </a>
+        </div>
+
+        <!-- Two columns -->
+        <div class="two-col">
+
+            <!-- Recent demands -->
+            <div>
+                <div class="sec-hdr">
+                    <span class="sec-title"><i class="bi bi-clock-history me-2"></i>أحدث الطلبات</span>
+                    <a href="/permits/list" class="sec-link">عرض الكل</a>
+                </div>
+                <div class="table-card">
+                    @if (RecentDemandes?.Any() == true)
+                    {
+                        <table class="tbl">
+                            <thead>
+                                <tr>
+                                    <th>الرقم</th>
+                                    <th>المتقدم</th>
+                                    <th>النوع</th>
+                                    <th>الحالة</th>
+                                    <th>التاريخ</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var d in RecentDemandes)
+                                {
+                                    <tr @onclick='()=>Nav.NavigateTo($"/permits/detail/{d.Id}")'>
+                                        <td style="font-weight:700;color:#7c3aed;">@d.NumeroDemande</td>
+                                        <td>@d.DemandeurNomComplet</td>
+                                        <td style="font-size:.74rem;">@d.TypeDemandeLibelle</td>
+                                        <td><span class="sp @GetStatutClass(d.Statut)">@GetStatutLabel(d.Statut)</span></td>
+                                        <td style="color:#94a3b8;font-size:.75rem;">@d.DateDepot.ToString("dd/MM/yy")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                    else
+                    {
+                        <div style="padding:2rem;text-align:center;color:#94a3b8;font-size:.82rem;">
+                            <i class="bi bi-inbox" style="font-size:1.5rem;display:block;margin-bottom:.5rem;color:#cbd5e1;"></i>
+                            لا توجد طلبات حديثة
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Stats visual -->
+            <div>
+                <div class="sec-hdr">
+                    <span class="sec-title"><i class="bi bi-bar-chart-fill me-2"></i>توزيع الطلبات</span>
+                </div>
+                <div class="table-card" style="padding:1rem;">
+                    @{
+                        int total = Stats?.TotalDemandes ?? 1;
+                        if (total == 0) total = 1;
+                    }
+                    @foreach (var (label, val, color, cls) in new[]{
+                        ("مودعة",    Stats?.Deposees ?? 0,          "#3b82f6", "ki-blue"),
+                        ("قيد الفحص",Stats?.EnExamen ?? 0,          "#a855f7", "ki-violet"),
+                        ("موافق عليها",Stats?.Approuvees ?? 0,      "#22c55e", "ki-green"),
+                        ("مرفوضة",   Stats?.Rejetees ?? 0,          "#ef4444", "ki-red"),
+                        ("سُلِّمت",  Stats?.TotalPermisDelivres ?? 0,"#0d9488", "ki-teal"),
+                    })
+                    {
+                        <div style="margin-bottom:.9rem;">
+                            <div style="display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:.25rem;">
+                                <span style="color:#374151;font-weight:600;">@label</span>
+                                <span style="color:#94a3b8;">@val (@((val * 100 / total).ToString("F0"))%)</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width:@(val * 100 / total)%;background:@color;"></div>
+                            </div>
+                        </div>
+                    }
+                    <div style="margin-top:1rem;padding-top:.75rem;border-top:1px solid #f1f5f9;display:flex;justify-content:space-between;font-size:.78rem;">
+                        <span style="color:#64748b;">متوسط الأجل</span>
+                        <span style="font-weight:700;color:#0f172a;">@((Stats?.DelaiMoyenJours ?? 0).ToString("F0")) يوم</span>
+                    </div>
+                </div>
+
+                <!-- Late demands -->
+                @if ((Stats?.EnRetard ?? 0) > 0)
+                {
+                    <div style="margin-top:1rem;">
+                        <div class="sec-hdr">
+                            <span class="sec-title" style="color:#b91c1c;">
+                                <i class="bi bi-exclamation-triangle-fill me-2"></i>طلبات متأخرة
+                            </span>
+                            <a href="/permits/late" class="sec-link">عرض الكل</a>
+                        </div>
+                        <div class="table-card">
+                            @foreach (var d in (LateList ?? new()).Take(4))
+                            {
+                                <div style="display:flex;align-items:center;gap:.7rem;padding:.7rem 1rem;border-bottom:1px solid #f8fafc;cursor:pointer;"
+                                     @onclick='()=>Nav.NavigateTo($"/permits/detail/{d.Id}")'>
+                                    <div style="width:34px;height:34px;border-radius:9px;background:#fee2e2;color:#b91c1c;display:flex;align-items:center;justify-content:center;font-size:.85rem;flex-shrink:0;">
+                                        <i class="bi bi-alarm-fill"></i>
+                                    </div>
+                                    <div style="flex:1;min-width:0;">
+                                        <div style="font-size:.78rem;font-weight:700;color:#b91c1c;">@d.NumeroDemande</div>
+                                        <div style="font-size:.72rem;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                            @d.DemandeurNomComplet — @d.AdresseProjet
+                                        </div>
+                                    </div>
+                                    <span class="sp sp-examen" style="font-size:.62rem;">@d.DateDepot.ToString("dd/MM")</span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private PermisStatsDto?         Stats       = null;
+    private List<DemandePermisDto>? RecentDemandes = null;
+    private List<DemandePermisDto>? LateList    = null;
+    private bool IsLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        SignalRNotif.OnChanged += Refresh;
+        SignalRNotif.OnNotificationReceived += OnNewNotif;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        await LoadData();
+        StateHasChanged();
+    }
+
+    private async Task LoadData()
+    {
+        IsLoading = true;
+        try
+        {
+            var statsTask  = PermisApi.GetStatsAsync();
+            var recentTask = PermisApi.GetPagedAsync(new DemandePermisFilterDto { PageSize = 8, PageNumber = 1 });
+            var lateTask   = PermisApi.GetEnRetardAsync();
+            await Task.WhenAll(statsTask, recentTask, lateTask);
+
+            Stats          = await statsTask;
+            RecentDemandes = (await recentTask)?.Items?.ToList();
+            LateList       = await lateTask;
+        }
+        catch { }
+        finally { IsLoading = false; }
+    }
+
+    private async Task Reload() => await LoadData();
+
+    private void OnNewNotif(Municipality360.Application.DTOs.Notifications.NotificationDto n)
+    {
+        if (n.Type.Contains("Permis") || n.Type.Contains("Demande"))
+            InvokeAsync(async () => { await LoadData(); StateHasChanged(); });
+    }
+
+    private void Refresh() => InvokeAsync(StateHasChanged);
+
+    private string GetStatutClass(string s) => s switch
+    {
+        "Deposee"   => "sp-deposee",
+        "EnExamen"  => "sp-examen",
+        "Approuvee" => "sp-approuvee",
+        "Rejetee"   => "sp-rejetee",
+        _           => "sp-suspendue"
+    };
+
+    private string GetStatutLabel(string s) => s switch
+    {
+        "Deposee"   => "مودعة",
+        "EnExamen"  => "قيد الفحص",
+        "Approuvee" => "موافق عليها",
+        "Rejetee"   => "مرفوضة",
+        "Suspendue" => "معلقة",
+        _ => s
+    };
+
+    public void Dispose()
+    {
+        SignalRNotif.OnChanged             -= Refresh;
+        SignalRNotif.OnNotificationReceived -= OnNewNotif;
+    }
+}
