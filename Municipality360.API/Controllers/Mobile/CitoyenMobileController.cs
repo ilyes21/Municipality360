@@ -17,6 +17,7 @@ public class CitoyenMobileController : ControllerBase
     private readonly IReclamationService _reclamationService;
     private readonly INotificationService _notificationService;
     private readonly IDemandePermisBatirService _permisService;
+    private readonly ICitoyenRepository _citoyenRepo;
     private readonly IDemandeurRepository _demandeurRepo;
 
     public CitoyenMobileController(
@@ -24,12 +25,14 @@ public class CitoyenMobileController : ControllerBase
         IReclamationService reclamationService,
         INotificationService notificationService,
         IDemandePermisBatirService permisService,
+        ICitoyenRepository citoyenRepo,       
         IDemandeurRepository demandeurRepo)
     {
         _authService = authService;
         _reclamationService = reclamationService;
         _notificationService = notificationService;
         _permisService = permisService;
+        _citoyenRepo = citoyenRepo;
         _demandeurRepo = demandeurRepo;
     }
 
@@ -146,6 +149,72 @@ public class CitoyenMobileController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("mes-permis")]
+    [Authorize(Roles = "Citoyen")]
+    public async Task<IActionResult> GetMesPermis()
+    {
+        var citoyenId = GetCitoyenId();
+        if (citoyenId == 0) return Unauthorized();
+
+        // 1. جلب المواطن للحصول على CIN
+        var citoyen = await _citoyenRepo.GetByIdAsync(citoyenId);
+        if (citoyen == null)
+            return NotFound(new { message = "المواطن غير موجود." });
+
+        if (string.IsNullOrWhiteSpace(citoyen.CIN))
+            return Ok(new MesPermisDto
+            {
+                NomComplet = citoyen.NomComplet,
+                CIN = string.Empty,
+                NombreDemandes = 0,
+                Demandes = new List<PermisPublicItemDto>()
+            });
+
+        // 2. البحث عن Demandeur بنفس CIN
+        var demandeurs = await _demandeurRepo.SearchAsync(citoyen.CIN);
+        var demandeur = demandeurs.FirstOrDefault(d =>
+            !string.IsNullOrEmpty(d.CIN) &&
+            string.Equals(d.CIN.Trim(), citoyen.CIN.Trim(),
+                          StringComparison.OrdinalIgnoreCase));
+
+        // لا يوجد Demandeur مسجّل بهذا CIN → إرجاع قائمة فارغة (طبيعي)
+        if (demandeur == null)
+            return Ok(new MesPermisDto
+            {
+                NomComplet = citoyen.NomComplet,
+                CIN = citoyen.CIN,
+                NombreDemandes = 0,
+                Demandes = new List<PermisPublicItemDto>()
+            });
+
+        // 3. جلب طلبات الرخص المرتبطة بهذا Demandeur
+        var demandes = await _permisService.GetByDemandeurAsync(demandeur.Id);
+
+        // 4. تحويل إلى DTOs مبسّطة للمواطن
+        var items = demandes.Select(d => new PermisPublicItemDto
+        {
+            Id = d.Id,
+            NumeroDemande = d.NumeroDemande,
+            Statut = d.Statut,
+            TypeDemande = d.TypeDemandeLibelle,
+            AdresseProjet = d.AdresseProjet,
+            DateDepot = d.DateDepot,
+            DateDecision = d.DateDecision,
+            NumeroPermis = d.NumeroPermis,
+            DateDelivrance = d.DateDelivrance,
+            DateValidite = d.DateValiditePermis,
+            TaxesPayees = d.ToutesLTaxesPayees,
+            TotalTaxes = d.TotalTaxes,
+        }).OrderByDescending(d => d.DateDepot).ToList();
+
+        return Ok(new MesPermisDto
+        {
+            NomComplet = citoyen.NomComplet,
+            CIN = citoyen.CIN,
+            NombreDemandes = items.Count,
+            Demandes = items
+        });
+    }
     // ══════════════════════════════════════════
     //  NOTIFICATIONS
     // ══════════════════════════════════════════

@@ -447,6 +447,7 @@ public class Reclamation : BaseEntity
     public int? SatisfactionCitoyen { get; set; }
     public string? EnregistreParId { get; set; }
 
+
     public TypeReclamation? TypeReclamation { get; set; }
     public CategorieReclamation? Categorie { get; set; }
     public Citoyen? Citoyen { get; set; }

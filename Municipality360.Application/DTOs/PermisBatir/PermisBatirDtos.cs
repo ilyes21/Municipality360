@@ -495,7 +495,16 @@ public class PermisByCINResultDto
     public List<PermisPublicItemDto> Demandes { get; set; } = new();
 }
 
-/// <summary>عنصر مبسط في قائمة الرخص للمواطن</summary>
+/// <summary>نتيجة GET api/mobile/mes-permis</summary>
+public class MesPermisDto
+{
+    public string NomComplet { get; set; } = string.Empty;
+    public string CIN { get; set; } = string.Empty;
+    public int NombreDemandes { get; set; }
+    public List<PermisPublicItemDto> Demandes { get; set; } = new();
+}
+
+/// <summary>رخصة مبسّطة للمواطن</summary>
 public class PermisPublicItemDto
 {
     public int Id { get; set; }
