@@ -1,6 +1,7 @@
 using Municipality360.Application.Common;
 using Municipality360.Application.DTOs.BureauOrdre;
 using Municipality360.Application.DTOs.Identity;
+using Municipality360.Application.DTOs.Intelligence;
 using Municipality360.Application.DTOs.Mobile;
 using Municipality360.Application.DTOs.Notifications;
 using Municipality360.Application.DTOs.PermisBatir;
@@ -253,4 +254,40 @@ public interface ICitoyenAuthService
     Task<Result<CitoyenProfileMobileDto>> GetProfileAsync(int citoyenId);
     Task<Result> UpdateFcmTokenAsync(int citoyenId, string fcmToken);
     Task<Result<CitoyenDashboardStatsDto>> GetDashboardStatsAsync(int citoyenId);
+}
+// ════════════════════════════════════════════════════
+//  التنفيذ في Infrastructure باستخدام ML.NET + OpenAI/Gemini.
+// ════════════════════════════════════════════════════
+public interface IComplaintIntelligenceService
+{
+    // ── التصنيف ───────────────────────────────────────────────────
+
+    /// <summary>
+    /// يُصنّف شكوى واحدة باستخدام نموذج ML.NET المُحمَّل مسبقاً.
+    /// لا يُعدّل قاعدة البيانات — مجرد تحليل.
+    /// </summary>
+    Task<ClassificationResultDto> ClassifyAsync(ClassificationRequestDto request);
+
+    /// <summary>
+    /// يُعيد تدريب النموذج من بيانات الشكاوى المُؤرشفة.
+    /// يُستدعى من CronJob ليلي أو من لوحة التحكم.
+    /// </summary>
+    Task RetrainModelAsync(CancellationToken cancellationToken = default);
+
+    // ── الرد الآلي ───────────────────────────────────────────────
+
+    /// <summary>
+    /// يولّد رداً رسمياً بالعربية الفصحى بأسلوب بلدية "العين".
+    /// يُرسل طلباً إلى OpenAI / Gemini ويعيد النص المُولَّد.
+    /// </summary>
+    Task<AutoResponseResultDto> GenerateAutoResponseAsync(AutoResponseRequestDto request);
+
+    // ── الدُّفعة ─────────────────────────────────────────────────
+
+    /// <summary>
+    /// يُصنّف ويولّد رداً في خطوة واحدة ذرية.
+    /// الاستخدام المُفضَّل من ReclamationService.
+    /// </summary>
+    Task<(ClassificationResultDto Classification, AutoResponseResultDto Response)>
+        ProcessNewComplaintAsync(ClassificationRequestDto classRequest, AutoResponseRequestDto responseRequest);
 }

@@ -17,6 +17,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Municipality360.Domain.Entities;
 using Municipality360.Infrastructure.Data;
+using Municipality360.Infrastructure.Data.Training;
 using Municipality360.Infrastructure.Identity;
 
 namespace Municipality360.Infrastructure.Services;
@@ -30,6 +31,10 @@ public static class DbSeeder
     {
         //await context.Database.EnsureCreatedAsync();
         await context.Database.MigrateAsync(); // ✅ هذا سيطبق الـ Migrations تلقائياً
+
+        // ── IA training ────────────────────────────────────────────
+        if (!File.Exists("Data/Training/training_complaints.csv"))
+            await TrainingSamples.ExportToCsvAsync();
         // ── Roles ────────────────────────────────────────────────────
         string[] roles =
         {

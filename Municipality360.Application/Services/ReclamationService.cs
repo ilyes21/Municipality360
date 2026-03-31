@@ -1,7 +1,8 @@
 ﻿// Application/Services/ReclamationService.cs
-// ✅ FIXED: إزالة using Municipality360.Domain.Entities.Reclamations — namespace غير موجود
+// ✅ UPDATED: دمج IComplaintIntelligenceService في DeposerAsync
 
 using Municipality360.Application.Common;
+using Municipality360.Application.DTOs.Intelligence;
 using Municipality360.Application.DTOs.Reclamations;
 using Municipality360.Application.Interfaces.Repositories;
 using Municipality360.Application.Interfaces.Services;
@@ -14,13 +15,18 @@ public class ReclamationService : IReclamationService
     private readonly IReclamationRepository _repo;
     private readonly ISequenceRepository _seq;
     private readonly INotificationService _notif;
+    private readonly IComplaintIntelligenceService _intelligence;
 
     public ReclamationService(
         IReclamationRepository repo,
         ISequenceRepository seq,
-        INotificationService notif)
+        INotificationService notif,
+        IComplaintIntelligenceService intelligence)
     {
-        _repo = repo; _seq = seq; _notif = notif;
+        _repo = repo;
+        _seq = seq;
+        _notif = notif;
+        _intelligence = intelligence;
     }
 
     // ════════════════════════════════════════════════════════════
@@ -73,7 +79,7 @@ public class ReclamationService : IReclamationService
         => _repo.GetStatsAsync(serviceId);
 
     // ════════════════════════════════════════════════════════════
-    //  DÉPÔT — ✅ SUIVI AMÉLIORÉ
+    //  DÉPÔT — ✅ AI PIPELINE INTÉGRÉ
     // ════════════════════════════════════════════════════════════
 
     public async Task<ReclamationDetailDto> DeposerAsync(
@@ -103,15 +109,16 @@ public class ReclamationService : IReclamationService
 
         await _repo.AddAsync(rec);
 
-        // ✅ Suivi initial enrichi
-        // Détermine qui a déposé : citoyen via app mobile/web ou agent au guichet
+        // ── Suivi initial ──────────────────────────────────────────
         bool estParAgent = !string.IsNullOrEmpty(agentId) && agentId != "citoyen";
         bool estMobile = dto.Canal == "Mobile" || dto.Canal == "Web";
+
         string auteurId = estParAgent ? agentId! : (dto.EstAnonyme ? "anonyme" : $"citoyen_{dto.CitoyenId}");
         string auteurNom = estParAgent ? "عون بلدي"
-                                  : estMobile ? "مواطن (تطبيق الجوال)"
-                                  : dto.Canal == "Email" ? "مواطن (بريد إلكتروني)"
-                                  : "مواطن";
+                         : estMobile ? "مواطن (تطبيق الجوال)"
+                         : dto.Canal == "Email" ? "مواطن (بريد إلكتروني)"
+                         : "مواطن";
+
         string canalLabel = dto.Canal switch
         {
             "Guichet" => "الشباك",
@@ -137,17 +144,91 @@ public class ReclamationService : IReclamationService
 
         await _repo.UpdateAsync(rec);
 
-        // Notification
+        // ── إشعار الوكلاء ─────────────────────────────────────────
         await _notif.NotifierAgentAsync(
             string.Empty, TypeNotification.NouvelleReclamation,
             $"شكوى جديدة {numero} : {dto.Objet}",
             rec.Id.ToString(), "Reclamation");
 
+        // ══ خط أنابيب الذكاء الاصطناعي (fire-and-forget) ══════════
+        // يعمل في الخلفية — لا يُؤخّر رد الـ API على المواطن
+        int capturedId = rec.Id;
+        int capturedCitoyen = dto.CitoyenId;
+        bool capturedAnonyme = dto.EstAnonyme;
+        var capturedClassReq = new ClassificationRequestDto
+        {
+            ReclamationId = capturedId,
+            Objet = dto.Objet,
+            Description = dto.Description,
+            Localisation = dto.Localisation
+        };
+        var capturedRespReq = new AutoResponseRequestDto
+        {
+            ReclamationId = capturedId,
+            NumeroReclamation = numero,
+            CitoyenPrenom = "المواطن",   // يُحدَّث من DB لاحقاً إن توفّر
+            Objet = dto.Objet,
+            CategoryLabel = string.Empty, // يُحدَّث بنتيجة التصنيف داخل ProcessNewComplaintAsync
+            Priorite = dto.Priorite
+        };
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                (ClassificationResultDto classification, AutoResponseResultDto autoResponse) =
+                    await _intelligence.ProcessNewComplaintAsync(capturedClassReq, capturedRespReq);
+
+                // ── تحديث حقول الذكاء الاصطناعي في قاعدة البيانات ──
+                var recToUpdate = await _repo.GetByIdAsync(capturedId);
+                if (recToUpdate is null) return;
+
+                recToUpdate.AISuggestedCategory = classification.SuggestedCategoryCode;
+                recToUpdate.AIConfidenceScore = classification.ConfidenceScore;
+                recToUpdate.AISuggestedPriorite = classification.SuggestedPriorite;
+                recToUpdate.AISeverityScore = classification.SeverityScore;
+                recToUpdate.AIExtractedKeywords = string.Join(",", classification.ExtractedKeywords);
+                recToUpdate.AIClassificationApplied = classification.IsConfident;
+                recToUpdate.AIProcessedAt = DateTime.UtcNow;
+
+                // تطبيق الأولوية تلقائياً إذا كانت الثقة عالية (≥ 70%)
+                if (classification.IsConfident &&
+                    Enum.TryParse<PrioriteReclamation>(classification.SuggestedPriorite, out var newPrio))
+                {
+                    recToUpdate.Priorite = newPrio;
+                }
+
+                if (autoResponse.IsSuccess)
+                {
+                    recToUpdate.AutoGeneratedResponse = autoResponse.ResponseText;
+                    recToUpdate.AutoResponseSent = true;
+                    recToUpdate.AutoResponseSentAt = DateTime.UtcNow;
+                }
+
+                await _repo.UpdateAsync(recToUpdate);
+
+                // ── إشعار المواطن بالرد الرسمي (إن لم يكن مجهولاً) ──
+                if (autoResponse.IsSuccess && !capturedAnonyme)
+                {
+                    await _notif.NotifierCitoyenAsync(
+                        capturedCitoyen.ToString(),
+                        TypeNotification.NouvelleReclamation,
+                        autoResponse.ResponseText,
+                        capturedId.ToString(),
+                        "Reclamation");
+                }
+            }
+            catch
+            {
+                // الشكوى محفوظة — فشل AI لا يُلغي الحفظ ولا يُظهر خطأ للمواطن
+            }
+        });
+
         return await GetByIdAsync(rec.Id);
     }
 
     // ════════════════════════════════════════════════════════════
-    //  ASSIGNATION — ✅ SUIVI ENRICHI
+    //  ASSIGNATION
     // ════════════════════════════════════════════════════════════
 
     public async Task AssignerAsync(
@@ -161,14 +242,12 @@ public class ReclamationService : IReclamationService
         r.AffecteAId = dto.AffecteAId;
         r.DateAffectation = DateTime.UtcNow;
 
-        // Passer en "EnCours" si elle était "Nouvelle"
         if (r.Statut == StatutReclamation.Nouvelle)
             r.Statut = StatutReclamation.EnCours;
 
         r.UpdatedAt = DateTime.UtcNow;
         await _repo.UpdateAsync(r);
 
-        // ✅ Suivi de la transmission avec détails
         string serviceNom = dto.ServiceConcerneId.HasValue
             ? $"المصلحة #{dto.ServiceConcerneId}"
             : "مصلحة غير محددة";
@@ -188,12 +267,11 @@ public class ReclamationService : IReclamationService
             ActionEffectuee = string.IsNullOrEmpty(dto.AffecteAId)
                 ? $"توجيه الشكوى إلى {serviceNom}"
                 : $"توجيه الشكوى إلى {serviceNom} وإسنادها للموظف: {dto.AffecteAId}",
-            VisibleCitoyen = false   // le citoyen n'a pas besoin de voir les détails internes
+            VisibleCitoyen = false
         });
 
         await _repo.UpdateAsync(r);
 
-        // Notifier l'agent affecté
         if (!string.IsNullOrEmpty(dto.AffecteAId))
             await _notif.NotifierAgentAsync(
                 dto.AffecteAId,
@@ -201,7 +279,6 @@ public class ReclamationService : IReclamationService
                 $"شكوى {r.NumeroReclamation} أُسندت إليك: {r.Objet}",
                 r.Id.ToString(), "Reclamation");
 
-        // Notifier le service
         if (dto.ServiceConcerneId.HasValue)
             await _notif.NotifierServiceAsync(
                 dto.ServiceConcerneId.Value,
@@ -211,7 +288,7 @@ public class ReclamationService : IReclamationService
     }
 
     // ════════════════════════════════════════════════════════════
-    //  CHANGEMENT DE STATUT — ✅ SUIVI ENRICHI
+    //  CHANGEMENT DE STATUT
     // ════════════════════════════════════════════════════════════
 
     public async Task ChangerStatutAsync(
@@ -226,7 +303,7 @@ public class ReclamationService : IReclamationService
         r.Statut = nouveauStatut;
         r.UpdatedAt = DateTime.UtcNow;
 
-        if (nouveauStatut == StatutReclamation.Traitee || nouveauStatut == StatutReclamation.Fermee)
+        if (nouveauStatut is StatutReclamation.Traitee or StatutReclamation.Fermee)
         {
             r.DateCloture = DateTime.UtcNow;
             r.SolutionApportee = dto.SolutionApportee ?? r.SolutionApportee;
@@ -236,7 +313,6 @@ public class ReclamationService : IReclamationService
 
         await _repo.UpdateAsync(r);
 
-        // ✅ Libellés arabes pour les statuts
         string statutLabel = nouveauStatut switch
         {
             StatutReclamation.Nouvelle => "جديدة",
@@ -272,7 +348,6 @@ public class ReclamationService : IReclamationService
 
         await _repo.UpdateAsync(r);
 
-        // Notifications citoyen si résolution ou rejet
         if (nouveauStatut == StatutReclamation.Traitee)
             await _notif.NotifierCitoyenAsync(
                 r.CitoyenId.ToString(),
@@ -325,7 +400,7 @@ public class ReclamationService : IReclamationService
         CreatedAt = r.CreatedAt,
 
         Suivis = r.Suivis?
-            .OrderBy(s => s.DateChangement)      // chronologique — du plus ancien au plus récent
+            .OrderBy(s => s.DateChangement)
             .Select(s => new SuiviReclamationDto
             {
                 Id = s.Id,
@@ -351,7 +426,7 @@ public class ReclamationService : IReclamationService
 }
 
 // ════════════════════════════════════════════════════════════════
-//  CITOYEN SERVICE (inchangé)
+//  CITOYEN SERVICE
 // ════════════════════════════════════════════════════════════════
 
 public class CitoyenService : ICitoyenService
@@ -534,11 +609,9 @@ public class CategorieReclamationService : ICategorieReclamationService
     public async Task<List<CategorieReclamationDto>> GetHierarchieAsync()
     {
         var list = await _repo.GetHierarchieAsync();
-        // ✅ Utiliser x => MapToDto(x) pour lever l'ambiguïté
         return list.Select(x => MapToDto(x)).ToList();
     }
 
-    /// <summary>Retourne toutes les catégories à plat (parents + enfants) pour les dropdowns</summary>
     public async Task<List<CategorieReclamationDto>> GetFlatAsync()
     {
         var parents = await _repo.GetHierarchieAsync();
@@ -597,14 +670,11 @@ public class CategorieReclamationService : ICategorieReclamationService
         ParentLibelle = c.Parent?.Libelle,
         Niveau = c.Niveau,
         IsActive = c.IsActive,
-
-        // ✅ SOLUTION : Utiliser une lambda (s => MapToDto(s, false)) 
-        // au lieu de la syntaxe de groupe de méthodes
         SousCategories = includeSubs
-        ? c.SousCategories
-            .Where(s => s.IsActive)
-            .Select(s => MapToDto(s, false)) // Modification ici
-            .ToList()
-        : new List<CategorieReclamationDto>()
+            ? c.SousCategories
+                .Where(s => s.IsActive)
+                .Select(s => MapToDto(s, false))
+                .ToList()
+            : new List<CategorieReclamationDto>()
     };
 }

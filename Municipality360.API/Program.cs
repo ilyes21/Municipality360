@@ -11,6 +11,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.OpenApi.Models;
 using Municipality360.Infrastructure.Data;
+using Municipality360.Infrastructure.Data.Training;
 using Municipality360.Infrastructure.Extensions;
 using Municipality360.Infrastructure.Hubs;          // ✅ FIXED: Infrastructure لا API
 using Municipality360.Infrastructure.Identity;
@@ -91,6 +92,9 @@ builder.Services.AddOpenApi();
 // ═════════════════════════════════════════════════════════════════
 var app = builder.Build();
 // ═════════════════════════════════════════════════════════════════
+
+// ── إنشاء ملف بيانات التدريب تلقائياً ─────────────────────────────
+await TrainingSamples.EnsureCsvFileExistsAsync();
 
 // ── Seed ──────────────────────────────────────────────────────────
 using (var scope = app.Services.CreateScope())

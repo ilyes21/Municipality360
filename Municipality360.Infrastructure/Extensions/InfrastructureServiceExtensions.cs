@@ -12,15 +12,19 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.ML;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Municipality360.Application.Interfaces.Repositories;
 using Municipality360.Application.Interfaces.Services;
 using Municipality360.Application.Services;
+using Municipality360.Domain.Entities;
 using Municipality360.Infrastructure.Data;
 using Municipality360.Infrastructure.Hubs;
 using Municipality360.Infrastructure.Identity;
 using Municipality360.Infrastructure.Repositories;
 using Municipality360.Infrastructure.Services;
+using Municipality360.Infrastructure.Services.AI;
 using System.Text;
 
 namespace Municipality360.Infrastructure.Extensions;
@@ -158,6 +162,33 @@ public static class InfrastructureServiceExtensions
 
         // ── . تسجيل ICitoyenAuthService في DI ─────────────────────────
         services.AddScoped<ICitoyenAuthService, CitoyenAuthService>();
+
+        // ── ML.NET PredictionEnginePool ────────────────────────────────
+        services.AddPredictionEnginePool<ReclamationMLInput, ReclamationMLOutput>()
+                .FromFile(
+                    modelName: "ComplaintClassifier",
+                    filePath: "wwwroot/models/complaint_classifier.zip",
+                    watchForChanges: true);  // يعيد تحميل النموذج تلقائياً عند تحديثه
+
+        // ── OpenAI Options ──────────────────────────────────────────────
+        services.Configure<OpenAIOptions>(
+            configuration.GetSection(OpenAIOptions.Section));
+
+        // ── HTTP Client لـ OpenAI ───────────────────────────────────────
+        services.AddHttpClient("OpenAI", (sp, client) =>
+        {
+            var opts = sp.GetRequiredService<IOptions<OpenAIOptions>>().Value;
+            client.DefaultRequestHeaders.Add("Authorization", $"Bearer {opts.ApiKey}");
+            client.DefaultRequestHeaders.Add("User-Agent", "Municipality360/1.0");
+            client.Timeout = TimeSpan.FromSeconds(opts.TimeoutSeconds + 5);
+        });
+
+        // ── خدمات الذكاء الاصطناعي الداخلية ───────────────────────────
+        services.AddScoped<MLComplaintClassifier>();
+        services.AddScoped<AutoResponseGenerator>();
+        services.AddScoped<IComplaintIntelligenceService, ComplaintIntelligenceService>();
+
+
 
         return services;
     }

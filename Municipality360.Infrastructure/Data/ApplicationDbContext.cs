@@ -60,6 +60,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<TypeReclamation> TypesReclamation => Set<TypeReclamation>();
     public DbSet<CategorieReclamation> CategoriesReclamation => Set<CategorieReclamation>();
     public DbSet<Reclamation> Reclamations => Set<Reclamation>();
+    //public DbSet<ReclamationMLInput> ReclamationMLInputs => Set<ReclamationMLInput>();
+    //public DbSet<ReclamationMLOutput> ReclamationMLOutputs => Set<ReclamationMLOutput>();
     public DbSet<SuiviReclamation> SuivisReclamation => Set<SuiviReclamation>();
     public DbSet<PieceJointeReclamation> PiecesJointesReclamation => Set<PieceJointeReclamation>();
 
