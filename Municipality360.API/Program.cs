@@ -16,6 +16,7 @@ using Municipality360.Infrastructure.Extensions;
 using Municipality360.Infrastructure.Hubs;          // ✅ FIXED: Infrastructure لا API
 using Municipality360.Infrastructure.Identity;
 using Municipality360.Infrastructure.Services;
+using Municipality360.Infrastructure.Services.AI;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -93,8 +94,38 @@ builder.Services.AddOpenApi();
 var app = builder.Build();
 // ═════════════════════════════════════════════════════════════════
 
-// ── إنشاء ملف بيانات التدريب تلقائياً ─────────────────────────────
+// ── خطوة 1: إنشاء ملف بيانات التدريب إذا لم يكن موجوداً ──────────
 await TrainingSamples.EnsureCsvFileExistsAsync();
+
+// ── خطوة 2: تدريب النموذج تلقائياً إذا لم يكن موجوداً ────────────
+// ✅ FIXED: هذا يحل مشكلة "النموذج غير موجود" عند أول إقلاع للتطبيق
+var modelPath = TrainingSamples.GetDefaultModelPath();
+var trainingPath = TrainingSamples.GetDefaultCsvPath();
+
+if (!File.Exists(modelPath))
+{
+    app.Logger.LogInformation(
+        "النموذج غير موجود في {Path}، جارٍ التدريب الأولي...", modelPath);
+    try
+    {
+        // التأكد من وجود مجلد النموذج
+        var modelDir = Path.GetDirectoryName(modelPath);
+        if (!string.IsNullOrEmpty(modelDir))
+            Directory.CreateDirectory(modelDir);
+
+        MLComplaintClassifier.TrainAndSave(trainingPath, modelPath, app.Logger);
+        app.Logger.LogInformation("✅ تم تدريب النموذج وحفظه في {Path}", modelPath);
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex,
+            "⚠️ فشل تدريب النموذج — سيعمل النظام بـ Keyword Fallback فقط.");
+    }
+}
+else
+{
+    app.Logger.LogInformation("✅ النموذج موجود في {Path}", modelPath);
+}
 
 // ── Seed ──────────────────────────────────────────────────────────
 using (var scope = app.Services.CreateScope())

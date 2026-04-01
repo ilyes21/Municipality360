@@ -1,12 +1,3 @@
-// ═══════════════════════════════════════════════════════════════════
-//  InfrastructureServiceExtensions.cs  ✅ UPDATED
-//  Infrastructure/Extensions/InfrastructureServiceExtensions.cs
-//
-//  التحديثات:
-//  ✅ إضافة SignalR + تسجيل جميع repositories و services الجديدة
-//  ✅ حذف DependencyInjection.cs من API — كل شيء هنا
-// ═══════════════════════════════════════════════════════════════════
-
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -20,6 +11,7 @@ using Municipality360.Application.Interfaces.Services;
 using Municipality360.Application.Services;
 using Municipality360.Domain.Entities;
 using Municipality360.Infrastructure.Data;
+using Municipality360.Infrastructure.Data.Training;
 using Municipality360.Infrastructure.Hubs;
 using Municipality360.Infrastructure.Identity;
 using Municipality360.Infrastructure.Repositories;
@@ -164,26 +156,30 @@ public static class InfrastructureServiceExtensions
         services.AddScoped<ICitoyenAuthService, CitoyenAuthService>();
 
         // ── ML.NET PredictionEnginePool ────────────────────────────────
+        // ✅ FIXED: المسار يُقرأ من TrainingSamples لضمان التناسق
+        var modelPath = TrainingSamples.GetDefaultModelPath();
+
         services.AddPredictionEnginePool<ReclamationMLInput, ReclamationMLOutput>()
                 .FromFile(
                     modelName: "ComplaintClassifier",
-                    filePath: "wwwroot/models/complaint_classifier.zip",
-                    watchForChanges: true);  // يعيد تحميل النموذج تلقائياً عند تحديثه
+                    filePath: modelPath,
+                    watchForChanges: true);  // يُعيد تحميل النموذج تلقائياً عند تحديثه
 
-        // ── OpenAI Options ──────────────────────────────────────────────
+        // ── OpenAI ────────────────────────────────────────────────────
         services.Configure<OpenAIOptions>(
             configuration.GetSection(OpenAIOptions.Section));
 
-        // ── HTTP Client لـ OpenAI ───────────────────────────────────────
         services.AddHttpClient("OpenAI", (sp, client) =>
         {
             var opts = sp.GetRequiredService<IOptions<OpenAIOptions>>().Value;
-            client.DefaultRequestHeaders.Add("Authorization", $"Bearer {opts.ApiKey}");
-            client.DefaultRequestHeaders.Add("User-Agent", "Municipality360/1.0");
+            client.DefaultRequestHeaders.Add(
+                "Authorization", $"Bearer {opts.ApiKey}");
+            client.DefaultRequestHeaders.Add(
+                "User-Agent", "Municipality360/1.0");
             client.Timeout = TimeSpan.FromSeconds(opts.TimeoutSeconds + 5);
         });
 
-        // ── خدمات الذكاء الاصطناعي الداخلية ───────────────────────────
+        // ── AI Services ───────────────────────────────────────────────
         services.AddScoped<MLComplaintClassifier>();
         services.AddScoped<AutoResponseGenerator>();
         services.AddScoped<IComplaintIntelligenceService, ComplaintIntelligenceService>();

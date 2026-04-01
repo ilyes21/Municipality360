@@ -1,6 +1,13 @@
 ﻿// Application/Services/ReclamationService.cs
-// ✅ UPDATED: دمج IComplaintIntelligenceService في DeposerAsync
+// ✅ FIXED:
+//  المشكلة الجذرية: Task.Run يعمل خارج دورة حياة Scoped request
+//  عندما تنتهي الـ HTTP request يُدمَّر الـ Scope ومعه IReclamationRepository
+//  والـ INotificationService — وأي محاولة استخدامهم داخل Task.Run تُلقي استثناءً صامتاً.
+//
+//  الحل: IServiceScopeFactory ينشئ Scope جديداً مستقلاً داخل Task.Run
 
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Municipality360.Application.Common;
 using Municipality360.Application.DTOs.Intelligence;
 using Municipality360.Application.DTOs.Reclamations;
@@ -16,17 +23,20 @@ public class ReclamationService : IReclamationService
     private readonly ISequenceRepository _seq;
     private readonly INotificationService _notif;
     private readonly IComplaintIntelligenceService _intelligence;
+    private readonly IServiceScopeFactory _scopeFactory; // ✅ المفتاح
 
     public ReclamationService(
         IReclamationRepository repo,
         ISequenceRepository seq,
         INotificationService notif,
-        IComplaintIntelligenceService intelligence)
+        IComplaintIntelligenceService intelligence,
+        IServiceScopeFactory scopeFactory)          // ✅ حقن المصنع
     {
         _repo = repo;
         _seq = seq;
         _notif = notif;
         _intelligence = intelligence;
+        _scopeFactory = scopeFactory;
     }
 
     // ════════════════════════════════════════════════════════════
@@ -79,7 +89,7 @@ public class ReclamationService : IReclamationService
         => _repo.GetStatsAsync(serviceId);
 
     // ════════════════════════════════════════════════════════════
-    //  DÉPÔT — ✅ AI PIPELINE INTÉGRÉ
+    //  DÉPÔT — خط أنابيب AI مُصلَح
     // ════════════════════════════════════════════════════════════
 
     public async Task<ReclamationDetailDto> DeposerAsync(
@@ -109,7 +119,7 @@ public class ReclamationService : IReclamationService
 
         await _repo.AddAsync(rec);
 
-        // ── Suivi initial ──────────────────────────────────────────
+        // ── Suivi initial ─────────────────────────────────────────
         bool estParAgent = !string.IsNullOrEmpty(agentId) && agentId != "citoyen";
         bool estMobile = dto.Canal == "Mobile" || dto.Canal == "Web";
 
@@ -150,37 +160,75 @@ public class ReclamationService : IReclamationService
             $"شكوى جديدة {numero} : {dto.Objet}",
             rec.Id.ToString(), "Reclamation");
 
-        // ══ خط أنابيب الذكاء الاصطناعي (fire-and-forget) ══════════
-        // يعمل في الخلفية — لا يُؤخّر رد الـ API على المواطن
-        int capturedId = rec.Id;
+        // ════════════════════════════════════════════════════════
+        //  خط أنابيب الذكاء الاصطناعي
+        //  ✅ IServiceScopeFactory يحل مشكلة Scoped services في Task.Run
+        //  الشرح: كل Scoped service (Repository, NotificationService...)
+        //  مرتبط بـ HTTP request lifetime. عندما ينتهي الـ request تُدمَّر
+        //  هذه الخدمات. Task.Run يعمل بعد انتهاء الـ request لذا يحتاج
+        //  Scope جديداً مستقلاً ينشئه IServiceScopeFactory.
+        // ════════════════════════════════════════════════════════
+
+        // نُثبّت القيم قبل الدخول في Task.Run (لا تُمرَّر مراجع Scoped)
+        int capturedRecId = rec.Id;
+        string capturedNumero = numero;
         int capturedCitoyen = dto.CitoyenId;
         bool capturedAnonyme = dto.EstAnonyme;
-        var capturedClassReq = new ClassificationRequestDto
+        string capturedObjet = dto.Objet;
+        string capturedDesc = dto.Description;
+        string capturedLoc = dto.Localisation ?? string.Empty;
+        string capturedPriorite = dto.Priorite;
+
+        // جلب اسم المواطن قبل الخروج من الـ Scope الحالي
+        string citoyenPrenom;
+        try
         {
-            ReclamationId = capturedId,
-            Objet = dto.Objet,
-            Description = dto.Description,
-            Localisation = dto.Localisation
-        };
-        var capturedRespReq = new AutoResponseRequestDto
+            var citoyen = await _repo.GetByIdAsync(capturedRecId);
+            // نحصل على الشكوى المحفوظة للوصول للمواطن
+            var recWithCitoyen = await _repo.GetByIdWithDetailsAsync(capturedRecId);
+            citoyenPrenom = recWithCitoyen?.Citoyen?.Prenom
+                         ?? recWithCitoyen?.Citoyen?.NomComplet?.Split(' ').FirstOrDefault()
+                         ?? "المواطن";
+        }
+        catch
         {
-            ReclamationId = capturedId,
-            NumeroReclamation = numero,
-            CitoyenPrenom = "المواطن",   // يُحدَّث من DB لاحقاً إن توفّر
-            Objet = dto.Objet,
-            CategoryLabel = string.Empty, // يُحدَّث بنتيجة التصنيف داخل ProcessNewComplaintAsync
-            Priorite = dto.Priorite
+            citoyenPrenom = "المواطن";
+        }
+
+        var classReq = new ClassificationRequestDto
+        {
+            ReclamationId = capturedRecId,
+            Objet = capturedObjet,
+            Description = capturedDesc,
+            Localisation = capturedLoc
         };
 
+        var respReq = new AutoResponseRequestDto
+        {
+            ReclamationId = capturedRecId,
+            NumeroReclamation = capturedNumero,
+            CitoyenPrenom = citoyenPrenom,
+            Objet = capturedObjet,
+            CategoryLabel = string.Empty, // يُحدَّث داخل ProcessNewComplaintAsync
+            Priorite = capturedPriorite
+        };
+
+        // ✅ IServiceScopeFactory.CreateScope() بدل Task.Run مباشرة
         _ = Task.Run(async () =>
         {
+            // Scope مستقل — يعمل حتى بعد انتهاء الـ HTTP request
+            using var scope = _scopeFactory.CreateScope();
+            var scopedRepo = scope.ServiceProvider.GetRequiredService<IReclamationRepository>();
+            var scopedNotif = scope.ServiceProvider.GetRequiredService<INotificationService>();
+            var scopedAI = scope.ServiceProvider.GetRequiredService<IComplaintIntelligenceService>();
+
             try
             {
                 (ClassificationResultDto classification, AutoResponseResultDto autoResponse) =
-                    await _intelligence.ProcessNewComplaintAsync(capturedClassReq, capturedRespReq);
+                    await scopedAI.ProcessNewComplaintAsync(classReq, respReq);
 
-                // ── تحديث حقول الذكاء الاصطناعي في قاعدة البيانات ──
-                var recToUpdate = await _repo.GetByIdAsync(capturedId);
+                // ── تحديث حقول AI في قاعدة البيانات ─────────────
+                var recToUpdate = await scopedRepo.GetByIdAsync(capturedRecId);
                 if (recToUpdate is null) return;
 
                 recToUpdate.AISuggestedCategory = classification.SuggestedCategoryCode;
@@ -191,9 +239,10 @@ public class ReclamationService : IReclamationService
                 recToUpdate.AIClassificationApplied = classification.IsConfident;
                 recToUpdate.AIProcessedAt = DateTime.UtcNow;
 
-                // تطبيق الأولوية تلقائياً إذا كانت الثقة عالية (≥ 70%)
+                // تطبيق الأولوية تلقائياً إذا كانت الثقة ≥ 70%
                 if (classification.IsConfident &&
-                    Enum.TryParse<PrioriteReclamation>(classification.SuggestedPriorite, out var newPrio))
+                    Enum.TryParse<PrioriteReclamation>(
+                        classification.SuggestedPriorite, out var newPrio))
                 {
                     recToUpdate.Priorite = newPrio;
                 }
@@ -205,22 +254,30 @@ public class ReclamationService : IReclamationService
                     recToUpdate.AutoResponseSentAt = DateTime.UtcNow;
                 }
 
-                await _repo.UpdateAsync(recToUpdate);
+                await scopedRepo.UpdateAsync(recToUpdate);
 
-                // ── إشعار المواطن بالرد الرسمي (إن لم يكن مجهولاً) ──
-                if (autoResponse.IsSuccess && !capturedAnonyme)
+                // ── إشعار المواطن بالرد الرسمي ────────────────────
+                if (!capturedAnonyme)
                 {
-                    await _notif.NotifierCitoyenAsync(
+                    var msgToSend = autoResponse.IsSuccess
+                        ? autoResponse.ResponseText
+                        : $"تم استلام شكواكم {capturedNumero} وجارٍ معالجتها.";
+
+                    await scopedNotif.NotifierCitoyenAsync(
                         capturedCitoyen.ToString(),
                         TypeNotification.NouvelleReclamation,
-                        autoResponse.ResponseText,
-                        capturedId.ToString(),
+                        msgToSend,
+                        capturedRecId.ToString(),
                         "Reclamation");
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // الشكوى محفوظة — فشل AI لا يُلغي الحفظ ولا يُظهر خطأ للمواطن
+                // تسجيل الخطأ بدل الإخفاء الصامت
+                var logger = scope.ServiceProvider
+                    .GetRequiredService<ILogger<ReclamationService>>();
+                logger.LogError(ex,
+                    "AI pipeline failed for Reclamation#{Id}", capturedRecId);
             }
         });
 
@@ -567,9 +624,7 @@ public class TypeReclamationService : ITypeReclamationService
         if (await _repo.CodeExistsAsync(dto.Code, id))
             throw new InvalidOperationException($"Le code '{dto.Code}' est déjà utilisé.");
 
-        t.Code = dto.Code;
-        t.Libelle = dto.Libelle;
-        t.Description = dto.Description;
+        t.Code = dto.Code; t.Libelle = dto.Libelle; t.Description = dto.Description;
         t.DelaiTraitementJours = dto.DelaiTraitementJours;
         t.ServiceResponsableId = dto.ServiceResponsableId;
         t.UpdatedAt = DateTime.UtcNow;
@@ -616,7 +671,6 @@ public class CategorieReclamationService : ICategorieReclamationService
     {
         var parents = await _repo.GetHierarchieAsync();
         var flat = new List<CategorieReclamationDto>();
-
         foreach (var p in parents)
         {
             flat.Add(MapToDto(p, includeSubs: false));
@@ -659,22 +713,23 @@ public class CategorieReclamationService : ICategorieReclamationService
         await _repo.DeleteAsync(c);
     }
 
-    private static CategorieReclamationDto MapToDto(CategorieReclamation c, bool includeSubs = true) => new()
-    {
-        Id = c.Id,
-        Code = c.Code,
-        Libelle = c.Libelle,
-        Icone = c.Icone,
-        CouleurHex = c.CouleurHex,
-        ParentId = c.ParentId,
-        ParentLibelle = c.Parent?.Libelle,
-        Niveau = c.Niveau,
-        IsActive = c.IsActive,
-        SousCategories = includeSubs
+    private static CategorieReclamationDto MapToDto(
+        CategorieReclamation c, bool includeSubs = true) => new()
+        {
+            Id = c.Id,
+            Code = c.Code,
+            Libelle = c.Libelle,
+            Icone = c.Icone,
+            CouleurHex = c.CouleurHex,
+            ParentId = c.ParentId,
+            ParentLibelle = c.Parent?.Libelle,
+            Niveau = c.Niveau,
+            IsActive = c.IsActive,
+            SousCategories = includeSubs
             ? c.SousCategories
                 .Where(s => s.IsActive)
                 .Select(s => MapToDto(s, false))
                 .ToList()
             : new List<CategorieReclamationDto>()
-    };
+        };
 }
