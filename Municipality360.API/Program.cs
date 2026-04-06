@@ -1,19 +1,11 @@
-// ═══════════════════════════════════════════════════════════════════
-//  Program.cs  ✅ UPDATED
-//  Municipality360.API/Program.cs
-//
-//  التحديثات:
-//  ✅ حذف DependencyInjection.cs القديم — AddInfrastructure() يفعل كل شيء
-//  ✅ إضافة app.MapHub<NotificationHub>("/hubs/notifications")
-//  ✅ using صحيح: Municipality360.Infrastructure.Hubs
-// ═══════════════════════════════════════════════════════════════════
+
 
 using Microsoft.AspNetCore.Identity;
 using Microsoft.OpenApi.Models;
 using Municipality360.Infrastructure.Data;
 using Municipality360.Infrastructure.Data.Training;
 using Municipality360.Infrastructure.Extensions;
-using Municipality360.Infrastructure.Hubs;          // ✅ FIXED: Infrastructure لا API
+using Municipality360.Infrastructure.Hubs;        
 using Municipality360.Infrastructure.Identity;
 using Municipality360.Infrastructure.Services;
 using Municipality360.Infrastructure.Services.AI;
@@ -139,6 +131,7 @@ using (var scope = app.Services.CreateScope())
 // ── Middleware ────────────────────────────────────────────────────
 if (app.Environment.IsDevelopment())
 {
+    app.MapOpenApi();
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {

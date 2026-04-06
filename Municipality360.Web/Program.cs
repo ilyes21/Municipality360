@@ -12,7 +12,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// HttpClient داخلي لتحميل الموارد (AITranslationService يحتاجه)
+// HttpClient
 builder.Services.AddScoped(sp =>
 {
     var nav = sp.GetRequiredService<NavigationManager>();
