@@ -1,30 +1,3 @@
-// ═══════════════════════════════════════════════════════════════════
-//  ApplicationDbContext.cs  ✅ FIXED
-//  Infrastructure/Data/ApplicationDbContext.cs
-//
-//  إصلاحات EF Core:
-//  ✅ إضافة HasQueryFilter على جميع الـ child entities
-//     التي تربط بـ parent يملك global query filter.
-//     يحل تحذيرات: "Entity X has a global query filter defined
-//     and is the required end of a relationship with entity Y"
-//
-//  Child entities المُصلحة:
-//    BOCircuitTraitement      → filter على CourrierEntrantId
-//    BOPieceJointeEntrant     → filter على CourrierEntrantId
-//    BOPieceJointeSortant     → filter على CourrierSortantId
-//    DocumentPermis           → filter على DemandeId
-//    InspectionPermis         → filter على DemandeId
-//    PermisDelivre            → filter على DemandeId
-//    SuiviPermis              → filter على DemandeId
-//    TaxePermis               → filter على DemandeId
-//    SuiviReclamation         → filter على ReclamationId
-//    PieceJointeReclamation   → filter على ReclamationId
-//
-//  ⚠️ COMMANDE MIGRATION (dans PMC, Default project = Municipality360.Infrastructure):
-//    Add-Migration AddAllModulesV1 -StartupProject Municipality360.API
-//    Update-Database -StartupProject Municipality360.API
-// ═══════════════════════════════════════════════════════════════════
-
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Municipality360.Domain.Entities;
