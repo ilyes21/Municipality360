@@ -121,6 +121,39 @@ public class EmployeService : IEmployeService
         return Result.Success("Employe supprime.");
     }
 
+    public async Task<Result<EmployeDto>> LinkUserAsync(int employeId, string userId)
+    {
+        var employe = await _employeRepo.GetByIdAsync(employeId);
+        if (employe == null)
+            return Result<EmployeDto>.Failure($"Employe avec l'id {employeId} introuvable.");
+
+        // التحقق أن المستخدم غير مرتبط بموظف آخر
+        var existing = await _employeRepo.FindAsync(e => e.UserId == userId && e.Id != employeId);
+        if (existing.Any())
+            return Result<EmployeDto>.Failure("هذا الحساب مرتبط بموظف آخر بالفعل.");
+
+        employe.UserId = userId;
+        employe.UpdatedAt = DateTime.UtcNow;
+        await _employeRepo.UpdateAsync(employe);
+
+        var updated = await _employeRepo.GetByIdWithDetailsAsync(employeId);
+        return Result<EmployeDto>.Success(MapToDto(updated!), "تم ربط الحساب بالموظف بنجاح.");
+    }
+
+    public async Task<Result<EmployeDto>> UnlinkUserAsync(int employeId)
+    {
+        var employe = await _employeRepo.GetByIdAsync(employeId);
+        if (employe == null)
+            return Result<EmployeDto>.Failure($"Employe avec l'id {employeId} introuvable.");
+
+        employe.UserId = null;
+        employe.UpdatedAt = DateTime.UtcNow;
+        await _employeRepo.UpdateAsync(employe);
+
+        var updated = await _employeRepo.GetByIdWithDetailsAsync(employeId);
+        return Result<EmployeDto>.Success(MapToDto(updated!), "تم فك ربط الحساب عن الموظف.");
+    }
+
     private static EmployeDto MapToDto(Employe e) => new()
     {
         Id = e.Id,
@@ -143,6 +176,7 @@ public class EmployeService : IEmployeService
         DepartementNom = e.Service?.Departement?.Nom ?? string.Empty,
         PosteId = e.PosteId,
         PosteTitre = e.Poste?.Titre ?? string.Empty,
+        UserId = e.UserId,
         CreatedAt = e.CreatedAt
     };
 }

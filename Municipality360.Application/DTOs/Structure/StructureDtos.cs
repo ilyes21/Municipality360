@@ -155,7 +155,16 @@ public class EmployeDto
     public string DepartementNom { get; set; } = string.Empty;
     public int PosteId { get; set; }
     public string PosteTitre { get; set; } = string.Empty;
+    public string? UserId { get; set; }         // ✅ الحساب المرتبط
+    public bool HasAccount => !string.IsNullOrEmpty(UserId);
     public DateTime CreatedAt { get; set; }
+}
+
+// ── ربط / فك ربط حساب بموظف ────────────────────────────────────
+public class LinkUserDto
+{
+    [Required]
+    public string UserId { get; set; } = string.Empty;
 }
 
 public class CreateEmployeDto

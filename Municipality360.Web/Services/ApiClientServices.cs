@@ -4,6 +4,9 @@ using Municipality360.Application.DTOs.Structure;
 
 namespace Municipality360.Web.Services;
 
+// ── DTO محلي للربط (يطابق LinkUserDto في الـ Application) ─────────
+file record LinkUserDto(string UserId);
+
 // ======================== AUTH ========================
 public interface IAuthApiService
 {
@@ -138,6 +141,8 @@ public interface IEmployeApiService
     Task<Result<EmployeDto>?> CreateAsync(CreateEmployeDto dto);
     Task<Result<EmployeDto>?> UpdateAsync(int id, UpdateEmployeDto dto);
     Task<bool> DeleteAsync(int id);
+    Task<Result<EmployeDto>?> LinkUserAsync(int employeId, string userId);
+    Task<Result<EmployeDto>?> UnlinkUserAsync(int employeId);
 }
 
 public class EmployeApiService : IEmployeApiService
@@ -165,6 +170,16 @@ public class EmployeApiService : IEmployeApiService
         await _api.PutAsync<UpdateEmployeDto, Result<EmployeDto>>($"api/employes/{id}", dto);
 
     public async Task<bool> DeleteAsync(int id) => await _api.DeleteAsync($"api/employes/{id}");
+
+    public async Task<Result<EmployeDto>?> LinkUserAsync(int employeId, string userId) =>
+        await _api.PatchAsync<LinkUserDto, Result<EmployeDto>>(
+            $"api/employes/{employeId}/link-user",
+            new LinkUserDto(userId));
+
+    public async Task<Result<EmployeDto>?> UnlinkUserAsync(int employeId) =>
+        await _api.DeleteAsync($"api/employes/{employeId}/link-user")
+            ? await _api.GetAsync<Result<EmployeDto>>($"api/employes/{employeId}")
+            : null;
 }
 
 // ======================== USERS – إدارة كاملة ========================

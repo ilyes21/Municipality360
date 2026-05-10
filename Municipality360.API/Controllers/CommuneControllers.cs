@@ -15,6 +15,7 @@ using Municipality360.Application.DTOs.Notifications;
 using Municipality360.Application.DTOs.PermisBatir;
 using Municipality360.Application.DTOs.Reclamations;
 using Municipality360.Application.DTOs.Structure;
+using Municipality360.Application.DTOs.Identity;
 using Municipality360.Application.Interfaces.Services;
 using Municipality360.Domain.Entities;
 using Municipality360.Infrastructure.Data;
@@ -226,6 +227,25 @@ public class EmployesController : ControllerBase
     public async Task<IActionResult> Delete(int id)
     {
         var result = await _service.DeleteAsync(id);
+        return result.Succeeded ? Ok(result) : BadRequest(result);
+    }
+
+    /// <summary>ربط حساب مستخدم بموظف — PATCH api/employes/{id}/link-user</summary>
+    [HttpPatch("{id:int}/link-user")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    public async Task<IActionResult> LinkUser(int id, [FromBody] LinkUserDto dto)
+    {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+        var result = await _service.LinkUserAsync(id, dto.UserId);
+        return result.Succeeded ? Ok(result) : BadRequest(result);
+    }
+
+    /// <summary>فك ربط الحساب عن الموظف — DELETE api/employes/{id}/link-user</summary>
+    [HttpDelete("{id:int}/link-user")]
+    [Authorize(Roles = "SuperAdmin,Admin")]
+    public async Task<IActionResult> UnlinkUser(int id)
+    {
+        var result = await _service.UnlinkUserAsync(id);
         return result.Succeeded ? Ok(result) : BadRequest(result);
     }
 }
@@ -780,7 +800,7 @@ public class ReclamationsController : ControllerBase
     private readonly IReclamationService _service;
     public ReclamationsController(IReclamationService service) => _service = service;
 
-    private string UserId   => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+    private string UserId => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
     private string UserName => $"{User.FindFirstValue("firstName")} {User.FindFirstValue("lastName")}".Trim();
 
     [HttpGet]
@@ -1023,7 +1043,7 @@ public class PermisBatirController : ControllerBase
     private readonly IDemandePermisBatirService _service;
     public PermisBatirController(IDemandePermisBatirService service) => _service = service;
 
-    private string UserId   => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+    private string UserId => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
     private string UserName => $"{User.FindFirstValue("firstName")} {User.FindFirstValue("lastName")}".Trim();
 
     [HttpGet]

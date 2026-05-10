@@ -76,6 +76,8 @@ public interface IEmployeService
     Task<Result<EmployeDto>> CreateAsync(CreateEmployeDto dto);
     Task<Result<EmployeDto>> UpdateAsync(int id, UpdateEmployeDto dto);
     Task<Result> DeleteAsync(int id);
+    Task<Result<EmployeDto>> LinkUserAsync(int employeId, string userId);
+    Task<Result<EmployeDto>> UnlinkUserAsync(int employeId);
 }
 
 // ── Bureau d'Ordre ────────────────────────────────────────────────

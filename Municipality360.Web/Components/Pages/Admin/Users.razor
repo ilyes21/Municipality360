@@ -2,6 +2,7 @@
 @using Microsoft.AspNetCore.Authorization
 @using System.Security.Claims
 @using Municipality360.Application.DTOs.Identity
+@using Municipality360.Application.DTOs.Structure
 @using Municipality360.Web.Services
 @attribute [Authorize(Roles = "SuperAdmin,Admin")]
 @layout Municipality360.Web.Components.Layout.MainLayout
@@ -1131,6 +1132,206 @@
         padding: 0 .35rem;
         margin-right: .2rem;
     }
+
+    /* ══ Employe picker ══════════════════════════════════════════ */
+    .emp-search-wrap { position: relative; }
+
+    .emp-dropdown {
+        position: absolute; top: calc(100% + 4px); right: 0; left: 0;
+        background: #fff; border: 1.5px solid #7c3aed; border-radius: 10px;
+        box-shadow: 0 8px 24px rgba(0,0,0,.12); max-height: 200px;
+        overflow-y: auto; z-index: 999;
+    }
+
+    .emp-item {
+        padding: .52rem .85rem; cursor: pointer; transition: background .12s;
+        border-bottom: 1px solid #f8fafc; font-size: .84rem;
+    }
+    .emp-item:last-child { border-bottom: none; }
+    .emp-item:hover { background: #f5f3ff; }
+    .emp-item-name { font-weight: 700; color: #0f172a; }
+    .emp-item-meta { font-size: .7rem; color: #94a3b8; margin-top: .1rem; }
+
+    .emp-selected-card {
+        background: #f5f3ff; border: 1.5px solid #c4b5fd; border-radius: 10px;
+        padding: .6rem .85rem; display: flex; align-items: center;
+        justify-content: space-between; gap: .5rem;
+    }
+    .emp-sel-info { font-size: .84rem; font-weight: 700; color: #5b21b6; }
+    .emp-sel-meta { font-size: .7rem; color: #7c3aed; margin-top: .1rem; }
+    .emp-clear {
+        background: none; border: none; color: #a78bfa; cursor: pointer;
+        padding: .15rem .3rem; font-size: .82rem; border-radius: 6px;
+        transition: all .12s; flex-shrink: 0;
+    }
+    .emp-clear:hover { background: #ede9fe; color: #7c3aed; }
+    .emp-no-result { padding: .65rem .85rem; color: #94a3b8; font-size: .82rem; text-align: center; }
+    .emp-loading {
+        padding: .65rem .85rem; color: #94a3b8; font-size: .82rem;
+        text-align: center; display: flex; align-items: center;
+        justify-content: center; gap: .4rem;
+    }
+
+    .mode-tabs { display: flex; gap: .4rem; margin-bottom: .85rem; }
+    .mode-tab {
+        flex: 1; padding: .45rem; border: 1.5px solid #e2e8f0; border-radius: 9px;
+        font-family: 'Tajawal', sans-serif; font-size: .8rem; font-weight: 700;
+        cursor: pointer; background: #f8fafc; color: #64748b;
+        transition: all .14s; text-align: center;
+    }
+    .mode-tab.active {
+        background: linear-gradient(135deg,#7c3aed,#a855f7); color: #fff;
+        border-color: transparent; box-shadow: 0 3px 10px rgba(124,58,237,.25);
+    }
+
+    /* ══ Fullscreen Perms Overlay ════════════════════════════════ */
+    .fs-overlay {
+        position: fixed; inset: 0; z-index: 9999;
+        background: #f8fafc;
+        display: flex; flex-direction: column;
+        animation: fsIn .2s ease;
+    }
+    @@keyframes fsIn {
+        from { opacity: 0; transform: translateY(12px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .fs-topbar {
+        background: linear-gradient(135deg, #0d1b2a 0%, #1a2f4e 50%, #2d1b69 100%);
+        padding: .85rem 1.5rem;
+        display: flex; align-items: center; gap: .9rem;
+        flex-shrink: 0;
+        box-shadow: 0 2px 12px rgba(0,0,0,.25);
+    }
+    .fs-topbar-ico {
+        width: 38px; height: 38px; border-radius: 10px;
+        background: rgba(255,255,255,.12);
+        display: flex; align-items: center; justify-content: center;
+        color: #fff; font-size: 1rem; flex-shrink: 0;
+    }
+    .fs-topbar-title {
+        font-size: 1.05rem; font-weight: 900; color: #fff; flex: 1;
+    }
+    .fs-topbar-sub {
+        font-size: .72rem; color: rgba(255,255,255,.5); margin-top: .08rem;
+    }
+    .fs-close {
+        background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.15);
+        color: #fff; border-radius: 10px; padding: .45rem .9rem;
+        font-family: 'Tajawal', sans-serif; font-size: .82rem; font-weight: 700;
+        cursor: pointer; display: flex; align-items: center; gap: .35rem;
+        transition: background .15s;
+    }
+    .fs-close:hover { background: rgba(255,255,255,.2); }
+
+    .fs-toolbar {
+        background: #fff; border-bottom: 1px solid #f1f5f9;
+        padding: .6rem 1.5rem;
+        display: flex; align-items: center; gap: .75rem; flex-wrap: wrap;
+        flex-shrink: 0;
+    }
+    .fs-search {
+        flex: 1; min-width: 180px; max-width: 320px;
+        height: 36px; padding: 0 .8rem 0 2.1rem;
+        border: 1.5px solid #e2e8f0; border-radius: 9px;
+        font-family: 'Tajawal', sans-serif; font-size: .83rem;
+        outline: none; color: #0f172a;
+        background: #f8fafc url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") no-repeat .65rem center;
+        transition: border-color .14s, box-shadow .14s;
+    }
+    .fs-search:focus { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,.08); background-color: #fff; }
+
+    .fs-legend {
+        display: flex; align-items: center; gap: 1.1rem;
+        font-size: .72rem; color: #64748b; margin-right: auto;
+    }
+    .legend-item { display: flex; align-items: center; gap: .28rem; }
+
+    .fs-body {
+        flex: 1; overflow: auto; padding: 1.1rem 1.5rem 1.5rem;
+    }
+
+    /* ── Role header chips ──────────────────────────────────── */
+    .pm-wrap {
+        background: #fff; border-radius: 16px;
+        border: 1px solid #f1f5f9;
+        box-shadow: 0 2px 12px rgba(0,0,0,.06);
+        overflow: hidden;
+    }
+    .pm-table {
+        width: 100%; border-collapse: collapse;
+        font-size: .8rem;
+    }
+    .pm-table thead tr {
+        background: linear-gradient(135deg,#0f172a,#1e293b);
+    }
+    .pm-table thead th {
+        padding: .7rem .6rem; text-align: center;
+        font-weight: 700; font-size: .72rem;
+        border-left: 1px solid rgba(255,255,255,.07);
+        white-space: nowrap; color: rgba(255,255,255,.75);
+    }
+    .pm-table thead th:first-child {
+        text-align: right; padding-right: 1rem;
+        min-width: 175px; border-left: none;
+        color: rgba(255,255,255,.55); font-weight: 600;
+    }
+    .pm-table thead th .rh-chip {
+        display: inline-flex; flex-direction: column; align-items: center;
+        gap: .18rem;
+    }
+    .pm-table thead th .rh-ico {
+        width: 26px; height: 26px; border-radius: 7px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: .7rem; margin: 0 auto .1rem;
+    }
+    .pm-table thead th .rh-lbl { font-size: .63rem; }
+
+    /* ── Category row ───────────────────────────────────────── */
+    .pm-cat {
+        background: #f8fafc;
+        border-top: 2px solid #e2e8f0;
+    }
+    .pm-cat td {
+        padding: .42rem 1rem; font-size: .72rem; font-weight: 800;
+        color: #64748b; letter-spacing: .04em; text-transform: uppercase;
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    /* ── Data row ───────────────────────────────────────────── */
+    .pm-table tbody tr.pm-row {
+        border-bottom: 1px solid #f8fafc;
+        transition: background .1s;
+    }
+    .pm-table tbody tr.pm-row:hover { background: #fafbff; }
+    .pm-table tbody tr.pm-row td:first-child {
+        padding: .55rem 1rem .55rem .8rem;
+        font-weight: 600; color: #334155;
+        text-align: right;
+        border-left: 3px solid transparent;
+    }
+    .pm-table tbody tr.pm-row td {
+        text-align: center; padding: .5rem .3rem;
+        border-left: 1px solid #f8fafc;
+    }
+
+    /* ── Check / X icons ────────────────────────────────────── */
+    .pyes { color: #22c55e; font-size: .88rem; }
+    .pno  { color: #e2e8f0; font-size: .75rem; }
+    .phalf { color: #f59e0b; font-size: .82rem; }
+
+    /* ── Hidden row ─────────────────────────────────────────── */
+    .pm-hidden { display: none; }
+
+    /* ── Stats footer ───────────────────────────────────────── */
+    .fs-footer {
+        background: #fff; border-top: 1px solid #f1f5f9;
+        padding: .55rem 1.5rem;
+        display: flex; align-items: center; gap: 1rem;
+        flex-wrap: wrap; flex-shrink: 0;
+    }
+    .fs-footer-stat { font-size: .73rem; color: #94a3b8; }
+    .fs-footer-stat b { color: #334155; }
 </style>
 
 <div class="pu-wrap">
@@ -1360,48 +1561,180 @@
 @if (ShowAdd)
 {
     <div class="mbk" @onclick="() => ShowAdd = false">
-        <div class="mbox" @onclick:stopPropagation="true" style="max-width:540px;" dir="rtl">
+        <div class="mbox" @onclick:stopPropagation="true" style="max-width:560px;" dir="rtl">
             <div class="mhead"><i class="bi bi-person-plus-fill" style="color:#7c3aed;"></i>إضافة مستخدم جديد</div>
+
             @if (!string.IsNullOrEmpty(FErr))
             {
                 <div class="aerr"><i class="bi bi-exclamation-circle-fill"></i> @FErr</div>
             }
-            <div class="fg2">
-                <div class="fg"><label class="fl">الاسم *</label><input class="fc" @bind="FA" placeholder="الاسم" /></div>
-                <div class="fg"><label class="fl">اللقب *</label><input class="fc" @bind="FB" placeholder="اللقب" /></div>
+
+            <!-- ── اختيار طريقة الإدخال ── -->
+            <div class="mode-tabs">
+                <button class="mode-tab @(AddMode == "employe" ? "active" : "")"
+                        @onclick='() => { AddMode = "employe"; ResetEmployeSelection(); }'>
+                    <i class="bi bi-person-badge"></i> ربط بموظف موجود
+                </button>
+                <button class="mode-tab @(AddMode == "manual" ? "active" : "")"
+                        @onclick='() => { AddMode = "manual"; ResetEmployeSelection(); }'>
+                    <i class="bi bi-keyboard"></i> إدخال يدوي
+                </button>
             </div>
-            <div class="fg">
-                <label class="fl">البريد الإلكتروني *</label>
-                <input class="fc" type="email" @bind="FC" placeholder="user@municipality360.dz" />
-            </div>
-            <div class="fg">
-                <label class="fl">كلمة المرور *</label>
-                <input class="fc" type="password" @bind="FD" placeholder="••••••••" />
-                <div class="hint">8 أحرف على الأقل · حرف كبير · رقم · رمز خاص (مثال: Admin@2025)</div>
-            </div>
-            <div class="fg">
-                <label class="fl">الدور الرئيسي *</label>
-                <div class="role-grid">
-                    @foreach (var r in AllRoles)
+
+            <!-- ══ وضع ربط موظف ══ -->
+            @if (AddMode == "employe")
+            {
+                <div class="fg">
+                    <label class="fl">بحث عن موظف <span style="color:#ef4444;">*</span></label>
+                    @if (SelEmploye != null)
                     {
-                        var rr = r;
-                        <div class="rchip @(FRole == rr ? "rsel rc-" + rr : "")" @onclick="() => FRole = rr">
-                            <span class="rchip-dot"></span>
-                            <i class="bi @RoleIco(rr)"></i>
-                            @RoleAr(rr)
+                        <!-- بطاقة الموظف المختار -->
+                        <div class="emp-selected-card">
+                            <div>
+                                <div class="emp-sel-info"><i class="bi bi-person-check-fill"></i> @SelEmploye.NomComplet</div>
+                                <div class="emp-sel-meta">
+                                    @SelEmploye.PosteTitre — @SelEmploye.ServiceNom · @SelEmploye.DepartementNom
+                                    @if (!string.IsNullOrEmpty(SelEmploye.Email))
+                                    { <span> · @SelEmploye.Email</span> }
+                                </div>
+                                @if (SelEmploye.HasAccount)
+                                {
+                                    <div style="margin-top:.35rem;font-size:.72rem;color:#dc2626;font-weight:700;">
+                                        <i class="bi bi-exclamation-triangle-fill"></i> هذا الموظف لديه حساب مستخدم مرتبط مسبقاً
+                                    </div>
+                                }
+                            </div>
+                            <button class="emp-clear" @onclick="ResetEmployeSelection" title="إلغاء الاختيار">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
                         </div>
                     }
+                    else
+                    {
+                        <div class="emp-search-wrap">
+                            <input class="fc" placeholder="ابحث بالاسم أو الرقم التعريفي أو CIN..."
+                                   value="@EmpSearch"
+                                   @oninput="OnEmpInput"
+                                   @onfocus="() => ShowEmpDrop = true"
+                                   @onblur="HideEmpDropDelayed"
+                                   autocomplete="off" />
+                            @if (ShowEmpDrop)
+                            {
+                                <div class="emp-dropdown">
+                                    @if (EmpSearching)
+                                    {
+                                        <div class="emp-loading">
+                                            <div class="spinner-border spinner-border-sm" style="color:#7c3aed;width:.75rem;height:.75rem;border-width:2px;"></div>
+                                            <span>جاري البحث...</span>
+                                        </div>
+                                    }
+                                    else if (!EmpResults.Any())
+                                    {
+                                        <div class="emp-no-result">
+                                            <i class="bi bi-search"></i>
+                                            @(string.IsNullOrWhiteSpace(EmpSearch) ? "اكتب للبحث عن موظف..." : "لا توجد نتائج مطابقة")
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        @foreach (var emp in EmpResults)
+                                        {
+                                            var e = emp;
+                                            <div class="emp-item" @onmousedown="() => SelectEmploye(e)">
+                                                <div class="emp-item-name">
+                                                    @e.NomComplet
+                                                    <span style="color:#94a3b8;font-weight:400;font-size:.73rem;">· @e.Identifiant</span>
+                                                    @if (e.HasAccount)
+                                                    {
+                                                        <span style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;border-radius:4px;font-size:.63rem;font-weight:700;padding:.05rem .3rem;margin-right:.3rem;">
+                                                            <i class="bi bi-link-45deg"></i> مرتبط
+                                                        </span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span style="background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;border-radius:4px;font-size:.63rem;font-weight:700;padding:.05rem .3rem;margin-right:.3rem;">
+                                                            <i class="bi bi-person-plus"></i> متاح
+                                                        </span>
+                                                    }
+                                                </div>
+                                                <div class="emp-item-meta">@e.PosteTitre — @e.ServiceNom · @e.DepartementNom</div>
+                                            </div>
+                                        }
+                                    }
+                                </div>
+                            }
+                        </div>
+                        <div class="hint">سيتم ملء الاسم والبريد تلقائياً من بيانات الموظف</div>
+                    }
                 </div>
-                <div class="hint">سيتم تعيين أدوار إضافية لاحقاً عبر "إدارة الأدوار"</div>
-            </div>
+
+                @if (SelEmploye != null)
+                {
+                    <!-- عرض البيانات المستوردة للمراجعة -->
+                    <div class="fg2">
+                        <div class="fg">
+                            <label class="fl">الاسم</label>
+                            <input class="fc" @bind="FA" />
+                        </div>
+                        <div class="fg">
+                            <label class="fl">اللقب</label>
+                            <input class="fc" @bind="FB" />
+                        </div>
+                    </div>
+                    <div class="fg">
+                        <label class="fl">البريد الإلكتروني <span style="color:#ef4444;">*</span></label>
+                        <input class="fc" type="email" @bind="FC" placeholder="user@municipality360.dz" />
+                        @if (string.IsNullOrEmpty(SelEmploye.Email))
+                        {
+                            <div class="hint" style="color:#f59e0b;"><i class="bi bi-exclamation-triangle"></i> الموظف لا يملك بريداً إلكترونياً — أدخله يدوياً</div>
+                        }
+                    </div>
+                }
+            }
+
+            <!-- ══ وضع الإدخال اليدوي ══ -->
+            @if (AddMode == "manual")
+            {
+                <div class="fg2">
+                    <div class="fg"><label class="fl">الاسم <span style="color:#ef4444;">*</span></label><input class="fc" @bind="FA" placeholder="الاسم" /></div>
+                    <div class="fg"><label class="fl">اللقب <span style="color:#ef4444;">*</span></label><input class="fc" @bind="FB" placeholder="اللقب" /></div>
+                </div>
+                <div class="fg">
+                    <label class="fl">البريد الإلكتروني <span style="color:#ef4444;">*</span></label>
+                    <input class="fc" type="email" @bind="FC" placeholder="user@municipality360.dz" />
+                </div>
+            }
+
+            <!-- ══ كلمة المرور (مشتركة بين الوضعين) ══ -->
+            @if (AddMode == "manual" || SelEmploye != null)
+            {
+                <div class="fg">
+                    <label class="fl">كلمة المرور <span style="color:#ef4444;">*</span></label>
+                    <input class="fc" type="password" @bind="FD" placeholder="••••••••" />
+                    <div class="hint">8 أحرف على الأقل · حرف كبير · رقم · رمز خاص (مثال: Admin@2025)</div>
+                </div>
+                <div class="fg">
+                    <label class="fl">الدور الرئيسي <span style="color:#ef4444;">*</span></label>
+                    <div class="role-grid">
+                        @foreach (var r in AllRoles)
+                        {
+                            var rr = r;
+                            <div class="rchip @(FRole == rr ? "rsel rc-" + rr : "")" @onclick="() => FRole = rr">
+                                <span class="rchip-dot"></span>
+                                <i class="bi @RoleIco(rr)"></i>
+                                @RoleAr(rr)
+                            </div>
+                        }
+                    </div>
+                    <div class="hint">سيتم تعيين أدوار إضافية لاحقاً عبر "إدارة الأدوار"</div>
+                </div>
+            }
+
             <div class="mfoot">
                 <button class="btn btn-ghost" @onclick="() => ShowAdd = false">إلغاء</button>
                 <button class="btn btn-primary" @onclick="DoAdd" disabled="@Busy">
-                    @if (Busy)
-                    {
-                        <span class="spin"></span>
-                    }
-     إنشاء الحساب
+                    @if (Busy) { <span class="spin"></span> }
+                    إنشاء الحساب
                 </button>
             </div>
         </div>
@@ -1781,6 +2114,7 @@
 @code {
     // ── DI ─────────────────────────────────────────────────────
     [Inject] IUserApiService UserSvc { get; set; } = null!;
+    [Inject] IEmployeApiService EmployeSvc { get; set; } = null!;
     [Inject] AuthenticationStateProvider AuthSP { get; set; } = null!;
 
     // ── Data ────────────────────────────────────────────────────
@@ -1806,6 +2140,17 @@
 
     // ── Add form ────────────────────────────────────────────────
     private string FA = "", FB = "", FC = "", FD = "", FRole = "Employee", FErr = "";
+
+    // ── Add mode: "employe" | "manual" ──────────────────────────
+    private string AddMode = "employe";
+
+    // ── Employe picker ──────────────────────────────────────────
+    private string EmpSearch = "";
+    private bool ShowEmpDrop = false;
+    private bool EmpSearching = false;
+    private EmployeDto? SelEmploye = null;
+    private List<EmployeDto> EmpResults = new();
+    private System.Threading.CancellationTokenSource? _empCts;
 
     // ── Reset pwd ───────────────────────────────────────────────
     private string P1 = "", P2 = "";
@@ -1903,27 +2248,168 @@
     }
 
     // ── Open modals ───────────────────────────────────────────────
-    private void OpenAdd() { FA = ""; FB = ""; FC = ""; FD = ""; FRole = "Employee"; FErr = ""; ShowAdd = true; }
+    private void OpenAdd()
+    {
+        FA = ""; FB = ""; FC = ""; FD = ""; FRole = "Employee"; FErr = "";
+        AddMode = "employe";
+        ResetEmployeSelection();
+        ShowAdd = true;
+    }
     private void OpenDetail(UserDetailDto u) => DetailU = u;
     private void OpenDelete(UserDetailDto u) { SelU = u; ShowDel = true; }
     private void OpenResetPwd(UserDetailDto u) { SelU = u; P1 = ""; P2 = ""; FErr = ""; ShowReset = true; }
     private void OpenRolesMgr(UserDetailDto u) { RUser = u; ROk = ""; RErr = ""; ShowRoles = true; }
     private void ConfirmOff(UserDetailDto u) { SelU = u; ShowToggleConf = true; }
 
+    // ── Employe picker logic ──────────────────────────────────────
+    private void ResetEmployeSelection()
+    {
+        SelEmploye = null;
+        EmpSearch = "";
+        EmpResults = new();
+        ShowEmpDrop = false;
+    }
+
+    private async Task OnEmpInput(ChangeEventArgs e)
+    {
+        EmpSearch = e.Value?.ToString() ?? "";
+        await SearchEmployes();
+    }
+
+    private async Task SearchEmployes()
+    {
+        _empCts?.Cancel();
+        _empCts = new System.Threading.CancellationTokenSource();
+        var cts = _empCts;
+
+        if (string.IsNullOrWhiteSpace(EmpSearch))
+        {
+            EmpResults = new();
+            EmpSearching = false;
+            StateHasChanged();
+            return;
+        }
+
+        EmpSearching = true; StateHasChanged();
+
+        try
+        {
+            await Task.Delay(280, cts.Token); // debounce
+            if (cts.IsCancellationRequested) return;
+
+            var filter = new EmployeFilterDto
+            {
+                SearchTerm = EmpSearch.Trim(),
+                PageNumber = 1,
+                PageSize = 10
+            };
+            var result = await EmployeSvc.GetPagedAsync(filter);
+            if (!cts.IsCancellationRequested)
+                EmpResults = result?.Data?.Items?.ToList() ?? new();
+        }
+        catch (TaskCanceledException) { }
+        finally
+        {
+            if (!cts.IsCancellationRequested)
+            {
+                EmpSearching = false;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private void SelectEmploye(EmployeDto emp)
+    {
+        SelEmploye = emp;
+        ShowEmpDrop = false;
+        // ملء الحقول تلقائياً من بيانات الموظف
+        FA = emp.Prenom;
+        FB = emp.Nom;
+        FC = emp.Email ?? "";
+        StateHasChanged();
+    }
+
+    private async Task HideEmpDropDelayed()
+    {
+        await Task.Delay(180);
+        ShowEmpDrop = false;
+        StateHasChanged();
+    }
+
     // ── DoAdd — POST api/auth/users ───────────────────────────────
     private async Task DoAdd()
     {
+        // التحقق بحسب الوضع
+        if (AddMode == "employe" && SelEmploye == null)
+        { FErr = "يرجى اختيار موظف أو التبديل إلى الإدخال اليدوي."; return; }
+
         if (string.IsNullOrWhiteSpace(FA)) { FErr = "الاسم مطلوب."; return; }
         if (string.IsNullOrWhiteSpace(FB)) { FErr = "اللقب مطلوب."; return; }
         if (string.IsNullOrWhiteSpace(FC)) { FErr = "البريد الإلكتروني مطلوب."; return; }
         if (string.IsNullOrWhiteSpace(FD)) { FErr = "كلمة المرور مطلوبة."; return; }
         if (FD.Length < 8) { FErr = "كلمة المرور 8 أحرف على الأقل."; return; }
+
+        // التحقق أن الموظف غير مرتبط بحساب آخر
+        if (AddMode == "employe" && SelEmploye!.HasAccount)
+        { FErr = $"الموظف {SelEmploye.NomComplet} مرتبط بحساب مستخدم آخر بالفعل."; return; }
+
         Busy = true; FErr = "";
+
+        // ── خطوة 1: إنشاء الحساب ──────────────────────────────────
         var r = await UserSvc.RegisterAsync(new RegisterDto
-        { FirstName = FA.Trim(), LastName = FB.Trim(), Email = FC.Trim(), Password = FD, Role = FRole });
+        {
+            FirstName = FA.Trim(),
+            LastName = FB.Trim(),
+            Email = FC.Trim(),
+            Password = FD,
+            Role = FRole
+        });
+
+        if (r?.Succeeded != true)
+        {
+            Busy = false;
+            FErr = r?.Errors?.FirstOrDefault() ?? "حدث خطأ. تحقق من متطلبات كلمة المرور.";
+            return;
+        }
+
+        // ── خطوة 2: ربط الحساب بالموظف (إن وُجد) ─────────────────
+        if (AddMode == "employe" && SelEmploye != null)
+        {
+            var newUserId = r.Data?.Token is not null
+                ? await GetUserIdFromEmailAsync(FC.Trim())
+                : null;
+
+            if (!string.IsNullOrEmpty(newUserId))
+            {
+                var linkResult = await EmployeSvc.LinkUserAsync(SelEmploye.Id, newUserId);
+                if (linkResult?.Succeeded != true)
+                {
+                    // الحساب أُنشئ لكن الربط فشل — نُبلغ المستخدم دون عرقلة
+                    Busy = false;
+                    ShowAdd = false;
+                    Flash($"✓ تم إنشاء الحساب لكن فشل الربط التلقائي بالموظف — يمكنك ربطه يدوياً.");
+                    await Load();
+                    return;
+                }
+            }
+        }
+
         Busy = false;
-        if (r?.Succeeded == true) { ShowAdd = false; Flash($"✓ تم إنشاء حساب {FA} {FB}."); await Load(); }
-        else FErr = r?.Errors?.FirstOrDefault() ?? "حدث خطأ. تحقق من متطلبات كلمة المرور.";
+        ShowAdd = false;
+        var name = $"{FA} {FB}";
+        var extra = AddMode == "employe" ? $" ومُرتبط بالموظف {SelEmploye!.NomComplet}" : "";
+        Flash($"✓ تم إنشاء حساب {name}{extra}.");
+        await Load();
+    }
+
+    /// <summary>
+    /// يجلب userId للمستخدم المُنشأ حديثاً عن طريق البريد الإلكتروني
+    /// </summary>
+    private async Task<string?> GetUserIdFromEmailAsync(string email)
+    {
+        var users = await UserSvc.GetAllDetailAsync();
+        return users?.Data?.FirstOrDefault(u =>
+            string.Equals(u.Email, email, StringComparison.OrdinalIgnoreCase))?.Id;
     }
 
     // ── DoDel — DELETE api/auth/users/{id} ────────────────────────
@@ -2069,10 +2555,10 @@
         "Manager" => "مشرف",
         "Employee" => "موظف",
         "Finances" => "المالية",
-        "Urbanisme" => "التعمير",
+        "Urbanisme" => "رخص البناء والتعمير",
         "EtatCivil" => "الحالة المدنية",
         "SIG" => "نظام GIS",
-        "BureauOrdre" => "مكتب الأوامر",
+        "BureauOrdre" => "مكتب الظبط",
         "Reclamations" => "الشكاوى",
         "Nettoyage" => "النظافة",
         "Stock" => "المخزون",

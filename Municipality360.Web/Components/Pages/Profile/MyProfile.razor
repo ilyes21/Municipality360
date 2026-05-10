@@ -1,298 +1,752 @@
 @page "/profile"
 @using System.Security.Claims
 @using Municipality360.Application.DTOs.Identity
+@using Municipality360.Application.DTOs.Structure
 @using Municipality360.Web.Services
 @layout Municipality360.Web.Components.Layout.MainLayout
+@attribute [Authorize]
 
 <PageTitle>الملف الشخصي — Municipality360</PageTitle>
 
 <style>
-@@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;600;700;800;900&display=swap');
-*{box-sizing:border-box;font-family:'Tajawal',sans-serif;}
+@@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;600;700;800;900&display=swap');
+*, *::before, *::after { box-sizing: border-box; font-family: 'Tajawal', sans-serif; }
 
-/* ══ Page wrapper ═══════════════════════════════════════════ */
-.profile-wrap{max-width:720px;margin:0 auto;direction:rtl;}
+/* ══ Page Reset — يملأ الشاشة بالكامل ═══════════════════════ */
+.prof-root {
+    direction: rtl;
+    min-height: 100vh;
+    background: #f1f5f9;
+    display: flex;
+    flex-direction: column;
+}
 
-/* ══ Hero card ══════════════════════════════════════════════ */
-.hero{background:linear-gradient(145deg,#0d1b2a 0%,#1e293b 60%,#0f2744 100%);
-      border-radius:18px;padding:2rem 2rem 1.6rem;margin-bottom:1.5rem;
-      position:relative;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.18);}
-.hero::before{content:'';position:absolute;inset:0;pointer-events:none;
-              background:radial-gradient(ellipse at 80% 20%,rgba(14,165,233,.12) 0%,transparent 60%);}
-.hero-inner{position:relative;z-index:1;display:flex;align-items:center;gap:1.35rem;flex-wrap:wrap;}
+/* ══ Cover ═══════════════════════════════════════════════════ */
+.prof-cover {
+    height: 210px;
+    background: linear-gradient(135deg, #0d1b2a 0%, #1a2f4e 45%, #2d1b69 100%);
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.prof-cover::before {
+    content: '';
+    position: absolute; inset: 0;
+    background:
+        radial-gradient(ellipse at 25% 60%, rgba(124,58,237,.28) 0%, transparent 55%),
+        radial-gradient(ellipse at 80% 15%, rgba(14,165,233,.18) 0%, transparent 50%);
+}
+.prof-cover-grid {
+    position: absolute; inset: 0;
+    background-image:
+        linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+}
+.prof-cover-label {
+    position: absolute;
+    bottom: 1rem; right: 1.8rem;
+    color: rgba(255,255,255,.22);
+    font-size: .68rem; font-weight: 700;
+    letter-spacing: .14em; text-transform: uppercase;
+}
 
-/* ══ Avatar ═════════════════════════════════════════════════ */
-.av-big{width:68px;height:68px;border-radius:16px;display:flex;align-items:center;
-        justify-content:center;font-size:1.55rem;font-weight:900;color:#fff;flex-shrink:0;
-        box-shadow:0 4px 18px rgba(0,0,0,.25);}
-.hero-info{flex:1;}
-.hero-name{font-size:1.25rem;font-weight:900;color:#e2e8f0;line-height:1.25;}
-.hero-email{font-size:.78rem;color:#475569;margin-top:.18rem;direction:ltr;text-align:right;}
-.hero-tags{display:flex;flex-wrap:wrap;gap:.28rem;margin-top:.55rem;}
-.rtag{display:inline-flex;align-items:center;gap:.2rem;border-radius:5px;padding:.14rem .45rem;
-      font-size:.66rem;font-weight:700;border:1px solid transparent;}
-.r-SuperAdmin   {background:linear-gradient(135deg,#fef3c7,#fde68a);color:#92400e;border-color:#fcd34d;}
-.r-Admin        {background:#ede9fe;color:#5b21b6;border-color:#c4b5fd;}
-.r-Manager      {background:#e0f2fe;color:#0369a1;border-color:#7dd3fc;}
-.r-Employee     {background:#dcfce7;color:#15803d;border-color:#86efac;}
-.r-Finances     {background:#fef9c3;color:#854d0e;border-color:#fde047;}
-.r-Urbanisme    {background:#f0fdf4;color:#166534;border-color:#86efac;}
-.r-EtatCivil    {background:#fff7ed;color:#9a3412;border-color:#fdba74;}
-.r-SIG          {background:#ecfeff;color:#155e75;border-color:#67e8f9;}
-.r-BureauOrdre  {background:#f0f9ff;color:#075985;border-color:#7dd3fc;}
-.r-Reclamations {background:#fdf2f8;color:#86198f;border-color:#f0abfc;}
-.r-Nettoyage    {background:#f7fee7;color:#3f6212;border-color:#a3e635;}
-.r-Stock        {background:#fff1f2;color:#9f1239;border-color:#fda4af;}
-.r-RessourcesHumaines{background:#faf5ff;color:#6b21a8;border-color:#d8b4fe;}
+/* ══ Identity strip ══════════════════════════════════════════ */
+.prof-strip {
+    background: #fff;
+    box-shadow: 0 2px 12px rgba(0,0,0,.07);
+    padding: 0 2rem;
+    position: relative;
+    flex-shrink: 0;
+}
+.prof-strip-inner {
+    display: flex;
+    align-items: flex-end;
+    gap: 1.2rem;
+    padding-bottom: 1.1rem;
+    flex-wrap: wrap;
+}
+.prof-av {
+    width: 88px; height: 88px;
+    border-radius: 20px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.9rem; font-weight: 900; color: #fff;
+    border: 4px solid #fff;
+    box-shadow: 0 6px 24px rgba(0,0,0,.2);
+    flex-shrink: 0;
+    transform: translateY(-28px);
+    margin-bottom: -28px;
+}
+.prof-meta { padding-bottom: .15rem; flex: 1; min-width: 180px; }
+.prof-name  { font-size: 1.4rem; font-weight: 900; color: #0f172a; line-height: 1.2; }
+.prof-email { font-size: .77rem; color: #64748b; margin-top: .12rem; direction: ltr; text-align: right; }
+.prof-tags  { display: flex; flex-wrap: wrap; gap: .22rem; margin-top: .5rem; }
+.rtag {
+    display: inline-flex; align-items: center; gap: .18rem;
+    border-radius: 5px; padding: .12rem .42rem;
+    font-size: .64rem; font-weight: 700; border: 1px solid transparent;
+}
+.r-SuperAdmin         { background: linear-gradient(135deg,#fef3c7,#fde68a); color: #92400e; border-color: #fcd34d; }
+.r-Admin              { background: #ede9fe; color: #5b21b6; border-color: #c4b5fd; }
+.r-Manager            { background: #e0f2fe; color: #0369a1; border-color: #7dd3fc; }
+.r-Employee           { background: #dcfce7; color: #15803d; border-color: #86efac; }
+.r-Finances           { background: #fef9c3; color: #854d0e; border-color: #fde047; }
+.r-Urbanisme          { background: #f0fdf4; color: #166534; border-color: #86efac; }
+.r-EtatCivil          { background: #fff7ed; color: #9a3412; border-color: #fdba74; }
+.r-SIG                { background: #ecfeff; color: #155e75; border-color: #67e8f9; }
+.r-BureauOrdre        { background: #f0f9ff; color: #075985; border-color: #7dd3fc; }
+.r-Reclamations       { background: #fdf2f8; color: #86198f; border-color: #f0abfc; }
+.r-Nettoyage          { background: #f7fee7; color: #3f6212; border-color: #a3e635; }
+.r-Stock              { background: #fff1f2; color: #9f1239; border-color: #fda4af; }
+.r-RessourcesHumaines { background: #faf5ff; color: #6b21a8; border-color: #d8b4fe; }
 
-/* ══ Cards grid ═════════════════════════════════════════════ */
-.cards-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.1rem;}
-@@media(max-width:580px){.cards-grid{grid-template-columns:1fr;}}
+/* ══ Tab bar ═════════════════════════════════════════════════ */
+.prof-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: none;
+    padding-top: .65rem;
+    overflow-x: auto;
+}
+.ptab {
+    display: inline-flex; align-items: center; gap: .38rem;
+    padding: .65rem 1.1rem;
+    border: none; background: none;
+    font-family: 'Tajawal', sans-serif;
+    font-size: .85rem; font-weight: 700;
+    color: #64748b; cursor: pointer;
+    border-bottom: 2.5px solid transparent;
+    transition: all .14s; white-space: nowrap;
+}
+.ptab:hover  { color: #7c3aed; }
+.ptab.active { color: #7c3aed; border-bottom-color: #7c3aed; }
+.ptab-badge {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #22c55e; flex-shrink: 0;
+}
 
-/* ══ Section card ═══════════════════════════════════════════ */
-.pcard{background:#fff;border-radius:14px;border:1px solid #f1f5f9;
-       box-shadow:0 1px 8px rgba(0,0,0,.06);overflow:hidden;}
-.pcard-head{padding:.85rem 1.1rem .7rem;border-bottom:1px solid #f8fafc;
-            display:flex;align-items:center;gap:.5rem;}
-.pcard-ico{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;
-           justify-content:center;font-size:.88rem;flex-shrink:0;}
-.pcard-title{font-size:.88rem;font-weight:800;color:#0f172a;}
-.pcard-sub  {font-size:.7rem;color:#94a3b8;margin-top:.05rem;}
-.pcard-body{padding:1rem 1.1rem 1.1rem;}
+/* ══ Body ════════════════════════════════════════════════════ */
+.prof-body {
+    flex: 1;
+    padding: 1.5rem 2rem 2.5rem;
+    max-width: 1100px;
+    width: 100%;
+    margin: 0 auto;
+    align-self: stretch;
+}
 
-/* ══ Form ═══════════════════════════════════════════════════ */
-.fg{margin-bottom:.82rem;}
-.fl{display:block;font-size:.74rem;font-weight:700;color:#374151;margin-bottom:.3rem;}
-.fc{width:100%;height:42px;padding:0 .85rem;border:1.5px solid #e2e8f0;border-radius:10px;
-    font-family:'Tajawal',sans-serif;font-size:.86rem;outline:none;color:#0f172a;
-    background:#fff;transition:border-color .15s;}
-.fc:focus{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.1);}
-.fc:disabled{background:#f8fafc;color:#94a3b8;cursor:not-allowed;}
-.hint{font-size:.69rem;color:#94a3b8;margin-top:.22rem;}
-.pwd-wrap{position:relative;}
-.pwd-wrap .fc{padding-left:2.6rem;}
-.pwd-eye{position:absolute;left:.7rem;top:50%;transform:translateY(-50%);
-         background:none;border:none;cursor:pointer;color:#94a3b8;font-size:.9rem;
-         padding:.15rem;transition:color .12s;}
-.pwd-eye:hover{color:#374151;}
+/* ══ Stats strip ═════════════════════════════════════════════ */
+.stats-row {
+    display: flex; gap: .85rem; flex-wrap: wrap;
+    margin-bottom: 1.4rem;
+}
+.stat-box {
+    background: #fff; border-radius: 14px;
+    border: 1px solid #f1f5f9;
+    box-shadow: 0 1px 6px rgba(0,0,0,.05);
+    padding: .85rem 1.1rem;
+    display: flex; align-items: center; gap: .7rem;
+    flex: 1; min-width: 140px;
+}
+.stat-box-ico {
+    width: 38px; height: 38px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .95rem; flex-shrink: 0;
+}
+.stat-box-v { font-size: 1.25rem; font-weight: 900; line-height: 1; color: #0f172a; }
+.stat-box-l { font-size: .68rem; color: #94a3b8; margin-top: .12rem; }
 
-/* ══ Strength bar ═══════════════════════════════════════════ */
-.strength-bar{height:4px;border-radius:2px;margin-top:.38rem;background:#f1f5f9;overflow:hidden;}
-.strength-fill{height:100%;border-radius:2px;transition:all .3s;}
-.strength-label{font-size:.67rem;font-weight:600;margin-top:.22rem;}
+/* ══ Grid ════════════════════════════════════════════════════ */
+.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: .85rem; }
+.g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .85rem; }
+@@media(max-width: 700px) { .g2, .g3 { grid-template-columns: 1fr; } }
 
-/* ══ Alerts ═════════════════════════════════════════════════ */
-.aok {background:#f0fdf4;border:1px solid #bbf7d0;border-radius:9px;padding:.55rem .85rem;
-      color:#15803d;font-size:.8rem;margin-bottom:.8rem;display:flex;align-items:center;gap:.4rem;
-      animation:ain .2s ease;}
-.aerr{background:#fef2f2;border:1px solid #fecaca;border-radius:9px;padding:.55rem .85rem;
-      color:#dc2626;font-size:.8rem;margin-bottom:.8rem;display:flex;align-items:center;gap:.4rem;
-      animation:ain .2s ease;}
-@@keyframes ain{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+/* ══ Section card ════════════════════════════════════════════ */
+.scard {
+    background: #fff; border-radius: 16px;
+    border: 1px solid #f1f5f9;
+    box-shadow: 0 2px 10px rgba(0,0,0,.05);
+    overflow: hidden;
+    margin-bottom: 1.2rem;
+}
+.scard-head {
+    padding: .95rem 1.3rem .8rem;
+    border-bottom: 1px solid #f8fafc;
+    display: flex; align-items: center; gap: .65rem;
+}
+.scard-ico {
+    width: 35px; height: 35px; border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .9rem; flex-shrink: 0;
+}
+.scard-title { font-size: .92rem; font-weight: 800; color: #0f172a; }
+.scard-sub   { font-size: .7rem; color: #94a3b8; margin-top: .04rem; }
+.scard-body  { padding: 1.2rem 1.3rem 1.35rem; }
 
-/* ══ Buttons ════════════════════════════════════════════════ */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;
-     padding:.52rem 1.1rem;border:none;border-radius:10px;font-family:'Tajawal',sans-serif;
-     font-size:.84rem;font-weight:700;cursor:pointer;transition:all .16s;width:100%;}
-.btn:disabled{opacity:.5;cursor:not-allowed;}
-.btn-primary{background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;
-             box-shadow:0 3px 10px rgba(124,58,237,.25);}
-.btn-primary:hover:not(:disabled){box-shadow:0 5px 16px rgba(124,58,237,.38);transform:translateY(-1px);}
-.btn-blue{background:linear-gradient(135deg,#0369a1,#0ea5e9);color:#fff;
-          box-shadow:0 3px 10px rgba(14,165,233,.25);}
-.btn-blue:hover:not(:disabled){box-shadow:0 5px 16px rgba(14,165,233,.35);transform:translateY(-1px);}
+/* ══ Form ════════════════════════════════════════════════════ */
+.fg { margin-bottom: .85rem; }
+.fl { display: block; font-size: .74rem; font-weight: 700; color: #374151; margin-bottom: .28rem; }
+.fc {
+    width: 100%; height: 42px; padding: 0 .88rem;
+    border: 1.5px solid #e2e8f0; border-radius: 10px;
+    font-family: 'Tajawal', sans-serif; font-size: .86rem;
+    outline: none; color: #0f172a; background: #fff;
+    transition: border-color .15s, box-shadow .15s;
+}
+.fc:focus    { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,.1); }
+.fc:disabled { background: #f8fafc; color: #94a3b8; cursor: not-allowed; }
+select.fc    { cursor: pointer; }
+.hint { font-size: .69rem; color: #94a3b8; margin-top: .22rem; }
 
-/* ══ Info row ═══════════════════════════════════════════════ */
-.info-row{display:flex;justify-content:space-between;align-items:center;
-          padding:.42rem 0;border-bottom:1px solid #f8fafc;}
-.info-row:last-child{border-bottom:none;}
-.info-l{font-size:.76rem;color:#64748b;}
-.info-v{font-size:.8rem;font-weight:600;color:#0f172a;}
+/* ══ Password ════════════════════════════════════════════════ */
+.pwd-wrap { position: relative; }
+.pwd-wrap .fc { padding-left: 2.6rem; }
+.pwd-eye {
+    position: absolute; left: .7rem; top: 50%; transform: translateY(-50%);
+    background: none; border: none; cursor: pointer;
+    color: #94a3b8; font-size: .9rem; padding: .15rem;
+    transition: color .12s;
+}
+.pwd-eye:hover { color: #374151; }
+.sbar  { height: 4px; border-radius: 2px; margin-top: .38rem; background: #f1f5f9; overflow: hidden; }
+.sfill { height: 100%; border-radius: 2px; transition: all .3s; }
+.slbl  { font-size: .67rem; font-weight: 600; margin-top: .2rem; }
 
-/* ══ Spinner ════════════════════════════════════════════════ */
-.spin{display:inline-block;width:.8rem;height:.8rem;border:2px solid rgba(255,255,255,.35);
-      border-top-color:#fff;border-radius:50%;animation:sp .6s linear infinite;}
-@@keyframes sp{to{transform:rotate(360deg)}}
+/* ══ Alerts ══════════════════════════════════════════════════ */
+.aok {
+    background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px;
+    padding: .55rem .9rem; color: #15803d; font-size: .8rem;
+    margin-bottom: .85rem; display: flex; align-items: center; gap: .4rem;
+    animation: ain .2s ease;
+}
+.aerr {
+    background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px;
+    padding: .55rem .9rem; color: #dc2626; font-size: .8rem;
+    margin-bottom: .85rem; display: flex; align-items: center; gap: .4rem;
+    animation: ain .2s ease;
+}
+@@keyframes ain { from { opacity:0; transform:translateY(-4px) } to { opacity:1; transform:translateY(0) } }
+
+/* ══ Buttons ═════════════════════════════════════════════════ */
+.btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
+    padding: .55rem 1.25rem; border: none; border-radius: 10px;
+    font-family: 'Tajawal', sans-serif; font-size: .85rem; font-weight: 700;
+    cursor: pointer; transition: all .15s; white-space: nowrap;
+}
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn-primary {
+    background: linear-gradient(135deg,#7c3aed,#a855f7); color: #fff;
+    box-shadow: 0 3px 10px rgba(124,58,237,.25);
+}
+.btn-primary:hover:not(:disabled) { box-shadow: 0 5px 16px rgba(124,58,237,.38); transform: translateY(-1px); }
+.btn-blue {
+    background: linear-gradient(135deg,#0369a1,#0ea5e9); color: #fff;
+    box-shadow: 0 3px 10px rgba(14,165,233,.25);
+}
+.btn-blue:hover:not(:disabled) { box-shadow: 0 5px 16px rgba(14,165,233,.35); transform: translateY(-1px); }
+.btn-green {
+    background: linear-gradient(135deg,#16a34a,#22c55e); color: #fff;
+    box-shadow: 0 3px 10px rgba(34,197,94,.22);
+}
+.btn-green:hover:not(:disabled) { box-shadow: 0 5px 16px rgba(34,197,94,.35); transform: translateY(-1px); }
+.btn-ghost {
+    background: #f1f5f9; color: #374151; border: 1px solid #e2e8f0;
+}
+.btn-ghost:hover { background: #e2e8f0; }
+
+/* ══ Info row (read-only) ════════════════════════════════════ */
+.irow {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: .45rem 0; border-bottom: 1px solid #f8fafc;
+}
+.irow:last-child { border-bottom: none; }
+.il { font-size: .76rem; color: #64748b; }
+.iv { font-size: .8rem; font-weight: 600; color: #0f172a; }
+
+/* ══ Employe linked banner ═══════════════════════════════════ */
+.emp-banner {
+    background: linear-gradient(135deg,#f5f3ff,#ede9fe);
+    border: 1.5px solid #c4b5fd; border-radius: 13px;
+    padding: .85rem 1.1rem; margin-bottom: 1.2rem;
+    display: flex; align-items: center; gap: .85rem; flex-wrap: wrap;
+}
+.emp-banner-ico {
+    width: 42px; height: 42px;
+    background: linear-gradient(135deg,#7c3aed,#a855f7);
+    border-radius: 12px; display: flex; align-items: center;
+    justify-content: center; color: #fff; font-size: 1.05rem; flex-shrink: 0;
+}
+.emp-banner-name { font-size: .92rem; font-weight: 800; color: #5b21b6; }
+.emp-banner-meta { font-size: .71rem; color: #7c3aed; margin-top: .08rem; }
+.emp-linked-pill {
+    margin-right: auto;
+    background: #7c3aed; color: #fff;
+    border-radius: 6px; padding: .2rem .65rem;
+    font-size: .7rem; font-weight: 700;
+}
+
+/* ══ No-employe ══════════════════════════════════════════════ */
+.no-emp {
+    text-align: center; padding: 3rem 1rem;
+    background: #fafbff; border-radius: 14px;
+    border: 2px dashed #e2e8f0;
+}
+.no-emp i   { font-size: 2.5rem; color: #cbd5e1; display: block; margin-bottom: .7rem; }
+.no-emp-t   { font-size: .92rem; font-weight: 700; color: #64748b; }
+.no-emp-s   { font-size: .76rem; color: #94a3b8; margin-top: .25rem; }
+
+/* ══ Spinner ═════════════════════════════════════════════════ */
+.spin {
+    display: inline-block; width: .8rem; height: .8rem;
+    border: 2px solid rgba(255,255,255,.35); border-top-color: #fff;
+    border-radius: 50%; animation: sp .6s linear infinite;
+}
+@@keyframes sp { to { transform: rotate(360deg) } }
+.ldg {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: .6rem; padding: 4rem;
+    color: #94a3b8; font-size: .88rem;
+}
+
+@@media(max-width: 600px) {
+    .prof-body { padding: 1.2rem 1rem 2rem; }
+    .prof-strip { padding: 0 1rem; }
+    .prof-cover-label { display: none; }
+}
 </style>
 
-<div class="profile-wrap">
-
-    <!-- ═══════════════ HERO ═══════════════ -->
-    <div class="hero">
-        <div class="hero-inner">
-            <div class="av-big" style="background:@AvatarGrad;">@Initials</div>
-            <div class="hero-info">
-                <div class="hero-name">@FullName</div>
-                <div class="hero-email">@Email</div>
-                <div class="hero-tags">
-                    @foreach (var r in Roles)
-                    {
-                        <span class="rtag r-@r">
-                            <i class="bi @RoleIco(r)" style="font-size:.58rem;"></i>@RoleAr(r)
-                        </span>
-                    }
-                </div>
-            </div>
-        </div>
+@if (PageLoading)
+{
+    <div class="ldg">
+        <div class="spinner-border" style="color:#7c3aed;width:2rem;height:2rem;border-width:3px;"></div>
+        <span>جاري تحميل الملف الشخصي...</span>
     </div>
+}
+else
+{
+    <div class="prof-root">
 
-    <div class="cards-grid">
+        <!-- ══ COVER ══ -->
+        <div class="prof-cover">
+            <div class="prof-cover-grid"></div>
+            <div class="prof-cover-label">Municipality360 · الملف الشخصي</div>
+        </div>
 
-        <!-- ═══ تعديل الاسم ═══ -->
-        <div class="pcard">
-            <div class="pcard-head">
-                <div class="pcard-ico" style="background:#f5f3ff;color:#7c3aed;">
-                    <i class="bi bi-person-fill"></i>
-                </div>
-                <div>
-                    <div class="pcard-title">الاسم الشخصي</div>
-                    <div class="pcard-sub">تعديل الاسم واللقب</div>
+        <!-- ══ IDENTITY STRIP ══ -->
+        <div class="prof-strip">
+            <div class="prof-strip-inner">
+                <div class="prof-av" style="background:@AvatarGrad;">@Initials</div>
+                <div class="prof-meta">
+                    <div class="prof-name">@FullName</div>
+                    <div class="prof-email">@Email</div>
+                    <div class="prof-tags">
+                        @foreach (var r in Roles)
+                        {
+                            <span class="rtag r-@r">
+                                <i class="bi @RoleIco(r)" style="font-size:.55rem;"></i>@RoleAr(r)
+                            </span>
+                        }
+                        @if (LinkedEmploye != null)
+                        {
+                            <span class="rtag" style="background:#f5f3ff;color:#7c3aed;border-color:#c4b5fd;">
+                                <i class="bi bi-person-badge" style="font-size:.55rem;"></i>@LinkedEmploye.PosteTitre
+                            </span>
+                        }
+                    </div>
                 </div>
             </div>
-            <div class="pcard-body">
-                @if (!string.IsNullOrEmpty(NameOk))  { <div class="aok"><i class="bi bi-check-circle-fill"></i>@NameOk</div>  }
-                @if (!string.IsNullOrEmpty(NameErr)) { <div class="aerr"><i class="bi bi-exclamation-circle-fill"></i>@NameErr</div> }
-                <div class="fg">
-                    <label class="fl">الاسم</label>
-                    <input class="fc" @bind="NewFirst" placeholder="الاسم" />
-                </div>
-                <div class="fg">
-                    <label class="fl">اللقب</label>
-                    <input class="fc" @bind="NewLast" placeholder="اللقب" />
-                </div>
-                <button class="btn btn-primary" @onclick="DoUpdateProfile" disabled="@NameBusy">
-                    @if (NameBusy) { <span class="spin"></span> }
-                    <i class="bi bi-check2"></i> حفظ الاسم
+
+            <!-- Tab bar داخل الـ strip -->
+            <div class="prof-tabs">
+                <button class="ptab @(Tab=="account"?"active":"")"
+                        @onclick='()=>Tab="account"'>
+                    <i class="bi bi-person-circle"></i> معلومات الحساب
+                </button>
+                <button class="ptab @(Tab=="security"?"active":"")"
+                        @onclick='()=>Tab="security"'>
+                    <i class="bi bi-shield-lock"></i> الأمان
+                </button>
+                <button class="ptab @(Tab=="employe"?"active":"")"
+                        @onclick="OpenEmployeTab">
+                    <i class="bi bi-person-badge"></i> بيانات الموظف
+                    @if (LinkedEmploye != null) { <span class="ptab-badge"></span> }
                 </button>
             </div>
         </div>
 
-        <!-- ═══ معلومات الحساب (للعرض فقط) ═══ -->
-        <div class="pcard">
-            <div class="pcard-head">
-                <div class="pcard-ico" style="background:#e0f2fe;color:#0369a1;">
-                    <i class="bi bi-info-circle-fill"></i>
-                </div>
-                <div>
-                    <div class="pcard-title">معلومات الحساب</div>
-                    <div class="pcard-sub">للعرض فقط</div>
-                </div>
-            </div>
-            <div class="pcard-body">
-                <div class="info-row">
-                    <span class="info-l">البريد الإلكتروني</span>
-                    <span class="info-v" style="font-size:.74rem;direction:ltr;">@Email</span>
-                </div>
-                <div class="info-row">
-                    <span class="info-l">تأكيد البريد</span>
-                    @if (EmailConfirmed)
-                    { <i class="bi bi-patch-check-fill" style="color:#22c55e;"></i> }
-                    else
-                    { <span style="color:#f59e0b;font-size:.76rem;font-weight:600;">غير مؤكد</span> }
-                </div>
-                <div class="info-row">
-                    <span class="info-l">عدد الأدوار</span>
-                    <span class="info-v">@Roles.Count دور</span>
-                </div>
-                <div class="info-row" style="border-bottom:none;padding-bottom:0;">
-                    <span class="info-l">حالة الحساب</span>
-                    <span style="display:inline-flex;align-items:center;gap:.28rem;
-                                 background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;
-                                 border-radius:99px;padding:.18rem .58rem;font-size:.7rem;font-weight:600;">
-                        <span style="width:5px;height:5px;border-radius:50%;background:#22c55e;flex-shrink:0;"></span>نشط
-                    </span>
-                </div>
-            </div>
-        </div>
+        <!-- ══ BODY ══ -->
+        <div class="prof-body">
 
-        <!-- ═══ تغيير كلمة المرور (يمتد على العرض كامل) ═══ -->
-        <div class="pcard" style="grid-column:1/-1;">
-            <div class="pcard-head">
-                <div class="pcard-ico" style="background:#fef3c7;color:#d97706;">
-                    <i class="bi bi-lock-fill"></i>
-                </div>
-                <div>
-                    <div class="pcard-title">تغيير كلمة المرور</div>
-                    <div class="pcard-sub">يجب إدخال كلمة المرور الحالية للتحقق</div>
-                </div>
-            </div>
-            <div class="pcard-body">
-                @if (!string.IsNullOrEmpty(PwdOk))  { <div class="aok"><i class="bi bi-check-circle-fill"></i>@PwdOk</div>  }
-                @if (!string.IsNullOrEmpty(PwdErr)) { <div class="aerr"><i class="bi bi-exclamation-circle-fill"></i>@PwdErr</div> }
-
-                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.7rem;">
-                    <!-- كلمة المرور الحالية -->
-                    <div class="fg" style="margin-bottom:0;">
-                        <label class="fl">كلمة المرور الحالية *</label>
-                        <div class="pwd-wrap">
-                            <input class="fc" type="@(ShowCur?"text":"password")"
-                                   @bind="CurPwd" placeholder="••••••••" />
-                            <button type="button" class="pwd-eye" @onclick="()=>ShowCur=!ShowCur">
-                                <i class="bi @(ShowCur?"bi-eye-slash":"bi-eye")"></i>
-                            </button>
+            <!-- ─────────────────────────────────────────
+                 TAB 1 — معلومات الحساب
+            ───────────────────────────────────────── -->
+            @if (Tab == "account")
+            {
+                <!-- Stats -->
+                <div class="stats-row">
+                    <div class="stat-box">
+                        <div class="stat-box-ico" style="background:#f5f3ff;color:#7c3aed;">
+                            <i class="bi bi-shield-fill"></i>
+                        </div>
+                        <div>
+                            <div class="stat-box-v" style="color:#7c3aed;">@Roles.Count</div>
+                            <div class="stat-box-l">دور مُسند</div>
                         </div>
                     </div>
-                    <!-- كلمة المرور الجديدة -->
-                    <div class="fg" style="margin-bottom:0;">
-                        <label class="fl">كلمة المرور الجديدة *</label>
-                        <div class="pwd-wrap">
-                            <input class="fc" type="@(ShowNew?"text":"password")"
-                                   @bind="NewPwd" @bind:event="oninput"
-                                   placeholder="••••••••" />
-                            <button type="button" class="pwd-eye" @onclick="()=>ShowNew=!ShowNew">
-                                <i class="bi @(ShowNew?"bi-eye-slash":"bi-eye")"></i>
-                            </button>
+                    <div class="stat-box">
+                        <div class="stat-box-ico" style="background:@(EmailConfirmed?"#f0fdf4":"#fef9c3");color:@(EmailConfirmed?"#16a34a":"#d97706");">
+                            <i class="bi @(EmailConfirmed?"bi-patch-check-fill":"bi-exclamation-circle-fill")"></i>
                         </div>
-                        <!-- شريط القوة -->
-                        @if (!string.IsNullOrEmpty(NewPwd))
-                        {
-                            <div class="strength-bar">
-                                <div class="strength-fill"
-                                     style="width:@(StrengthPct)%;background:@StrengthColor;"></div>
+                        <div>
+                            <div class="stat-box-v" style="color:@(EmailConfirmed?"#16a34a":"#d97706");">
+                                @(EmailConfirmed ? "مؤكد" : "!")
                             </div>
-                            <div class="strength-label" style="color:@StrengthColor;">@StrengthLabel</div>
-                        }
-                    </div>
-                    <!-- تأكيد كلمة المرور -->
-                    <div class="fg" style="margin-bottom:0;">
-                        <label class="fl">تأكيد كلمة المرور *</label>
-                        <div class="pwd-wrap">
-                            <input class="fc" type="@(ShowCon?"text":"password")"
-                                   @bind="ConPwd" placeholder="••••••••"
-                                   style="@(ConPwd.Length>0&&ConPwd!=NewPwd?"border-color:#ef4444;":"")"/>
-                            <button type="button" class="pwd-eye" @onclick="()=>ShowCon=!ShowCon">
-                                <i class="bi @(ShowCon?"bi-eye-slash":"bi-eye")"></i>
-                            </button>
+                            <div class="stat-box-l">البريد الإلكتروني</div>
                         </div>
-                        @if (ConPwd.Length > 0 && ConPwd != NewPwd)
-                        { <div class="hint" style="color:#ef4444;">كلمتا المرور غير متطابقتين</div> }
-                        @if (ConPwd.Length > 0 && ConPwd == NewPwd)
-                        { <div class="hint" style="color:#22c55e;">✓ متطابقتان</div> }
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-box-ico" style="background:@(LinkedEmploye!=null?"#f5f3ff":"#f8fafc");color:@(LinkedEmploye!=null?"#7c3aed":"#94a3b8");">
+                            <i class="bi bi-person-badge-fill"></i>
+                        </div>
+                        <div>
+                            <div class="stat-box-v" style="color:@(LinkedEmploye!=null?"#7c3aed":"#94a3b8");">
+                                @(LinkedEmploye != null ? "مرتبط" : "—")
+                            </div>
+                            <div class="stat-box-l">ملف الموظف</div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="hint" style="margin-top:.7rem;">
-                    <i class="bi bi-shield-check" style="color:#7c3aed;"></i>
-                    8 أحرف على الأقل · حرف كبير · رقم · رمز خاص (مثال: MyPass@2025)
+                <!-- تعديل الاسم -->
+                <div class="scard">
+                    <div class="scard-head">
+                        <div class="scard-ico" style="background:#f5f3ff;color:#7c3aed;">
+                            <i class="bi bi-person-fill"></i>
+                        </div>
+                        <div>
+                            <div class="scard-title">الاسم الشخصي</div>
+                            <div class="scard-sub">الاسم واللقب المعروضَان في جميع أنحاء النظام</div>
+                        </div>
+                    </div>
+                    <div class="scard-body">
+                        @if (!string.IsNullOrEmpty(NameOk))  { <div class="aok"><i class="bi bi-check-circle-fill"></i> @NameOk</div> }
+                        @if (!string.IsNullOrEmpty(NameErr)) { <div class="aerr"><i class="bi bi-exclamation-circle-fill"></i> @NameErr</div> }
+                        <div class="g2">
+                            <div class="fg">
+                                <label class="fl">الاسم الأول <span style="color:#ef4444;">*</span></label>
+                                <input class="fc" @bind="NewFirst" placeholder="الاسم" />
+                            </div>
+                            <div class="fg">
+                                <label class="fl">اللقب <span style="color:#ef4444;">*</span></label>
+                                <input class="fc" @bind="NewLast" placeholder="اللقب" />
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" style="max-width:190px;"
+                                @onclick="DoUpdateProfile" disabled="@NameBusy">
+                            @if (NameBusy) { <span class="spin"></span> }
+                            <i class="bi bi-check2-circle"></i> حفظ التغييرات
+                        </button>
+                    </div>
                 </div>
 
-                <div style="margin-top:1rem;max-width:220px;">
-                    <button class="btn btn-blue" @onclick="DoChangePassword" disabled="@PwdBusy">
-                        @if (PwdBusy) { <span class="spin"></span> }
-                        <i class="bi bi-lock-fill"></i> تحديث كلمة المرور
-                    </button>
+                <!-- تفاصيل الحساب (قراءة فقط) -->
+                <div class="scard">
+                    <div class="scard-head">
+                        <div class="scard-ico" style="background:#e0f2fe;color:#0369a1;">
+                            <i class="bi bi-info-circle-fill"></i>
+                        </div>
+                        <div>
+                            <div class="scard-title">تفاصيل الحساب</div>
+                            <div class="scard-sub">للعرض فقط</div>
+                        </div>
+                    </div>
+                    <div class="scard-body">
+                        <div class="irow">
+                            <span class="il"><i class="bi bi-envelope" style="margin-left:.3rem;"></i>البريد الإلكتروني</span>
+                            <span class="iv" style="direction:ltr;">@Email</span>
+                        </div>
+                        <div class="irow">
+                            <span class="il"><i class="bi bi-patch-check" style="margin-left:.3rem;"></i>تأكيد البريد</span>
+                            @if (EmailConfirmed)
+                            { <span style="color:#22c55e;font-size:.8rem;font-weight:700;"><i class="bi bi-patch-check-fill"></i> مؤكد</span> }
+                            else
+                            { <span style="color:#f59e0b;font-size:.8rem;font-weight:700;">غير مؤكد</span> }
+                        </div>
+                        <div class="irow">
+                            <span class="il">حالة الحساب</span>
+                            <span style="background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;border-radius:99px;padding:.15rem .55rem;font-size:.7rem;font-weight:700;">
+                                <span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:#22c55e;margin-left:.25rem;vertical-align:middle;"></span>نشط
+                            </span>
+                        </div>
+                        <div class="irow">
+                            <span class="il">عدد الأدوار</span>
+                            <span class="iv">@Roles.Count دور</span>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        </div>
+            }
 
-    </div><!-- end cards-grid -->
-</div>
+            <!-- ─────────────────────────────────────────
+                 TAB 2 — الأمان
+            ───────────────────────────────────────── -->
+            @if (Tab == "security")
+            {
+                <div class="scard">
+                    <div class="scard-head">
+                        <div class="scard-ico" style="background:#fef3c7;color:#d97706;">
+                            <i class="bi bi-lock-fill"></i>
+                        </div>
+                        <div>
+                            <div class="scard-title">تغيير كلمة المرور</div>
+                            <div class="scard-sub">يجب إدخال كلمة المرور الحالية للتحقق من هويتك</div>
+                        </div>
+                    </div>
+                    <div class="scard-body">
+                        @if (!string.IsNullOrEmpty(PwdOk))  { <div class="aok"><i class="bi bi-check-circle-fill"></i> @PwdOk</div>  }
+                        @if (!string.IsNullOrEmpty(PwdErr)) { <div class="aerr"><i class="bi bi-exclamation-circle-fill"></i> @PwdErr</div> }
+
+                        <div class="g3">
+                            <div class="fg">
+                                <label class="fl">كلمة المرور الحالية <span style="color:#ef4444;">*</span></label>
+                                <div class="pwd-wrap">
+                                    <input class="fc" type="@(ShowCur?"text":"password")"
+                                           @bind="CurPwd" placeholder="••••••••" />
+                                    <button type="button" class="pwd-eye" @onclick="()=>ShowCur=!ShowCur">
+                                        <i class="bi @(ShowCur?"bi-eye-slash":"bi-eye")"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="fg">
+                                <label class="fl">كلمة المرور الجديدة <span style="color:#ef4444;">*</span></label>
+                                <div class="pwd-wrap">
+                                    <input class="fc" type="@(ShowNew?"text":"password")"
+                                           value="@NewPwd"
+                                           @oninput="OnNewPwdInput"
+                                           placeholder="••••••••" />
+                                    <button type="button" class="pwd-eye" @onclick="()=>ShowNew=!ShowNew">
+                                        <i class="bi @(ShowNew?"bi-eye-slash":"bi-eye")"></i>
+                                    </button>
+                                </div>
+                                @if (!string.IsNullOrEmpty(NewPwd))
+                                {
+                                    <div class="sbar"><div class="sfill" style="width:@(StrengthPct)%;background:@StrengthColor;"></div></div>
+                                    <div class="slbl" style="color:@StrengthColor;">@StrengthLabel</div>
+                                }
+                            </div>
+
+                            <div class="fg">
+                                <label class="fl">تأكيد كلمة المرور <span style="color:#ef4444;">*</span></label>
+                                <div class="pwd-wrap">
+                                    <input class="fc" type="@(ShowCon?"text":"password")"
+                                           @bind="ConPwd" placeholder="••••••••"
+                                           style="@(ConPwd.Length>0&&ConPwd!=NewPwd?"border-color:#ef4444;":"")" />
+                                    <button type="button" class="pwd-eye" @onclick="()=>ShowCon=!ShowCon">
+                                        <i class="bi @(ShowCon?"bi-eye-slash":"bi-eye")"></i>
+                                    </button>
+                                </div>
+                                @if (ConPwd.Length > 0 && ConPwd != NewPwd)
+                                { <div class="hint" style="color:#ef4444;"><i class="bi bi-x-circle"></i> غير متطابقتين</div> }
+                                @if (ConPwd.Length > 0 && ConPwd == NewPwd)
+                                { <div class="hint" style="color:#22c55e;"><i class="bi bi-check-circle"></i> متطابقتان</div> }
+                            </div>
+                        </div>
+
+                        <div class="hint" style="margin: .6rem 0 1rem;">
+                            <i class="bi bi-shield-check" style="color:#7c3aed;margin-left:.3rem;"></i>
+                            8 أحرف على الأقل · حرف كبير · رقم · رمز خاص
+                        </div>
+
+                        <button class="btn btn-blue" style="max-width:210px;"
+                                @onclick="DoChangePassword" disabled="@PwdBusy">
+                            @if (PwdBusy) { <span class="spin"></span> }
+                            <i class="bi bi-lock-fill"></i> تحديث كلمة المرور
+                        </button>
+                    </div>
+                </div>
+            }
+
+            <!-- ─────────────────────────────────────────
+                 TAB 3 — بيانات الموظف
+            ───────────────────────────────────────── -->
+            @if (Tab == "employe")
+            {
+                @if (EmpLoading)
+                {
+                    <div class="ldg">
+                        <div class="spinner-border spinner-border-sm"
+                             style="color:#7c3aed;width:1.3rem;height:1.3rem;border-width:2px;"></div>
+                        <span>جاري البحث عن ملف الموظف...</span>
+                    </div>
+                }
+                else if (LinkedEmploye == null)
+                {
+                    <div class="no-emp">
+                        <i class="bi bi-person-badge"></i>
+                        <div class="no-emp-t">لا يوجد ملف موظف مرتبط بحسابك</div>
+                        <div class="no-emp-s">تواصل مع المسؤول لربط حسابك بملف الموظف المناسب</div>
+                    </div>
+                }
+                else
+                {
+                    <!-- بانر الموظف المرتبط -->
+                    <div class="emp-banner">
+                        <div class="emp-banner-ico"><i class="bi bi-person-badge-fill"></i></div>
+                        <div style="flex:1;">
+                            <div class="emp-banner-name">@LinkedEmploye.NomComplet</div>
+                            <div class="emp-banner-meta">
+                                @LinkedEmploye.PosteTitre &nbsp;·&nbsp; @LinkedEmploye.ServiceNom &nbsp;·&nbsp; @LinkedEmploye.DepartementNom
+                            </div>
+                        </div>
+                        <span class="emp-linked-pill"><i class="bi bi-link-45deg"></i> مرتبط</span>
+                    </div>
+
+                    <!-- نموذج تعديل البيانات الشخصية -->
+                    <div class="scard">
+                        <div class="scard-head">
+                            <div class="scard-ico" style="background:#dcfce7;color:#16a34a;">
+                                <i class="bi bi-pencil-fill"></i>
+                            </div>
+                            <div>
+                                <div class="scard-title">تعديل البيانات الشخصية</div>
+                                <div class="scard-sub">المعلومات القابلة للتعديل في ملف موظفك</div>
+                            </div>
+                        </div>
+                        <div class="scard-body">
+                            @if (!string.IsNullOrEmpty(EmpOk))  { <div class="aok"><i class="bi bi-check-circle-fill"></i> @EmpOk</div>  }
+                            @if (!string.IsNullOrEmpty(EmpErr)) { <div class="aerr"><i class="bi bi-exclamation-circle-fill"></i> @EmpErr</div> }
+
+                            <div class="g2" style="margin-bottom:.85rem;">
+                                <div class="fg" style="margin-bottom:0;">
+                                    <label class="fl">الاسم الأول <span style="color:#ef4444;">*</span></label>
+                                    <input class="fc" @bind="EmpPrenom" placeholder="الاسم" />
+                                </div>
+                                <div class="fg" style="margin-bottom:0;">
+                                    <label class="fl">اللقب <span style="color:#ef4444;">*</span></label>
+                                    <input class="fc" @bind="EmpNom" placeholder="اللقب" />
+                                </div>
+                            </div>
+
+                            <div class="g2" style="margin-bottom:.85rem;">
+                                <div class="fg" style="margin-bottom:0;">
+                                    <label class="fl">البريد الإلكتروني</label>
+                                    <input class="fc" type="email" @bind="EmpEmail" placeholder="email@example.com" />
+                                </div>
+                                <div class="fg" style="margin-bottom:0;">
+                                    <label class="fl">رقم الهاتف</label>
+                                    <input class="fc" @bind="EmpTel" placeholder="+213..." />
+                                </div>
+                            </div>
+
+                            <div class="g3" style="margin-bottom:.85rem;">
+                                <div class="fg" style="margin-bottom:0;">
+                                    <label class="fl">تاريخ الميلاد</label>
+                                    <input class="fc" type="date" @bind="EmpDateNaissance" />
+                                </div>
+                                <div class="fg" style="margin-bottom:0;">
+                                    <label class="fl">الجنس</label>
+                                    <select class="fc" @bind="EmpGenre">
+                                        <option value="Masculin">ذكر</option>
+                                        <option value="Feminin">أنثى</option>
+                                    </select>
+                                </div>
+                                <div class="fg" style="margin-bottom:0;">
+                                    <label class="fl">الهاتف</label>
+                                    <input class="fc" @bind="EmpTel" placeholder="+213..." />
+                                </div>
+                            </div>
+
+                            <div class="fg">
+                                <label class="fl">العنوان</label>
+                                <input class="fc" @bind="EmpAdresse" placeholder="العنوان الكامل" />
+                            </div>
+
+                            <div style="display:flex;gap:.65rem;margin-top:.5rem;flex-wrap:wrap;">
+                                <button class="btn btn-green" style="max-width:190px;"
+                                        @onclick="DoUpdateEmploye" disabled="@EmpBusy">
+                                    @if (EmpBusy) { <span class="spin"></span> }
+                                    <i class="bi bi-check2-circle"></i> حفظ البيانات
+                                </button>
+                                <button class="btn btn-ghost" style="max-width:140px;"
+                                        @onclick="ResetEmployeForm">
+                                    <i class="bi bi-arrow-counterclockwise"></i> إلغاء
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- بيانات الوظيفة (قراءة فقط) -->
+                    <div class="scard">
+                        <div class="scard-head">
+                            <div class="scard-ico" style="background:#e0f2fe;color:#0369a1;">
+                                <i class="bi bi-building"></i>
+                            </div>
+                            <div>
+                                <div class="scard-title">بيانات الوظيفة</div>
+                                <div class="scard-sub">للعرض فقط — يعدّلها المسؤول</div>
+                            </div>
+                        </div>
+                        <div class="scard-body">
+                            <div class="g2">
+                                <div>
+                                    <div class="irow">
+                                        <span class="il">الرقم التعريفي</span>
+                                        <span class="iv" style="direction:ltr;">@LinkedEmploye.Identifiant</span>
+                                    </div>
+                                    <div class="irow">
+                                        <span class="il">رقم CIN</span>
+                                        <span class="iv" style="direction:ltr;">@LinkedEmploye.Cin</span>
+                                    </div>
+                                    <div class="irow">
+                                        <span class="il">المنصب</span>
+                                        <span class="iv">@LinkedEmploye.PosteTitre</span>
+                                    </div>
+                                    <div class="irow">
+                                        <span class="il">تاريخ التوظيف</span>
+                                        <span class="iv">@LinkedEmploye.DateEmbauche.ToString("dd/MM/yyyy")</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="irow">
+                                        <span class="il">المصلحة</span>
+                                        <span class="iv">@LinkedEmploye.ServiceNom</span>
+                                    </div>
+                                    <div class="irow">
+                                        <span class="il">القسم</span>
+                                        <span class="iv">@LinkedEmploye.DepartementNom</span>
+                                    </div>
+                                    <div class="irow">
+                                        <span class="il">الراتب</span>
+                                        <span class="iv">@LinkedEmploye.Salaire.ToString("N0") د.ت</span>
+                                    </div>
+                                    <div class="irow">
+                                        <span class="il">الحالة الوظيفية</span>
+                                        <span style="background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;border-radius:99px;padding:.14rem .52rem;font-size:.7rem;font-weight:700;">
+                                            @LinkedEmploye.Statut
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+
+        </div><!-- end prof-body -->
+    </div><!-- end prof-root -->
+}
 
 @code {
-    [Inject] IUserApiService            UserSvc { get; set; } = null!;
-    [Inject] AuthenticationStateProvider AuthSP { get; set; } = null!;
+    [Inject] IUserApiService             UserSvc    { get; set; } = null!;
+    [Inject] IEmployeApiService          EmployeSvc { get; set; } = null!;
+    [Inject] AuthenticationStateProvider AuthSP     { get; set; } = null!;
 
-    // ── بيانات المستخدم ───────────────────────────────
+    // ── Page state ────────────────────────────────────────────
+    private bool   PageLoading = true;
+    private string Tab = "account";
+
+    // ── User ──────────────────────────────────────────────────
     private string       UserId         = "";
     private string       FullName       = "";
     private string       Email          = "";
@@ -301,47 +755,58 @@
     private string       AvatarGrad     = "linear-gradient(135deg,#64748b,#94a3b8)";
     private string       Initials       = "؟";
 
-    // ── نموذج الاسم ───────────────────────────────────
-    private string NewFirst  = "", NewLast = "";
-    private string NameOk    = "", NameErr = "";
-    private bool   NameBusy  = false;
+    // ── Tab 1 — name ──────────────────────────────────────────
+    private string NewFirst = "", NewLast = "";
+    private string NameOk   = "", NameErr = "";
+    private bool   NameBusy = false;
 
-    // ── نموذج كلمة المرور ────────────────────────────
+    // ── Tab 2 — password ──────────────────────────────────────
     private string CurPwd = "", NewPwd = "", ConPwd = "";
     private bool   ShowCur = false, ShowNew = false, ShowCon = false;
     private string PwdOk   = "", PwdErr = "";
     private bool   PwdBusy = false;
-
-    // ── قوة كلمة المرور ──────────────────────────────
     private int    StrengthPct   = 0;
     private string StrengthColor = "#e2e8f0";
     private string StrengthLabel = "";
 
-    // ── Init ──────────────────────────────────────────
+    // ── Tab 3 — employe ───────────────────────────────────────
+    private EmployeDto? LinkedEmploye = null;
+    private bool   EmpLoading = false;
+    private bool   EmpLoaded  = false;
+    private string EmpOk  = "", EmpErr = "";
+    private bool   EmpBusy = false;
+
+    // Employe form
+    private string   EmpPrenom        = "";
+    private string   EmpNom           = "";
+    private string   EmpEmail         = "";
+    private string   EmpTel           = "";
+    private DateTime EmpDateNaissance  = DateTime.Today;
+    private string   EmpGenre         = "Masculin";
+    private string   EmpAdresse       = "";
+
+    // ── Init ─────────────────────────────────────────────────
     protected override async Task OnInitializedAsync()
     {
         var state = await AuthSP.GetAuthenticationStateAsync();
         var user  = state.User;
 
-        // استخراج ID من الـ Token
         UserId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value
               ?? user.FindFirst("sub")?.Value ?? "";
 
-        // جلب أحدث بيانات من API
         if (!string.IsNullOrEmpty(UserId))
         {
             var r = await UserSvc.GetByIdAsync(UserId);
             if (r?.Data != null)
             {
                 var d = r.Data;
-                NewFirst       = d.FirstName;
-                NewLast        = d.LastName;
-                FullName       = d.FullName;
-                Email          = d.Email;
+                NewFirst = d.FirstName; NewLast = d.LastName;
+                FullName = d.FullName; Email = d.Email;
                 EmailConfirmed = d.EmailConfirmed;
-                Roles          = d.Roles.ToList();
-                Initials       = BuildInitials(d.FirstName, d.LastName);
-                AvatarGrad     = BuildGradient(Roles);
+                Roles = d.Roles.ToList();
+                Initials   = BuildInitials(d.FirstName, d.LastName);
+                AvatarGrad = BuildGradient(Roles);
+                PageLoading = false;
                 return;
             }
         }
@@ -353,16 +818,98 @@
         FullName = $"{fn} {ln}".Trim();
         Email    = user.FindFirst(ClaimTypes.Email)?.Value
                 ?? user.FindFirst("email")?.Value ?? "";
-        Roles    = user.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
-        Initials = BuildInitials(fn, ln);
+        Roles      = user.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
+        Initials   = BuildInitials(fn, ln);
         AvatarGrad = BuildGradient(Roles);
+        PageLoading = false;
     }
 
-    // ── تحديث الاسم — PUT api/auth/me/profile ─────────
+    // ── Open employe tab — يُحمّل الموظف المرتبط بـ UserId ────
+    private async void OpenEmployeTab()
+    {
+        Tab = "employe";
+        if (EmpLoaded) return;
+
+        EmpLoading = true; StateHasChanged();
+
+        // نجلب كل الموظفين ونبحث عن من يحمل UserId الحالي
+        var result = await EmployeSvc.GetPagedAsync(new EmployeFilterDto
+            { PageNumber = 1, PageSize = 500 });
+
+        LinkedEmploye = result?.Data?.Items?
+            .FirstOrDefault(e => e.UserId == UserId);
+
+        if (LinkedEmploye != null)
+            FillEmployeForm(LinkedEmploye);
+
+        EmpLoaded  = true;
+        EmpLoading = false;
+        StateHasChanged();
+    }
+
+    private void FillEmployeForm(EmployeDto e)
+    {
+        EmpPrenom       = e.Prenom;
+        EmpNom          = e.Nom;
+        EmpEmail        = e.Email       ?? "";
+        EmpTel          = e.Telephone   ?? "";
+        EmpDateNaissance = e.DateNaissance;
+        EmpGenre        = e.Genre;
+        EmpAdresse      = e.Adresse     ?? "";
+    }
+
+    private void ResetEmployeForm()
+    {
+        if (LinkedEmploye != null) FillEmployeForm(LinkedEmploye);
+        EmpOk = ""; EmpErr = "";
+    }
+
+    // ── حفظ بيانات الموظف ────────────────────────────────────
+    private async Task DoUpdateEmploye()
+    {
+        if (LinkedEmploye == null) return;
+        if (string.IsNullOrWhiteSpace(EmpPrenom)) { EmpErr = "الاسم مطلوب."; return; }
+        if (string.IsNullOrWhiteSpace(EmpNom))    { EmpErr = "اللقب مطلوب."; return; }
+
+        EmpBusy = true; EmpOk = ""; EmpErr = "";
+
+        var dto = new UpdateEmployeDto
+        {
+            Prenom        = EmpPrenom.Trim(),
+            Nom           = EmpNom.Trim(),
+            Email         = string.IsNullOrWhiteSpace(EmpEmail)   ? null : EmpEmail.Trim(),
+            Telephone     = string.IsNullOrWhiteSpace(EmpTel)     ? null : EmpTel.Trim(),
+            DateNaissance = EmpDateNaissance,
+            DateEmbauche  = LinkedEmploye.DateEmbauche,
+            DateDepart    = LinkedEmploye.DateDepart,
+            Genre         = EmpGenre,
+            Statut        = LinkedEmploye.Statut,
+            Salaire       = LinkedEmploye.Salaire,
+            Adresse       = string.IsNullOrWhiteSpace(EmpAdresse) ? null : EmpAdresse.Trim(),
+            ServiceId     = LinkedEmploye.ServiceId,
+            PosteId       = LinkedEmploye.PosteId
+        };
+
+        var result = await EmployeSvc.UpdateAsync(LinkedEmploye.Id, dto);
+        EmpBusy = false;
+
+        if (result?.Succeeded == true)
+        {
+            LinkedEmploye = result.Data;
+            // تحديث الاسم في الهيدر إن تغيّر
+            FullName = LinkedEmploye!.NomComplet;
+            Initials = BuildInitials(EmpPrenom, EmpNom);
+            EmpOk    = "✓ تم تحديث البيانات الشخصية بنجاح.";
+            await FlashClear(() => EmpOk = "");
+        }
+        else EmpErr = result?.Errors?.FirstOrDefault() ?? "فشل التحديث. حاول مجدداً.";
+    }
+
+    // ── حفظ اسم المستخدم ─────────────────────────────────────
     private async Task DoUpdateProfile()
     {
-        if (string.IsNullOrWhiteSpace(NewFirst)) { NameErr="الاسم مطلوب."; return; }
-        if (string.IsNullOrWhiteSpace(NewLast))  { NameErr="اللقب مطلوب."; return; }
+        if (string.IsNullOrWhiteSpace(NewFirst)) { NameErr = "الاسم مطلوب."; return; }
+        if (string.IsNullOrWhiteSpace(NewLast))  { NameErr = "اللقب مطلوب."; return; }
 
         NameBusy = true; NameOk = ""; NameErr = "";
         var ok = await UserSvc.UpdateProfileAsync(
@@ -379,14 +926,14 @@
         else NameErr = "فشل التحديث. حاول مجدداً.";
     }
 
-    // ── تغيير كلمة المرور — PUT api/auth/me/password ──
+    // ── تغيير كلمة المرور ────────────────────────────────────
     private async Task DoChangePassword()
     {
-        if (string.IsNullOrWhiteSpace(CurPwd)) { PwdErr="كلمة المرور الحالية مطلوبة."; return; }
-        if (string.IsNullOrWhiteSpace(NewPwd)) { PwdErr="كلمة المرور الجديدة مطلوبة."; return; }
-        if (NewPwd.Length < 8)                  { PwdErr="8 أحرف على الأقل."; return; }
-        if (NewPwd != ConPwd)                   { PwdErr="كلمتا المرور غير متطابقتين."; return; }
-        if (NewPwd == CurPwd)                   { PwdErr="يجب أن تكون كلمة المرور الجديدة مختلفة."; return; }
+        if (string.IsNullOrWhiteSpace(CurPwd)) { PwdErr = "كلمة المرور الحالية مطلوبة."; return; }
+        if (string.IsNullOrWhiteSpace(NewPwd)) { PwdErr = "كلمة المرور الجديدة مطلوبة."; return; }
+        if (NewPwd.Length < 8)                 { PwdErr = "8 أحرف على الأقل."; return; }
+        if (NewPwd != ConPwd)                  { PwdErr = "كلمتا المرور غير متطابقتين."; return; }
+        if (NewPwd == CurPwd)                  { PwdErr = "يجب أن تكون كلمة المرور الجديدة مختلفة."; return; }
 
         PwdBusy = true; PwdOk = ""; PwdErr = "";
         var ok = await UserSvc.ChangePasswordAsync(
@@ -403,15 +950,15 @@
         else PwdErr = "فشل التغيير. تأكد من صحة كلمة المرور الحالية ومتطلبات الجديدة.";
     }
 
-    // ── شريط قوة كلمة المرور ─────────────────────────
+    // ── قوة كلمة المرور ──────────────────────────────────────
     private void OnNewPwdInput(ChangeEventArgs e)
     {
         NewPwd = e.Value?.ToString() ?? "";
         var score = 0;
-        if (NewPwd.Length >= 8)                              score++;
-        if (NewPwd.Any(char.IsUpper))                        score++;
-        if (NewPwd.Any(char.IsDigit))                        score++;
-        if (NewPwd.Any(c => "!@#$%^&*()_+-=[]{}|;':\",./<>?".Contains(c))) score++;
+        if (NewPwd.Length >= 8)                                                         score++;
+        if (NewPwd.Any(char.IsUpper))                                                   score++;
+        if (NewPwd.Any(char.IsDigit))                                                   score++;
+        if (NewPwd.Any(c => "!@#$%^&*()_+-=[]{}|;':\",./<>?".Contains(c)))             score++;
         (StrengthPct, StrengthColor, StrengthLabel) = score switch
         {
             0 or 1 => (20,  "#ef4444", "ضعيفة جداً"),
@@ -422,7 +969,7 @@
         };
     }
 
-    // ── Helpers ───────────────────────────────────────
+    // ── Helpers ───────────────────────────────────────────────
     private static string BuildInitials(string fn, string ln)
     {
         var f = fn?.Trim() ?? ""; var l = ln?.Trim() ?? "";
@@ -431,38 +978,43 @@
 
     private static string BuildGradient(List<string> roles)
     {
-        if (roles.Contains("SuperAdmin"))        return "linear-gradient(135deg,#f59e0b,#f97316)";
-        if (roles.Contains("Admin"))             return "linear-gradient(135deg,#7c3aed,#a855f7)";
-        if (roles.Contains("Manager"))           return "linear-gradient(135deg,#0369a1,#0ea5e9)";
-        if (roles.Contains("Finances"))          return "linear-gradient(135deg,#d97706,#f59e0b)";
-        if (roles.Contains("Urbanisme"))         return "linear-gradient(135deg,#059669,#10b981)";
-        if (roles.Contains("EtatCivil"))         return "linear-gradient(135deg,#ea580c,#f97316)";
-        if (roles.Contains("SIG"))               return "linear-gradient(135deg,#0e7490,#06b6d4)";
-        if (roles.Contains("BureauOrdre"))       return "linear-gradient(135deg,#0369a1,#38bdf8)";
-        if (roles.Contains("Reclamations"))      return "linear-gradient(135deg,#a21caf,#d946ef)";
-        if (roles.Contains("Nettoyage"))         return "linear-gradient(135deg,#4d7c0f,#84cc16)";
-        if (roles.Contains("Stock"))             return "linear-gradient(135deg,#be123c,#fb7185)";
-        if (roles.Contains("RessourcesHumaines"))return "linear-gradient(135deg,#6d28d9,#c084fc)";
-        if (roles.Contains("Employee"))          return "linear-gradient(135deg,#16a34a,#22c55e)";
+        if (roles.Contains("SuperAdmin"))         return "linear-gradient(135deg,#f59e0b,#f97316)";
+        if (roles.Contains("Admin"))              return "linear-gradient(135deg,#7c3aed,#a855f7)";
+        if (roles.Contains("Manager"))            return "linear-gradient(135deg,#0369a1,#0ea5e9)";
+        if (roles.Contains("Finances"))           return "linear-gradient(135deg,#d97706,#f59e0b)";
+        if (roles.Contains("Urbanisme"))          return "linear-gradient(135deg,#059669,#10b981)";
+        if (roles.Contains("EtatCivil"))          return "linear-gradient(135deg,#ea580c,#f97316)";
+        if (roles.Contains("SIG"))                return "linear-gradient(135deg,#0e7490,#06b6d4)";
+        if (roles.Contains("BureauOrdre"))        return "linear-gradient(135deg,#0369a1,#38bdf8)";
+        if (roles.Contains("Reclamations"))       return "linear-gradient(135deg,#a21caf,#d946ef)";
+        if (roles.Contains("Nettoyage"))          return "linear-gradient(135deg,#4d7c0f,#84cc16)";
+        if (roles.Contains("Stock"))              return "linear-gradient(135deg,#be123c,#fb7185)";
+        if (roles.Contains("RessourcesHumaines")) return "linear-gradient(135deg,#6d28d9,#c084fc)";
+        if (roles.Contains("Employee"))           return "linear-gradient(135deg,#16a34a,#22c55e)";
         return "linear-gradient(135deg,#64748b,#94a3b8)";
     }
 
     private static string RoleIco(string r) => r switch
     {
-        "SuperAdmin"=>"bi-star-fill","Admin"=>"bi-shield-fill","Manager"=>"bi-person-gear",
-        "Employee"=>"bi-person-badge","Finances"=>"bi-cash-coin","Urbanisme"=>"bi-building",
-        "EtatCivil"=>"bi-card-text","SIG"=>"bi-geo-alt-fill","BureauOrdre"=>"bi-envelope-paper-fill",
-        "Reclamations"=>"bi-chat-left-text-fill","Nettoyage"=>"bi-recycle",
-        "Stock"=>"bi-box-seam-fill","RessourcesHumaines"=>"bi-people-fill",_=>"bi-person"
+        "SuperAdmin"=>"bi-star-fill",       "Admin"=>"bi-shield-fill",
+        "Manager"=>"bi-person-gear",        "Employee"=>"bi-person-badge",
+        "Finances"=>"bi-cash-coin",         "Urbanisme"=>"bi-building",
+        "EtatCivil"=>"bi-card-text",        "SIG"=>"bi-geo-alt-fill",
+        "BureauOrdre"=>"bi-envelope-paper-fill",
+        "Reclamations"=>"bi-chat-left-text-fill",
+        "Nettoyage"=>"bi-recycle",          "Stock"=>"bi-box-seam-fill",
+        "RessourcesHumaines"=>"bi-people-fill", _=>"bi-person"
     };
 
     private static string RoleAr(string r) => r switch
     {
-        "SuperAdmin"=>"مدير النظام الأعلى","Admin"=>"مسؤول","Manager"=>"مشرف",
-        "Employee"=>"موظف","Finances"=>"المالية","Urbanisme"=>"التعمير",
-        "EtatCivil"=>"الحالة المدنية","SIG"=>"نظام GIS","BureauOrdre"=>"مكتب الأوامر",
-        "Reclamations"=>"الشكاوى","Nettoyage"=>"النظافة",
-        "Stock"=>"المخزون","RessourcesHumaines"=>"الموارد البشرية",_=>r
+        "SuperAdmin"=>"مدير النظام الأعلى", "Admin"=>"مسؤول",
+        "Manager"=>"مشرف",                  "Employee"=>"موظف",
+        "Finances"=>"المالية",              "Urbanisme"=>"التعمير",
+        "EtatCivil"=>"الحالة المدنية",      "SIG"=>"نظام GIS",
+        "BureauOrdre"=>"مكتب الأوامر",      "Reclamations"=>"الشكاوى",
+        "Nettoyage"=>"النظافة",             "Stock"=>"المخزون",
+        "RessourcesHumaines"=>"الموارد البشرية", _=>r
     };
 
     private async Task FlashClear(Action clear)
