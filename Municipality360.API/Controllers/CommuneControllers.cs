@@ -326,7 +326,7 @@ public class CourriersEntrantsController : ControllerBase
     /// Les pièces jointes peuvent être ajoutées séparément via POST /{id}/pieces-jointes
     /// </summary>
     [HttpPost]
-    [Authorize(Roles = "SuperAdmin,Admin,Manager,BOAgent")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,BureauOrdre")]
     public async Task<IActionResult> Enregistrer([FromBody] CreateCourrierEntrantDto dto)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
@@ -343,7 +343,7 @@ public class CourriersEntrantsController : ControllerBase
     /// Champs: tous les champs de CreateCourrierEntrantDto + fichiers (Files[])
     /// </summary>
     [HttpPost("avec-fichiers")]
-    [Authorize(Roles = "SuperAdmin,Admin,Manager,BOAgent")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,BureauOrdre")]
     [RequestSizeLimit(52_428_800)] // 50 MB
     [Consumes("multipart/form-data")]
     public async Task<IActionResult> EnregistrerAvecFichiers([FromForm] CreateCourrierEntrantAvecFichiersDto dto)
@@ -404,7 +404,7 @@ public class CourriersEntrantsController : ControllerBase
 
     /// <summary>Modifier les champs d'un courrier (hors pièces jointes)</summary>
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "SuperAdmin,Admin,Manager,BOAgent")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,BureauOrdre")]
     public async Task<IActionResult> Modifier(int id, [FromBody] UpdateCourrierEntrantDto dto)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
@@ -423,7 +423,7 @@ public class CourriersEntrantsController : ControllerBase
 
     /// <summary>Changer le statut (Enregistre → EnCours → Traite → Archive…)</summary>
     [HttpPatch("{id:int}/statut")]
-    [Authorize(Roles = "SuperAdmin,Admin,Manager,BOAgent")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,BureauOrdre")]
     public async Task<IActionResult> ChangerStatut(int id, [FromBody] ChangerStatutEntrantDto dto)
     {
         try
@@ -440,7 +440,7 @@ public class CourriersEntrantsController : ControllerBase
     /// Pratique pour les corrections rapides après enregistrement.
     /// </summary>
     [HttpPatch("{id:int}/affecter")]
-    [Authorize(Roles = "SuperAdmin,Admin,Manager,BOAgent")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,BureauOrdre")]
     public async Task<IActionResult> Affecter(int id, [FromBody] AffecterCourrierEntrantDto dto)
     {
         try
@@ -458,7 +458,7 @@ public class CourriersEntrantsController : ControllerBase
 
     /// <summary>Acheminer vers un autre service (crée une étape dans le circuit)</summary>
     [HttpPost("{id:int}/acheminer")]
-    [Authorize(Roles = "SuperAdmin,Admin,Manager,BOAgent")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,BureauOrdre")]
     public async Task<IActionResult> Acheminer(int id, [FromBody] AcheminerCourrierDto dto)
     {
         try
@@ -472,7 +472,7 @@ public class CourriersEntrantsController : ControllerBase
 
     /// <summary>Traiter une étape du circuit (ajouter commentaire / action effectuée)</summary>
     [HttpPatch("circuit/{circuitId:int}/traiter")]
-    [Authorize(Roles = "SuperAdmin,Admin,Manager,BOAgent")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,BureauOrdre")]
     public async Task<IActionResult> TraiterEtapeCircuit(int circuitId, [FromBody] TraiterEtapeCircuitDto dto)
     {
         try
@@ -486,7 +486,7 @@ public class CourriersEntrantsController : ControllerBase
 
     /// <summary>Retourner une étape (renvoi vers l'émetteur)</summary>
     [HttpPatch("circuit/{circuitId:int}/retourner")]
-    [Authorize(Roles = "SuperAdmin,Admin,Manager,BOAgent")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,BureauOrdre")]
     public async Task<IActionResult> RetournerEtapeCircuit(int circuitId, [FromBody] RetournerEtapeCircuitDto dto)
     {
         try
@@ -512,7 +512,7 @@ public class CourriersEntrantsController : ControllerBase
     /// Accepte: PDF, PNG, JPG, JPEG, TIFF — max 10 MB par fichier.
     /// </summary>
     [HttpPost("{id:int}/pieces-jointes")]
-    [Authorize(Roles = "SuperAdmin,Admin,Manager,BOAgent")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,BureauOrdre")]
     [RequestSizeLimit(52_428_800)]
     [Consumes("multipart/form-data")]
     public async Task<IActionResult> AjouterPiecesJointes(int id, [FromForm] UploadPiecesJointesDto dto)
@@ -594,7 +594,7 @@ public class CourriersEntrantsController : ControllerBase
 
     /// <summary>Supprimer une pièce jointe</summary>
     [HttpDelete("{id:int}/pieces-jointes/{pjId:int}")]
-    [Authorize(Roles = "SuperAdmin,Admin,Manager,BOAgent")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,BureauOrdre")]
     public async Task<IActionResult> SupprimerPieceJointe(int id, int pjId)
     {
         try
@@ -618,7 +618,7 @@ public class CourriersEntrantsController : ControllerBase
 
     /// <summary>Archiver un courrier traité</summary>
     [HttpPost("{id:int}/archiver")]
-    [Authorize(Roles = "SuperAdmin,Admin,Manager,BOAgent")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,BureauOrdre")]
     public async Task<IActionResult> Archiver(int id, [FromBody] ArchiversCourrierDto dto)
     {
         try

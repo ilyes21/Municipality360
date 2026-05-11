@@ -57,6 +57,7 @@ public class ApiService
         try
         {
             var response = await _http.PostAsJsonAsync(url, data);
+            if (!response.IsSuccessStatusCode) return default;
             return await response.Content.ReadFromJsonAsync<TResponse>();
         }
         catch { return default; }
@@ -68,6 +69,7 @@ public class ApiService
         try
         {
             var response = await _http.PutAsJsonAsync(url, data);
+            if (!response.IsSuccessStatusCode) return default;
             return await response.Content.ReadFromJsonAsync<TResponse>();
         }
         catch { return default; }
@@ -80,6 +82,7 @@ public class ApiService
         try
         {
             var response = await _http.PatchAsJsonAsync(url, data);
+            if (!response.IsSuccessStatusCode) return default;
             return await response.Content.ReadFromJsonAsync<TResponse>();
         }
         catch { return default; }

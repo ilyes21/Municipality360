@@ -123,9 +123,13 @@ tbody tr:last-child td { border-bottom:none; }
 .pj-meta { font-size:.73rem; color:#94a3b8; }
 .action-row { display:flex; gap:.6rem; flex-wrap:wrap; padding-top:.25rem; }
 
-/* ═══ FORM ═══ */
-.form-wrap  { max-width:900px; }
-.section-card { background:#fff; border-radius:14px; box-shadow:0 1px 8px rgba(0,0,0,.06); border:1px solid #f1f5f9; padding:1.35rem 1.5rem; margin-bottom:1rem; }
+/* ═══ FORM FULL PAGE ═══ */
+.form-wrap  { width:100%; }
+.form-page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem; flex-wrap:wrap; gap:.75rem; background:#fff; border-radius:14px; padding:1rem 1.5rem; box-shadow:0 1px 6px rgba(0,0,0,.06); border:1px solid #f1f5f9; }
+.form-columns { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+@@media(max-width:900px) { .form-columns { grid-template-columns:1fr; } }
+.form-col { display:flex; flex-direction:column; gap:1rem; }
+.section-card { background:#fff; border-radius:14px; box-shadow:0 1px 8px rgba(0,0,0,.06); border:1px solid #f1f5f9; padding:1.35rem 1.5rem; }
 .section-card h3 { font-size:.92rem; font-weight:700; color:#0369a1; margin:0 0 1rem; display:flex; align-items:center; gap:.4rem; border-bottom:1px solid #f0f9ff; padding-bottom:.65rem; }
 .form-grid  { display:grid; grid-template-columns:1fr 1fr; gap:.85rem 1.25rem; }
 .form-group { display:flex; flex-direction:column; gap:.3rem; }
@@ -138,7 +142,7 @@ tbody tr:last-child td { border-bottom:none; }
 textarea.form-control { height:80px; resize:vertical; padding:.6rem .85rem; }
 .form-check  { display:flex; align-items:center; gap:.5rem; cursor:pointer; font-size:.88rem; padding:.5rem 0; }
 .form-check input { width:16px; height:16px; cursor:pointer; accent-color:#0ea5e9; }
-.form-footer { display:flex; gap:.75rem; justify-content:flex-end; padding-top:1.25rem; border-top:1px solid #f1f5f9; margin-top:.5rem; }
+.form-footer { display:flex; gap:.75rem; justify-content:flex-end; padding:1.25rem 1.5rem; background:#fff; border-radius:14px; box-shadow:0 1px 8px rgba(0,0,0,.06); border:1px solid #f1f5f9; margin-top:1rem; }
 
 /* Contact search */
 .contact-search-wrap { position:relative; }
@@ -173,22 +177,35 @@ textarea.form-control { height:80px; resize:vertical; padding:.6rem .85rem; }
 /* Skeleton */
 .skeleton { background:linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%); background-size:200% 100%; animation:shimmer 1.4s infinite; border-radius:8px; }
 @@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+@@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
 </style>
 
-@* ═══════════════ VUE : FORMULAIRE ═══════════════ *@
+@* ═══════════════ VUE : FORMULAIRE PLEINE PAGE ═══════════════ *@
 @if (_showForm)
 {
     <div class="form-wrap">
-        <div class="page-header">
-            <div>
-                <div class="page-title">
-                    <i class="bi bi-envelope-arrow-down" style="color:#0ea5e9"></i>
-                    @(_editId.HasValue ? "تعديل بريد وارد" : "تسجيل بريد وارد جديد")
+
+        @* ── شريط العنوان ── *@
+        <div class="form-page-header">
+            <div style="display:flex;align-items:center;gap:1rem">
+                <div style="width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,#0369a1,#0ea5e9);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(14,165,233,.3)">
+                    <i class="bi bi-envelope-arrow-down" style="color:#fff;font-size:1.2rem"></i>
                 </div>
-                <div class="page-sub">مكتب الضبط / البريد الوارد / @(_editId.HasValue ? "تعديل" : "إضافة")</div>
+                <div>
+                    <div style="font-size:1.1rem;font-weight:800;color:#0f172a">
+                        @(_editId.HasValue ? "تعديل بريد وارد" : "تسجيل بريد وارد جديد")
+                    </div>
+                    <div style="font-size:.78rem;color:#94a3b8">
+                        مكتب الضبط
+                        <i class="bi bi-chevron-left" style="font-size:.6rem"></i>
+                        البريد الوارد
+                        <i class="bi bi-chevron-left" style="font-size:.6rem"></i>
+                        @(_editId.HasValue ? "تعديل" : "إضافة جديدة")
+                    </div>
+                </div>
             </div>
             <button class="btn btn-secondary" @onclick="BackToList">
-                <i class="bi bi-arrow-right"></i> رجوع
+                <i class="bi bi-arrow-right"></i> رجوع للقائمة
             </button>
         </div>
 
@@ -197,310 +214,319 @@ textarea.form-control { height:80px; resize:vertical; padding:.6rem .85rem; }
         @if (!string.IsNullOrEmpty(_formSuccess))
             { <div class="alert-ok"><i class="bi bi-check-circle-fill"></i> @_formSuccess</div> }
 
-        @* ── القسم 1: معلومات الوثيقة ── *@
-        <div class="section-card">
-            <h3><i class="bi bi-file-text"></i> معلومات الوثيقة</h3>
-            <div class="form-grid">
+        <div class="form-columns">
 
-                <div class="form-group">
-                    <label class="form-label">تاريخ الوثيقة <span class="req">*</span></label>
-                    <input type="date" class="form-control @(_v && _dto.DateCourrier == default ? "invalid" : "")"
-                           @bind="_dto.DateCourrier" />
-                </div>
+            @* ══ العمود الأيسر ══ *@
+            <div class="form-col">
 
-                <div class="form-group">
-                    <label class="form-label">تاريخ الاستلام <span class="req">*</span></label>
-                    <input type="date" class="form-control @(_v && _dto.DateReception == default ? "invalid" : "")"
-                           @bind="_dto.DateReception" />
-                </div>
+                @* ── القسم 1: معلومات الوثيقة ── *@
+                <div class="section-card">
+                    <h3><i class="bi bi-file-text"></i> معلومات الوثيقة</h3>
+                    <div class="form-grid">
 
-                <div class="form-group full">
-                    <label class="form-label">موضوع البريد <span class="req">*</span></label>
-                    <input type="text" class="form-control @(_v && string.IsNullOrEmpty(_dto.ObjetCourrier) ? "invalid" : "")"
-                           placeholder="أدخل موضوع البريد…" @bind="_dto.ObjetCourrier" />
-                </div>
+                        <div class="form-group">
+                            <label class="form-label">تاريخ الوثيقة <span class="req">*</span></label>
+                            <input type="date" class="form-control @(_v && _dto.DateCourrier == default ? "invalid" : "")"
+                                   @bind="_dto.DateCourrier" />
+                        </div>
 
-                <div class="form-group">
-                    <label class="form-label">نوع الوثيقة <span class="req">*</span></label>
-                    <select class="form-control" @bind="_dto.TypeDocument">
-                        <option value="Lettre">رسالة</option>
-                        <option value="Note">مذكرة</option>
-                        <option value="Circulaire">منشور / تعميم</option>
-                        <option value="Rapport">تقرير</option>
-                        <option value="Decision">قرار</option>
-                        <option value="Arrete">مقرر</option>
-                        <option value="Instruction">تعليمة</option>
-                        <option value="Demande">طلب</option>
-                        <option value="Recours">تظلم / شكوى</option>
-                        <option value="Facture">فاتورة</option>
-                        <option value="Autre">أخرى</option>
-                    </select>
-                </div>
+                        <div class="form-group">
+                            <label class="form-label">تاريخ الاستلام <span class="req">*</span></label>
+                            <input type="date" class="form-control @(_v && _dto.DateReception == default ? "invalid" : "")"
+                                   @bind="_dto.DateReception" />
+                        </div>
 
-                <div class="form-group">
-                    <label class="form-label">الرقم الخارجي للوثيقة</label>
-                    <input type="text" class="form-control" placeholder="رقم مرجعي للمرسل إن وجد"
-                           @bind="_dto.NumeroExterne" />
-                </div>
+                        <div class="form-group full">
+                            <label class="form-label">موضوع البريد <span class="req">*</span></label>
+                            <input type="text" class="form-control @(_v && string.IsNullOrEmpty(_dto.ObjetCourrier) ? "invalid" : "")"
+                                   placeholder="أدخل موضوع البريد…" @bind="_dto.ObjetCourrier" />
+                        </div>
 
-                <div class="form-group">
-                    <label class="form-label">الأولوية</label>
-                    <select class="form-control" @bind="_dto.Priorite">
-                        <option value="Normal">عادي</option>
-                        <option value="Urgent">عاجل</option>
-                        <option value="TresUrgent">عاجل جداً</option>
-                        <option value="Confidentiel">سري</option>
-                    </select>
-                </div>
+                        <div class="form-group">
+                            <label class="form-label">نوع الوثيقة <span class="req">*</span></label>
+                            <select class="form-control" @bind="_dto.TypeDocument">
+                                <option value="Lettre">رسالة</option>
+                                <option value="Note">مذكرة</option>
+                                <option value="Circulaire">منشور / تعميم</option>
+                                <option value="Rapport">تقرير</option>
+                                <option value="Decision">قرار</option>
+                                <option value="Arrete">مقرر</option>
+                                <option value="Instruction">تعليمة</option>
+                                <option value="Demande">طلب</option>
+                                <option value="Recours">تظلم / شكوى</option>
+                                <option value="Facture">فاتورة</option>
+                                <option value="Autre">أخرى</option>
+                            </select>
+                        </div>
 
-                <div class="form-group">
-                    <label class="form-label">الصنف (التصنيف)</label>
-                    <select class="form-control" @bind="_dto.CategorieId">
-                        <option value="">— بدون تصنيف —</option>
-                        @foreach (var cat in _categories)
-                        {
-                            <option value="@cat.Id">@cat.Libelle</option>
-                        }
-                    </select>
-                </div>
+                        <div class="form-group">
+                            <label class="form-label">الرقم الخارجي للوثيقة</label>
+                            <input type="text" class="form-control" placeholder="رقم مرجعي للمرسل إن وجد"
+                                   @bind="_dto.NumeroExterne" />
+                        </div>
 
-            </div>
+                        <div class="form-group">
+                            <label class="form-label">الأولوية</label>
+                            <select class="form-control" @bind="_dto.Priorite">
+                                <option value="Normal">عادي</option>
+                                <option value="Urgent">عاجل</option>
+                                <option value="TresUrgent">عاجل جداً</option>
+                                <option value="Confidentiel">سري</option>
+                            </select>
+                        </div>
 
-            <div style="display:flex;gap:1.5rem;margin-top:.75rem;flex-wrap:wrap;">
-                <label class="form-check">
-                    <input type="checkbox" @bind="_dto.EstConfidentiel" />
-                    <i class="bi bi-shield-lock" style="color:#9333ea"></i> سري
-                </label>
-                <label class="form-check">
-                    <input type="checkbox" @bind="_dto.NecessiteReponse" />
-                    <i class="bi bi-reply" style="color:#0369a1"></i> يستلزم ردًا
-                </label>
-            </div>
+                        <div class="form-group">
+                            <label class="form-label">الصنف (التصنيف)</label>
+                            <select class="form-control" @bind="_dto.CategorieId">
+                                <option value="">— بدون تصنيف —</option>
+                                @foreach (var cat in _categories)
+                                {
+                                    <option value="@cat.Id">@cat.Libelle</option>
+                                }
+                            </select>
+                        </div>
 
-            @if (_dto.NecessiteReponse)
-            {
-                <div class="form-group" style="margin-top:.75rem;max-width:260px;">
-                    <label class="form-label">أجل الرد</label>
-                    <input type="date" class="form-control" @bind="_dto.DelaiReponse" />
-                </div>
-            }
-        </div>
+                    </div>
 
-        @* ── القسم 2: المُرسِل ── *@
-        <div class="section-card">
-            <h3><i class="bi bi-person-lines-fill"></i> المُرسِل وطريقة الاستلام</h3>
-            <div class="form-grid">
+                    <div style="display:flex;gap:1.5rem;margin-top:.85rem;flex-wrap:wrap;">
+                        <label class="form-check">
+                            <input type="checkbox" @bind="_dto.EstConfidentiel" />
+                            <i class="bi bi-shield-lock" style="color:#9333ea"></i> سري
+                        </label>
+                        <label class="form-check">
+                            <input type="checkbox" @bind="_dto.NecessiteReponse" />
+                            <i class="bi bi-reply" style="color:#0369a1"></i> يستلزم ردًا
+                        </label>
+                    </div>
 
-                @* Contact Search *@
-                <div class="form-group full">
-                    <label class="form-label">المُرسِل <span class="req">*</span></label>
-                    @if (_selectedContact != null)
+                    @if (_dto.NecessiteReponse)
                     {
-                        <div class="contact-tag">
-                            <i class="bi bi-person-check-fill" style="color:#0369a1"></i>
-                            <span style="font-weight:600">@_selectedContact.NomComplet</span>
-                            @if (!string.IsNullOrEmpty(_selectedContact.Telephone))
-                            { <span style="color:#64748b;font-size:.78rem">— @_selectedContact.Telephone</span> }
-                            <button type="button" @onclick="ClearContact" title="إزالة">
-                                <i class="bi bi-x-circle-fill"></i>
-                            </button>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="contact-search-wrap">
-                            <div style="position:relative">
-                                <i class="bi bi-search" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:.9rem;pointer-events:none"></i>
-                                <input type="text" class="form-control"
-                                       style="padding-right:2.5rem"
-                                       placeholder="ابحث في جهات الاتصال بالاسم أو الجهة…"
-                                       value="@_contactSearch"
-                                       @oninput="OnContactSearch" />
-                            </div>
-                            @if (_contactResults.Count > 0)
-                            {
-                                <div class="contact-results">
-                                    @foreach (var c in _contactResults)
-                                    {
-                                        <div class="contact-result-item" @onclick="() => SelectContact(c)">
-                                            <i class="bi @(c.TypeContact == "Personne" ? "bi-person" : "bi-building")"
-                                               style="color:#0369a1"></i>
-                                            <div>
-                                                <div style="font-weight:600">@c.NomComplet</div>
-                                                @if (!string.IsNullOrEmpty(c.Telephone))
-                                                { <div style="font-size:.75rem;color:#64748b">@c.Telephone — @(c.Ville ?? "")</div> }
-                                            </div>
-                                        </div>
-                                    }
-                                </div>
-                            }
-                        </div>
-                        <div style="margin-top:.4rem;display:flex;align-items:center;gap:.5rem">
-                            <span style="font-size:.78rem;color:#94a3b8">أو</span>
-                            <button type="button" class="btn btn-secondary" style="font-size:.78rem;padding:.3rem .7rem"
-                                    @onclick="() => _showNewContact = true">
-                                <i class="bi bi-person-plus"></i> إضافة جهة اتصال جديدة
-                            </button>
-                        </div>
-                        @* Fallback: free text *@
-                        <div style="margin-top:.5rem">
-                            <label class="form-label" style="font-weight:400;color:#94a3b8">أو أدخل اسم المرسل يدوياً</label>
-                            <input type="text" class="form-control" placeholder="اسم الشخص أو الجهة…"
-                                   @bind="_dto.ExpediteurLibreNom" />
+                        <div class="form-group" style="margin-top:.75rem;max-width:240px;">
+                            <label class="form-label">أجل الرد</label>
+                            <input type="date" class="form-control" @bind="_dto.DelaiReponse" />
                         </div>
                     }
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label">طريقة الاستلام <span class="req">*</span></label>
-                    <select class="form-control" @bind="_dto.ModeReception">
-                        <option value="Guichet">على الواجهة</option>
-                        <option value="Recommande">بريد مضمون</option>
-                        <option value="Email">بريد إلكتروني</option>
-                        <option value="Fax">فاكس</option>
-                        <option value="Messagerie">مراسلة داخلية</option>
-                        <option value="Coursier">ساعي</option>
-                        <option value="PSEM">PSEM</option>
-                    </select>
-                </div>
-
-                @if (_dto.ModeReception == "Recommande")
-                {
+                @* ── القسم 5: ملاحظات ── *@
+                <div class="section-card">
+                    <h3><i class="bi bi-chat-left-text"></i> ملاحظات</h3>
                     <div class="form-group">
-                        <label class="form-label">رقم الوصل المضمون</label>
-                        <input type="text" class="form-control" placeholder="رقم AR…"
-                               @bind="_dto.NumeroRecommande" />
+                        <textarea class="form-control" style="height:100px" placeholder="ملاحظات إضافية…"
+                                  @bind="_dto.Observation"></textarea>
                     </div>
-                }
+                </div>
 
             </div>
-        </div>
 
-        @* ── القسم 3: التوجيه والإحالة ── *@
-        <div class="section-card">
-            <h3><i class="bi bi-diagram-3"></i> التوجيه والإحالة</h3>
-            <div class="form-grid">
+            @* ══ العمود الأيمن ══ *@
+            <div class="form-col">
 
-                <div class="form-group">
-                    <label class="form-label">المصلحة المعنية</label>
-                    <select class="form-control" @bind="_dto.ServiceDestinataireId" @bind:after="OnServiceChange">
-                        <option value="">— اختر المصلحة —</option>
-                        @foreach (var s in _services)
-                        {
-                            <option value="@s.Id">@s.Nom</option>
-                        }
-                    </select>
-                </div>
+                @* ── القسم 2: المُرسِل ── *@
+                <div class="section-card">
+                    <h3><i class="bi bi-person-lines-fill"></i> المُرسِل وطريقة الاستلام</h3>
+                    <div class="form-grid">
 
-                <div class="form-group">
-                    <label class="form-label">الموظف المعني</label>
-                    <select class="form-control" @bind="_dto.AgentDestinataireId">
-                        <option value="">— اختر الموظف —</option>
-                        @foreach (var emp in _employes)
-                        {
-                            <option value="@emp.UserId">@emp.NomComplet — @emp.PosteTitre</option>
-                        }
-                    </select>
-                </div>
-
-                @* Dossier picker *@
-                <div class="form-group full">
-                    <label class="form-label">ربط بملف (دوسيه)</label>
-                    @if (_selectedDossier != null)
-                    {
-                        <div class="contact-tag">
-                            <i class="bi bi-folder2-open" style="color:#0369a1"></i>
-                            <span style="font-weight:600">@_selectedDossier.NumeroDossier</span>
-                            <span style="color:#64748b;font-size:.78rem">— @_selectedDossier.Intitule</span>
-                            <button type="button" @onclick="ClearDossier" title="إزالة">
-                                <i class="bi bi-x-circle-fill"></i>
-                            </button>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="contact-search-wrap">
-                            <div style="position:relative">
-                                <i class="bi bi-search" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:.9rem;pointer-events:none"></i>
-                                <input type="text" class="form-control"
-                                       style="padding-right:2.5rem"
-                                       placeholder="ابحث في الملفات بالرقم أو العنوان…"
-                                       value="@_dossierSearch"
-                                       @oninput="OnDossierSearch" />
-                            </div>
-                            @if (_dossierResults.Count > 0)
+                        <div class="form-group full">
+                            <label class="form-label">المُرسِل <span class="req">*</span></label>
+                            @if (_selectedContact != null)
                             {
-                                <div class="contact-results">
-                                    @foreach (var d in _dossierResults)
+                                <div class="contact-tag">
+                                    <i class="bi bi-person-check-fill" style="color:#0369a1"></i>
+                                    <span style="font-weight:600">@_selectedContact.NomComplet</span>
+                                    @if (!string.IsNullOrEmpty(_selectedContact.Telephone))
+                                    { <span style="color:#64748b;font-size:.78rem">— @_selectedContact.Telephone</span> }
+                                    <button type="button" @onclick="ClearContact" title="إزالة">
+                                        <i class="bi bi-x-circle-fill"></i>
+                                    </button>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="contact-search-wrap">
+                                    <div style="position:relative">
+                                        <i class="bi bi-search" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:.9rem;pointer-events:none"></i>
+                                        <input type="text" class="form-control"
+                                               style="padding-right:2.5rem"
+                                               placeholder="ابحث في جهات الاتصال…"
+                                               value="@_contactSearch"
+                                               @oninput="OnContactSearch" />
+                                    </div>
+                                    @if (_contactResults.Count > 0)
                                     {
-                                        <div class="contact-result-item" @onclick="() => SelectDossier(d)">
-                                            <i class="bi bi-folder2" style="color:#0369a1"></i>
-                                            <div>
-                                                <div style="font-weight:600">@d.NumeroDossier</div>
-                                                <div style="font-size:.75rem;color:#64748b">@d.Intitule</div>
-                                            </div>
+                                        <div class="contact-results">
+                                            @foreach (var c in _contactResults)
+                                            {
+                                                <div class="contact-result-item" @onclick="() => SelectContact(c)">
+                                                    <i class="bi @(c.TypeContact == "Personne" ? "bi-person" : "bi-building")" style="color:#0369a1"></i>
+                                                    <div>
+                                                        <div style="font-weight:600">@c.NomComplet</div>
+                                                        @if (!string.IsNullOrEmpty(c.Telephone))
+                                                        { <div style="font-size:.75rem;color:#64748b">@c.Telephone — @(c.Ville ?? "")</div> }
+                                                    </div>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                                <div style="margin-top:.4rem;display:flex;align-items:center;gap:.5rem">
+                                    <span style="font-size:.78rem;color:#94a3b8">أو</span>
+                                    <button type="button" class="btn btn-secondary" style="font-size:.78rem;padding:.3rem .7rem"
+                                            @onclick="() => _showNewContact = true">
+                                        <i class="bi bi-person-plus"></i> إضافة جهة جديدة
+                                    </button>
+                                </div>
+                                <div style="margin-top:.5rem">
+                                    <label class="form-label" style="font-weight:400;color:#94a3b8">أو أدخل اسم المرسل يدوياً</label>
+                                    <input type="text" class="form-control" placeholder="اسم الشخص أو الجهة…"
+                                           @bind="_dto.ExpediteurLibreNom" />
+                                </div>
+                            }
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">طريقة الاستلام <span class="req">*</span></label>
+                            <select class="form-control" @bind="_dto.ModeReception">
+                                <option value="Guichet">على الواجهة</option>
+                                <option value="Recommande">بريد مضمون</option>
+                                <option value="Email">بريد إلكتروني</option>
+                                <option value="Fax">فاكس</option>
+                                <option value="Messagerie">مراسلة داخلية</option>
+                                <option value="Coursier">ساعي</option>
+                                <option value="PSEM">PSEM</option>
+                            </select>
+                        </div>
+
+                        @if (_dto.ModeReception == "Recommande")
+                        {
+                            <div class="form-group">
+                                <label class="form-label">رقم الوصل المضمون</label>
+                                <input type="text" class="form-control" placeholder="رقم AR…"
+                                       @bind="_dto.NumeroRecommande" />
+                            </div>
+                        }
+
+                    </div>
+                </div>
+
+                @* ── القسم 3: التوجيه والإحالة ── *@
+                <div class="section-card">
+                    <h3><i class="bi bi-diagram-3"></i> التوجيه والإحالة</h3>
+                    <div class="form-grid">
+
+                        <div class="form-group">
+                            <label class="form-label">المصلحة المعنية</label>
+                            <select class="form-control" @bind="_dto.ServiceDestinataireId" @bind:after="OnServiceChange">
+                                <option value="">— اختر المصلحة —</option>
+                                @foreach (var s in _services)
+                                {
+                                    <option value="@s.Id">@s.Nom</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">الموظف المعني</label>
+                            <select class="form-control" @bind="_dto.AgentDestinataireId">
+                                <option value="">— اختر الموظف —</option>
+                                @foreach (var emp in _employes)
+                                {
+                                    <option value="@emp.UserId">@emp.NomComplet — @emp.PosteTitre</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="form-group full">
+                            <label class="form-label">ربط بملف (دوسيه)</label>
+                            @if (_selectedDossier != null)
+                            {
+                                <div class="contact-tag">
+                                    <i class="bi bi-folder2-open" style="color:#0369a1"></i>
+                                    <span style="font-weight:600">@_selectedDossier.NumeroDossier</span>
+                                    <span style="color:#64748b;font-size:.78rem">— @_selectedDossier.Intitule</span>
+                                    <button type="button" @onclick="ClearDossier" title="إزالة">
+                                        <i class="bi bi-x-circle-fill"></i>
+                                    </button>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="contact-search-wrap">
+                                    <div style="position:relative">
+                                        <i class="bi bi-search" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:.9rem;pointer-events:none"></i>
+                                        <input type="text" class="form-control"
+                                               style="padding-right:2.5rem"
+                                               placeholder="ابحث في الملفات بالرقم أو العنوان…"
+                                               value="@_dossierSearch"
+                                               @oninput="OnDossierSearch" />
+                                    </div>
+                                    @if (_dossierResults.Count > 0)
+                                    {
+                                        <div class="contact-results">
+                                            @foreach (var d in _dossierResults)
+                                            {
+                                                <div class="contact-result-item" @onclick="() => SelectDossier(d)">
+                                                    <i class="bi bi-folder2" style="color:#0369a1"></i>
+                                                    <div>
+                                                        <div style="font-weight:600">@d.NumeroDossier</div>
+                                                        <div style="font-size:.75rem;color:#64748b">@d.Intitule</div>
+                                                    </div>
+                                                </div>
+                                            }
                                         </div>
                                     }
                                 </div>
                             }
                         </div>
-                    }
+
+                    </div>
                 </div>
 
-            </div>
-        </div>
-
-        @* ── القسم 4: الملفات المرفقة ── *@
-        @if (!_editId.HasValue)
-        {
-            <div class="section-card">
-                <h3><i class="bi bi-paperclip"></i> الملفات المرفقة</h3>
-
-                <div class="dropzone" @onclick="TriggerFilePicker"
-                     @ondragover:preventDefault="true"
-                     @ondrop="OnFileDrop">
-                    <i class="bi bi-cloud-arrow-up"></i>
-                    <strong>اسحب الملفات هنا أو انقر للاختيار</strong>
-                    <div style="font-size:.8rem;margin-top:.3rem;color:#94a3b8">PDF · PNG · JPG · TIFF — بحد أقصى 10 MB للملف الواحد</div>
-                </div>
-
-                <InputFile id="fileInput" style="display:none" multiple
-                           accept=".pdf,.png,.jpg,.jpeg,.tiff"
-                           OnChange="OnFilesSelected" />
-
-                @if (_selectedFiles.Count > 0)
+                @* ── القسم 4: الملفات المرفقة ── *@
+                @if (!_editId.HasValue)
                 {
-                    <div class="file-list">
-                        @foreach (var (f, i) in _selectedFiles.Select((f,i) => (f,i)))
+                    <div class="section-card">
+                        <h3><i class="bi bi-paperclip"></i> الملفات المرفقة</h3>
+
+                        <div class="dropzone" @onclick="TriggerFilePicker"
+                             @ondragover:preventDefault="true"
+                             @ondrop="OnFileDrop">
+                            <i class="bi bi-cloud-arrow-up"></i>
+                            <strong>اسحب الملفات هنا أو انقر للاختيار</strong>
+                            <div style="font-size:.8rem;margin-top:.3rem;color:#94a3b8">PDF · PNG · JPG · TIFF — بحد أقصى 10 MB</div>
+                        </div>
+
+                        <InputFile id="fileInput" style="display:none" multiple
+                                   accept=".pdf,.png,.jpg,.jpeg,.tiff"
+                                   OnChange="OnFilesSelected" />
+
+                        @if (_selectedFiles.Count > 0)
                         {
-                            <div class="file-item">
-                                <i class="bi @FileIcon(f.Name)" style="font-size:1.1rem;color:#0369a1"></i>
-                                <span style="flex:1">@f.Name</span>
-                                <span style="color:#94a3b8;font-size:.75rem">@FormatSize(f.Size)</span>
-                                <button class="remove" @onclick="() => RemoveFile(i)" type="button">
-                                    <i class="bi bi-x-circle"></i>
-                                </button>
+                            <div class="file-list">
+                                @foreach (var (f, i) in _selectedFiles.Select((f,i) => (f,i)))
+                                {
+                                    <div class="file-item">
+                                        <i class="bi @FileIcon(f.Name)" style="font-size:1.1rem;color:#0369a1"></i>
+                                        <span style="flex:1">@f.Name</span>
+                                        <span style="color:#94a3b8;font-size:.75rem">@FormatSize(f.Size)</span>
+                                        <button class="remove" @onclick="() => RemoveFile(i)" type="button">
+                                            <i class="bi bi-x-circle"></i>
+                                        </button>
+                                    </div>
+                                }
                             </div>
                         }
                     </div>
                 }
-            </div>
-        }
 
-        @* ── القسم 5: ملاحظات ── *@
-        <div class="section-card">
-            <h3><i class="bi bi-chat-left-text"></i> ملاحظات</h3>
-            <div class="form-group">
-                <textarea class="form-control" placeholder="ملاحظات إضافية…"
-                          @bind="_dto.Observation"></textarea>
             </div>
         </div>
 
         <div class="form-footer">
-            <button class="btn btn-secondary" @onclick="BackToList">إلغاء</button>
+            <button class="btn btn-secondary" @onclick="BackToList"><i class="bi bi-x"></i> إلغاء</button>
             <button class="btn btn-primary" @onclick="SaveAsync" disabled="@_saving">
-                @if (_saving) { <span class="spinner-border spinner-border-sm"></span> }
-                <i class="bi bi-check2-circle"></i>
+                @if (_saving) { <i class="bi bi-arrow-repeat" style="animation:spin 1s linear infinite"></i> }
+                else { <i class="bi bi-check2-circle"></i> }
                 @(_editId.HasValue ? "حفظ التعديلات" : "تسجيل البريد")
             </button>
         </div>
