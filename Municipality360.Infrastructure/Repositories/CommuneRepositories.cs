@@ -101,6 +101,9 @@ public class EmployeRepository : GenericRepository<Employe>, IEmployeRepository
                 (e.Email != null && e.Email.ToLower().Contains(term)));
         }
 
+        if (!string.IsNullOrEmpty(filter.UserId))
+            query = query.Where(e => e.UserId == filter.UserId);
+
         var totalCount = await query.CountAsync();
         var items = await query
             .OrderBy(e => e.Nom).ThenBy(e => e.Prenom)

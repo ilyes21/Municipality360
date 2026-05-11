@@ -249,6 +249,7 @@ public class EmployeFilterDto
     public int? PosteId { get; set; }
     public string? Statut { get; set; }
     public string? SearchTerm { get; set; }
+    public string? UserId { get; set; }
     public int PageNumber { get; set; } = 1;
     public int PageSize { get; set; } = 10;
 }

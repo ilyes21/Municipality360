@@ -104,6 +104,26 @@ public class CourrierEntrantService : ICourrierEntrantService
 
         await _repo.AddAsync(courrier);
 
+        // Entrée initiale dans le circuit de traitement
+        if (dto.ServiceDestinataireId.HasValue)
+        {
+            var etapeInitiale = new BOCircuitTraitement
+            {
+                CourrierEntrantId = courrier.Id,
+                NumeroEtape = (short)1,
+                ServiceEmetteurId = dto.ServiceDestinataireId.Value,
+                AgentEmetteurId = agentId,
+                ServiceRecepteurId = dto.ServiceDestinataireId.Value,
+                AgentRecepteurId = dto.AgentDestinataireId,
+                TypeAction = TypeActionCircuit.PourInformation,
+                InstructionTransmission = $"تم التسجيل في مكتب الضبط بتاريخ {dto.DateReception:dd/MM/yyyy}",
+                StatutEtape = StatutEtapeCircuit.EnAttente,
+                DateTransmission = DateTime.UtcNow,
+                CreatedById = agentId
+            };
+            await _circuitRepo.AddAsync(etapeInitiale);
+        }
+
         // Notification au service destinataire si défini
         if (dto.ServiceDestinataireId.HasValue)
             await _notif.NotifierServiceAsync(
@@ -247,16 +267,20 @@ public class CourrierEntrantService : ICourrierEntrantService
         c.UpdatedAt = DateTime.UtcNow;
         await _repo.UpdateAsync(c);
 
+        var instruction = !string.IsNullOrWhiteSpace(dto.InstructionTransmission)
+            ? dto.InstructionTransmission
+            : $"تم التوجيه إلى المصلحة المعنية بتاريخ {DateTime.UtcNow:dd/MM/yyyy}";
+
         var etape = new BOCircuitTraitement
         {
             CourrierEntrantId = courrierEntrantId,
             NumeroEtape = await _circuitRepo.GetProchaineNumeroEtapeAsync(courrierEntrantId),
-            ServiceEmetteurId = c.ServiceDestinataireId,
+            ServiceEmetteurId = c.ServiceDestinataireId ?? dto.ServiceRecepteurId,
             AgentEmetteurId = agentId,
             ServiceRecepteurId = dto.ServiceRecepteurId,
             AgentRecepteurId = dto.AgentRecepteurId,
             TypeAction = Enum.Parse<TypeActionCircuit>(dto.TypeAction),
-            InstructionTransmission = dto.InstructionTransmission,
+            InstructionTransmission = instruction,
             DelaiTraitement = dto.DelaiTraitement,
             StatutEtape = StatutEtapeCircuit.EnAttente,
             DateTransmission = DateTime.UtcNow,

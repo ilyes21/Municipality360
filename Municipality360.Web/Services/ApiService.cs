@@ -88,6 +88,18 @@ public class ApiService
         catch { return default; }
     }
 
+    public async Task<TResponse?> PostMultipartAsync<TResponse>(string url, MultipartFormDataContent content)
+    {
+        await SetAuthHeaderAsync();
+        try
+        {
+            var response = await _http.PostAsync(url, content);
+            if (!response.IsSuccessStatusCode) return default;
+            return await response.Content.ReadFromJsonAsync<TResponse>();
+        }
+        catch { return default; }
+    }
+
     public async Task<bool> DeleteAsync(string url)
     {
         await SetAuthHeaderAsync();

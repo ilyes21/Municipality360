@@ -57,12 +57,10 @@ public interface ICourrierEntrantApiService
 public class CourrierEntrantApiService : ICourrierEntrantApiService
 {
     private readonly ApiService _api;
-    private readonly HttpClient _http;
 
-    public CourrierEntrantApiService(ApiService api, HttpClient http)
+    public CourrierEntrantApiService(ApiService api)
     {
         _api = api;
-        _http = http;
     }
 
     // ── Lectures ──────────────────────────────────────────────────
@@ -131,6 +129,7 @@ public class CourrierEntrantApiService : ICourrierEntrantApiService
             Add("NumeroRecommande", dto.NumeroRecommande);
             Add("Priorite", dto.Priorite);
             Add("Observation", dto.Observation);
+            Add("ExpediteurLibreNom", dto.ExpediteurLibreNom);
             content.Add(new StringContent(dto.NombrePages.ToString()), "NombrePages");
             content.Add(new StringContent(dto.EstConfidentiel.ToString()), "EstConfidentiel");
             content.Add(new StringContent(dto.NecessiteReponse.ToString()), "NecessiteReponse");
@@ -142,6 +141,10 @@ public class CourrierEntrantApiService : ICourrierEntrantApiService
                 content.Add(new StringContent(dto.DossierId.Value.ToString()), "DossierId");
             if (dto.DelaiReponse.HasValue)
                 content.Add(new StringContent(dto.DelaiReponse.Value.ToString("yyyy-MM-dd")), "DelaiReponse");
+            if (dto.ExpediteurContactId.HasValue)
+                content.Add(new StringContent(dto.ExpediteurContactId.Value.ToString()), "ExpediteurContactId");
+            if (!string.IsNullOrEmpty(dto.AgentDestinataireId))
+                content.Add(new StringContent(dto.AgentDestinataireId), "AgentDestinataireId");
 
             // Fichiers
             foreach (var file in fichiers)
@@ -153,9 +156,7 @@ public class CourrierEntrantApiService : ICourrierEntrantApiService
                 content.Add(sc, "Fichiers", file.Name);
             }
 
-            var response = await _http.PostAsync("api/courriers-entrants/avec-fichiers", content);
-            if (!response.IsSuccessStatusCode) return null;
-            return await response.Content.ReadFromJsonAsync<CourrierEntrantDetailDto>();
+            return await _api.PostMultipartAsync<CourrierEntrantDetailDto>("api/courriers-entrants/avec-fichiers", content);
         }
         catch { return null; }
     }
@@ -225,8 +226,8 @@ public class CourrierEntrantApiService : ICourrierEntrantApiService
                 content.Add(sc, "Fichiers", file.Name);
             }
 
-            var response = await _http.PostAsync($"api/courriers-entrants/{id}/pieces-jointes", content);
-            return response.IsSuccessStatusCode;
+            var result = await _api.PostMultipartAsync<object>($"api/courriers-entrants/{id}/pieces-jointes", content);
+            return result != null;
         }
         catch { return false; }
     }
@@ -276,8 +277,7 @@ public interface ICourrierSortantApiService
 public class CourrierSortantApiService : ICourrierSortantApiService
 {
     private readonly ApiService _api;
-    private readonly HttpClient _http;
-    public CourrierSortantApiService(ApiService api, HttpClient http) { _api = api; _http = http; }
+    public CourrierSortantApiService(ApiService api) { _api = api; }
 
     public async Task<PagedResult<CourrierSortantDto>?> GetPagedAsync(CourrierSortantFilterDto f)
     {
@@ -359,8 +359,8 @@ public class CourrierSortantApiService : ICourrierSortantApiService
                     file.Name.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) ? "application/pdf" : "image/jpeg");
                 content.Add(sc, "fichiers", file.Name);
             }
-            var response = await _http.PostAsync($"api/courriers-sortants/{id}/pieces-jointes", content);
-            return response.IsSuccessStatusCode;
+            var result = await _api.PostMultipartAsync<object>($"api/courriers-sortants/{id}/pieces-jointes", content);
+            return result != null;
         }
         catch { return false; }
     }

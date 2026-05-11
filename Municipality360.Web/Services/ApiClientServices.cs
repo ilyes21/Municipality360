@@ -138,6 +138,7 @@ public interface IEmployeApiService
 {
     Task<Result<PagedResult<EmployeDto>>?> GetPagedAsync(EmployeFilterDto filter);
     Task<Result<EmployeDto>?> GetByIdAsync(int id);
+    Task<EmployeDto?> GetByUserIdAsync(string userId);
     Task<Result<EmployeDto>?> CreateAsync(CreateEmployeDto dto);
     Task<Result<EmployeDto>?> UpdateAsync(int id, UpdateEmployeDto dto);
     Task<bool> DeleteAsync(int id);
@@ -157,11 +158,20 @@ public class EmployeApiService : IEmployeApiService
         if (filter.DepartementId.HasValue) query += $"&departementId={filter.DepartementId}";
         if (!string.IsNullOrEmpty(filter.SearchTerm))
             query += $"&searchTerm={Uri.EscapeDataString(filter.SearchTerm)}";
+        if (!string.IsNullOrEmpty(filter.UserId))
+            query += $"&userId={Uri.EscapeDataString(filter.UserId)}";
         return await _api.GetAsync<Result<PagedResult<EmployeDto>>>(query);
     }
 
     public async Task<Result<EmployeDto>?> GetByIdAsync(int id) =>
         await _api.GetAsync<Result<EmployeDto>>($"api/employes/{id}");
+
+    public async Task<EmployeDto?> GetByUserIdAsync(string userId)
+    {
+        var result = await _api.GetAsync<Result<PagedResult<EmployeDto>>>(
+            $"api/employes?pageNumber=1&pageSize=1&userId={Uri.EscapeDataString(userId)}");
+        return result?.Data?.Items?.FirstOrDefault();
+    }
 
     public async Task<Result<EmployeDto>?> CreateAsync(CreateEmployeDto dto) =>
         await _api.PostAsync<CreateEmployeDto, Result<EmployeDto>>("api/employes", dto);
