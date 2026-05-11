@@ -131,6 +131,7 @@ public interface ICourrierSortantService
     Task AccuserReceptionAsync(int id, DateTime dateAccuse, string agentId);
     Task<BOArchiveDto> ArchiverAsync(int id, ArchiversCourrierDto dto, string agentId);
     Task AnnulerAsync(int id, string motif, string agentId);
+    Task<BOPieceJointeDto> AjouterPieceJointeAsync(int courrierSortantId, AjouterPieceJointeDto dto);
 }
 
 public interface IBODossierService

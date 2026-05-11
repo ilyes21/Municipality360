@@ -567,6 +567,12 @@ public class BOCourrierSortantRepository : GenericRepository<BOCourrierSortant>,
             .OrderByDescending(c => c.UpdatedAt)
             .Select(c => MapToListDto(c)).ToListAsync();
 
+    public async Task AddPieceJointeAsync(BOPieceJointeSortant pj)
+    {
+        _context.Set<BOPieceJointeSortant>().Add(pj);
+        await _context.SaveChangesAsync();
+    }
+
     private static CourrierSortantDto MapToListDto(BOCourrierSortant c) => new()
     {
         Id = c.Id, NumeroOrdre = c.NumeroOrdre, ObjetCourrier = c.ObjetCourrier,

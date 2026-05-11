@@ -131,7 +131,14 @@
                 {
                     <th>المرسل إليه</th>
                 }
-                <th>تاريخ الأرشفة</th>
+                @if (_tab == "entrant")
+                {
+                    <th>تاريخ الأرشفة</th>
+                }
+                else
+                {
+                    <th>تاريخ الإرسال</th>
+                }
                 <th>النوع</th>
             </tr></thead>
             <tbody>
@@ -217,6 +224,14 @@
                     <div class="detail-item"><label>الأولوية</label><span>@_entrantDetail.Priorite</span></div>
                     <div class="detail-item"><label>طريقة الاستلام</label><span>@_entrantDetail.ModeReception</span></div>
                     <div class="detail-item"><label>الحالة</label><span class="badge badge-archive">مؤرشف</span></div>
+                    @if (!string.IsNullOrEmpty(_entrantDetail.CategorieLibelle))
+                    {
+                        <div class="detail-item"><label>الفئة</label><span>@_entrantDetail.CategorieLibelle</span></div>
+                    }
+                    @if (_entrantDetail.Archive != null)
+                    {
+                        <div class="detail-item"><label>تاريخ الأرشفة</label><span>@_entrantDetail.Archive.CreatedAt.ToString("dd/MM/yyyy")</span></div>
+                    }
                     @if (!string.IsNullOrEmpty(_entrantDetail.ServiceDestinataireNom))
                     {
                         <div class="detail-item full"><label>الخدمة المعنية</label><span>@_entrantDetail.ServiceDestinataireNom</span></div>
@@ -254,6 +269,10 @@
                     <div class="detail-item"><label>تاريخ الإرسال</label><span>@(_sortantDetail.DateEnvoi.HasValue ? _sortantDetail.DateEnvoi.Value.ToString("dd/MM/yyyy") : "—")</span></div>
                     <div class="detail-item"><label>الموقِّع</label><span>@(_sortantDetail.FonctionSignataire ?? "—")</span></div>
                     <div class="detail-item"><label>الحالة</label><span class="badge badge-archive">مؤرشف</span></div>
+                    @if (!string.IsNullOrEmpty(_sortantDetail.CategorieLibelle))
+                    {
+                        <div class="detail-item"><label>الفئة</label><span>@_sortantDetail.CategorieLibelle</span></div>
+                    }
                     @if (!string.IsNullOrEmpty(_sortantDetail.Observation))
                     {
                         <div class="detail-item full"><label>ملاحظات</label><span>@_sortantDetail.Observation</span></div>

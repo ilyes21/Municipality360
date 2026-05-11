@@ -1113,6 +1113,15 @@
                     <NavLink class="sb-child-link" href="/bureau/contacts">
                         <i class="bi bi-person-lines-fill"></i><span>جهات الاتصال</span>
                     </NavLink>
+                    <NavLink class="sb-child-link" href="/bureau/inbox">
+                        <i class="bi bi-inbox"></i><span>صندوق الوارد</span>
+                    </NavLink>
+                    @if (CanAccess("SuperAdmin", "Admin", "Manager"))
+                    {
+                        <NavLink class="sb-child-link" href="/bureau/responsable">
+                            <i class="bi bi-shield-check"></i><span>لوحة الرئيس</span>
+                        </NavLink>
+                    }
                 </div>
             }
 

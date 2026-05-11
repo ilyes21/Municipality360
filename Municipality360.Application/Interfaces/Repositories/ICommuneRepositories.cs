@@ -98,6 +98,7 @@ public interface IBOCourrierSortantRepository : IGenericRepository<BOCourrierSor
     Task<BOCourrierSortant?> GetByIdWithDetailsAsync(int id);
     Task<BOCourrierSortant?> GetByNumeroAsync(string numero);
     Task<List<CourrierSortantDto>> GetBrouillonsAsync(string redacteurId);
+    Task AddPieceJointeAsync(BOPieceJointeSortant pj);
 }
 
 public interface IBOArchiveRepository : IGenericRepository<BOArchive>

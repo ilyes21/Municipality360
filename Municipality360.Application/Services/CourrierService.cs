@@ -717,6 +717,43 @@ public class CourrierSortantService : ICourrierSortantService
         await _repo.UpdateAsync(c);
     }
 
+    public async Task<BOPieceJointeDto> AjouterPieceJointeAsync(int courrierSortantId, AjouterPieceJointeDto dto)
+    {
+        var c = await _repo.GetByIdAsync(courrierSortantId)
+            ?? throw new KeyNotFoundException($"Courrier sortant #{courrierSortantId} introuvable.");
+
+        if (c.Statut == StatutSortant.Archive)
+            throw new InvalidOperationException("Impossible d'ajouter une pièce jointe à un courrier archivé.");
+
+        var pj = new BOPieceJointeSortant
+        {
+            CourrierSortantId = courrierSortantId,
+            NomFichierOriginal = dto.NomFichierOriginal,
+            NomFichierStocke = dto.NomFichierStocke,
+            CheminFichier = dto.CheminFichier,
+            ExtensionFichier = dto.ExtensionFichier,
+            TailleFichierOctets = dto.TailleFichierOctets,
+            TypePiece = Enum.Parse<TypePieceJointeBO>(dto.TypePiece),
+            Description = dto.Description,
+            Ordre = dto.Ordre,
+            UploadedById = dto.UploadedById
+        };
+
+        await _repo.AddPieceJointeAsync(pj);
+
+        return new BOPieceJointeDto
+        {
+            Id = pj.Id,
+            NomFichierOriginal = pj.NomFichierOriginal,
+            ExtensionFichier = pj.ExtensionFichier,
+            TailleFichierOctets = pj.TailleFichierOctets,
+            TypePiece = pj.TypePiece.ToString(),
+            Ordre = pj.Ordre,
+            Description = pj.Description,
+            UrlTelechargement = $"/api/courriers-sortants/{courrierSortantId}/pieces-jointes/{pj.Id}/telecharger"
+        };
+    }
+
     private static CourrierSortantDetailDto MapToDetail(BOCourrierSortant c) => new()
     {
         Id = c.Id,
