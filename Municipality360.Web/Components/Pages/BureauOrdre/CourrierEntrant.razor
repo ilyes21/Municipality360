@@ -3,12 +3,16 @@
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.JSInterop
 @using Municipality360.Application.DTOs.BureauOrdre
+@using Municipality360.Application.DTOs.Structure
 @using Municipality360.Application.Common
 @attribute [Authorize(Roles = "SuperAdmin,Admin,Manager,BureauOrdre")]
 @layout Municipality360.Web.Components.Layout.MainLayout
 
 @inject ICourrierEntrantApiService Api
 @inject IBOContactApiService ContactApi
+@inject IBOCategorieCourrierApiService CategorieApi
+@inject IBODossierApiService DossierApi
+@inject IEmployeApiService EmployeApi
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
@@ -250,8 +254,14 @@ textarea.form-control { height:80px; resize:vertical; padding:.6rem .85rem; }
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label">عدد الصفحات</label>
-                    <input type="number" class="form-control" min="1" @bind="_dto.NombrePages" />
+                    <label class="form-label">الصنف (التصنيف)</label>
+                    <select class="form-control" @bind="_dto.CategorieId">
+                        <option value="">— بدون تصنيف —</option>
+                        @foreach (var cat in _categories)
+                        {
+                            <option value="@cat.Id">@cat.Libelle</option>
+                        }
+                    </select>
                 </div>
 
             </div>
@@ -373,7 +383,7 @@ textarea.form-control { height:80px; resize:vertical; padding:.6rem .85rem; }
 
                 <div class="form-group">
                     <label class="form-label">المصلحة المعنية</label>
-                    <select class="form-control" @bind="_dto.ServiceDestinataireId">
+                    <select class="form-control" @bind="_dto.ServiceDestinataireId" @bind:after="OnServiceChange">
                         <option value="">— اختر المصلحة —</option>
                         @foreach (var s in _services)
                         {
@@ -383,9 +393,58 @@ textarea.form-control { height:80px; resize:vertical; padding:.6rem .85rem; }
                 </div>
 
                 <div class="form-group">
+                    <label class="form-label">الموظف المعني</label>
+                    <select class="form-control" @bind="_dto.AgentDestinataireId">
+                        <option value="">— اختر الموظف —</option>
+                        @foreach (var emp in _employes)
+                        {
+                            <option value="@emp.UserId">@emp.NomComplet — @emp.PosteTitre</option>
+                        }
+                    </select>
+                </div>
+
+                @* Dossier picker *@
+                <div class="form-group full">
                     <label class="form-label">ربط بملف (دوسيه)</label>
-                    <input type="number" class="form-control" placeholder="رقم الملف إن وجد"
-                           @bind="_dto.DossierId" />
+                    @if (_selectedDossier != null)
+                    {
+                        <div class="contact-tag">
+                            <i class="bi bi-folder2-open" style="color:#0369a1"></i>
+                            <span style="font-weight:600">@_selectedDossier.NumeroDossier</span>
+                            <span style="color:#64748b;font-size:.78rem">— @_selectedDossier.Intitule</span>
+                            <button type="button" @onclick="ClearDossier" title="إزالة">
+                                <i class="bi bi-x-circle-fill"></i>
+                            </button>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="contact-search-wrap">
+                            <div style="position:relative">
+                                <i class="bi bi-search" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:.9rem;pointer-events:none"></i>
+                                <input type="text" class="form-control"
+                                       style="padding-right:2.5rem"
+                                       placeholder="ابحث في الملفات بالرقم أو العنوان…"
+                                       value="@_dossierSearch"
+                                       @oninput="OnDossierSearch" />
+                            </div>
+                            @if (_dossierResults.Count > 0)
+                            {
+                                <div class="contact-results">
+                                    @foreach (var d in _dossierResults)
+                                    {
+                                        <div class="contact-result-item" @onclick="() => SelectDossier(d)">
+                                            <i class="bi bi-folder2" style="color:#0369a1"></i>
+                                            <div>
+                                                <div style="font-weight:600">@d.NumeroDossier</div>
+                                                <div style="font-size:.75rem;color:#64748b">@d.Intitule</div>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
                 </div>
 
             </div>
@@ -1195,13 +1254,25 @@ else
     // Services list for dropdowns
     private List<ServiceItemDto> _services = new();
 
+    // Categories dropdown
+    private List<BOCategorieCourrierDto> _categories = new();
+
+    // Dossier search
+    private BODossierDto?            _selectedDossier;
+    private string                   _dossierSearch  = "";
+    private List<BODossierDto>       _dossierResults = new();
+    private CancellationTokenSource? _dossierCts;
+
+    // Employees dropdown (for service)
+    private List<EmployeDto> _employes = new();
+
     private int TotalPages => _result == null ? 1
         : (int)Math.Ceiling(_result.TotalCount / (double)_filter.PageSize);
 
     // ── Lifecycle ──────────────────────────────────────────────────
     protected override async Task OnInitializedAsync()
     {
-        await LoadServicesAsync();
+        await Task.WhenAll(LoadServicesAsync(), LoadCategoriesAsync());
         await LoadAsync();
         await LoadStatsAsync();
         if (Id.HasValue) await OpenDetail(Id.Value);
@@ -1219,6 +1290,66 @@ else
     {
         try { _services = await Api.GetServicesAsync() ?? new(); }
         catch { _services = new(); }
+    }
+
+    private async Task LoadCategoriesAsync()
+    {
+        try { _categories = await CategorieApi.GetAllAsync() ?? new(); }
+        catch { _categories = new(); }
+    }
+
+    private async Task OnServiceChange()
+    {
+        _dto.AgentDestinataireId = null;
+        _employes.Clear();
+        if (_dto.ServiceDestinataireId.HasValue && _dto.ServiceDestinataireId.Value > 0)
+        {
+            try
+            {
+                var filter = new EmployeFilterDto { ServiceId = _dto.ServiceDestinataireId, PageSize = 100 };
+                var result = await EmployeApi.GetPagedAsync(filter);
+                _employes = result?.Data?.Items
+                    .Where(e => e.UserId != null)
+                    .ToList() ?? new();
+            }
+            catch { _employes = new(); }
+        }
+    }
+
+    // ── Dossier Search ─────────────────────────────────────────────
+    private async Task OnDossierSearch(ChangeEventArgs e)
+    {
+        _dossierSearch = e.Value?.ToString() ?? "";
+        _dossierCts?.Cancel();
+        _dossierCts = new();
+        try
+        {
+            await Task.Delay(350, _dossierCts.Token);
+            if (_dossierSearch.Length >= 2)
+            {
+                var results = await DossierApi.SearchAsync(_dossierSearch);
+                _dossierResults = results ?? new();
+            }
+            else _dossierResults.Clear();
+            StateHasChanged();
+        }
+        catch (OperationCanceledException) { }
+        catch { _dossierResults.Clear(); }
+    }
+
+    private void SelectDossier(BODossierDto dossier)
+    {
+        _selectedDossier = dossier;
+        _dto.DossierId   = dossier.Id;
+        _dossierResults.Clear();
+        _dossierSearch = "";
+    }
+
+    private void ClearDossier()
+    {
+        _selectedDossier = null;
+        _dto.DossierId   = null;
+        _dossierSearch   = "";
     }
 
     // ── Contact Search ─────────────────────────────────────────────
@@ -1283,6 +1414,8 @@ else
         _dto           = new() { DateReception = DateTime.Today, DateCourrier = DateTime.Today };
         _editId        = null; _showForm = true; _v = false;
         _selectedContact = null; _contactSearch = ""; _contactResults.Clear();
+        _selectedDossier = null; _dossierSearch = ""; _dossierResults.Clear();
+        _employes.Clear();
         _selectedFiles.Clear(); _formError = _formSuccess = null;
     }
 
@@ -1316,6 +1449,16 @@ else
             _selectedContact = new BOContactDto { Id = detail.ExpediteurContactId.Value, NomComplet = detail.ExpediteurNom ?? "" };
         else _selectedContact = null;
 
+        // Restore dossier display
+        if (detail.DossierId.HasValue)
+            _selectedDossier = new BODossierDto { Id = detail.DossierId.Value, NumeroDossier = "", Intitule = detail.DossierIntitule ?? "" };
+        else _selectedDossier = null;
+
+        // Load employees for the service
+        _employes.Clear();
+        if (detail.ServiceDestinataireId.HasValue)
+            await OnServiceChange();
+
         _editId = id; _showForm = true; _v = false;
         _formError = _formSuccess = null; _detail = null;
     }
@@ -1324,6 +1467,7 @@ else
     {
         _showForm = false; _editId = null; _formError = _formSuccess = null;
         _selectedFiles.Clear(); _selectedContact = null;
+        _selectedDossier = null; _dossierSearch = ""; _employes.Clear();
         if (Id.HasValue) Nav.NavigateTo("/bureau/incoming");
     }
 

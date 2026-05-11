@@ -62,6 +62,7 @@ builder.Services.AddScoped<ICourrierEntrantApiService, CourrierEntrantApiService
 builder.Services.AddScoped<ICourrierSortantApiService, CourrierSortantApiService>();
 builder.Services.AddScoped<IBODossierApiService, BODossierApiService>();
 builder.Services.AddScoped<IBOContactApiService, BOContactApiService>();
+builder.Services.AddScoped<IBOCategorieCourrierApiService, BOCategorieCourrierApiService>();
 
 // ── Auth State Provider ───────────────────────────────────
 builder.Services.AddScoped<CustomAuthStateProvider>();

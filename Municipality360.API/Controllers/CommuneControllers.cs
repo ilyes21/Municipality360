@@ -659,7 +659,13 @@ public class CourriersEntrantsController : ControllerBase
 public class CourriersSortantsController : ControllerBase
 {
     private readonly ICourrierSortantService _service;
-    public CourriersSortantsController(ICourrierSortantService service) => _service = service;
+    private readonly ApplicationDbContext _db;
+
+    public CourriersSortantsController(ICourrierSortantService service, ApplicationDbContext db)
+    {
+        _service = service;
+        _db = db;
+    }
 
     private string UserId => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
 
@@ -740,6 +746,52 @@ public class CourriersSortantsController : ControllerBase
         try { return Ok(await _service.ArchiverAsync(id, dto, UserId)); }
         catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
         catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    [HttpPost("{id:int}/pieces-jointes")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,BureauOrdre")]
+    public async Task<IActionResult> AjouterPieceJointe(int id, [FromForm] IFormFileCollection fichiers, [FromForm] string? typePiece = "Annexe")
+    {
+        var courrier = await _service.GetByIdAsync(id);
+        if (courrier == null) return NotFound();
+
+        var uploadDir = Path.Combine("wwwroot", "uploads", "courriers-sortants", id.ToString());
+        Directory.CreateDirectory(uploadDir);
+
+        var results = new List<BOPieceJointeDto>();
+        short ordre = 1;
+        foreach (var file in fichiers)
+        {
+            var ext = Path.GetExtension(file.FileName).ToLower();
+            var stored = $"{Guid.NewGuid()}{ext}";
+            var path = Path.Combine(uploadDir, stored);
+            await using var fs = System.IO.File.Create(path);
+            await file.CopyToAsync(fs);
+
+            var pj = new BOPieceJointeSortant
+            {
+                CourrierSortantId = id,
+                NomFichierOriginal = file.FileName,
+                NomFichierStocke = stored,
+                CheminFichier = path,
+                ExtensionFichier = ext,
+                TailleFichierOctets = file.Length,
+                TypePiece = Enum.TryParse<TypePieceJointeBO>(typePiece, true, out var tp) ? tp : TypePieceJointeBO.Annexe,
+                Ordre = ordre++,
+                UploadedById = UserId
+            };
+            _db.Set<BOPieceJointeSortant>().Add(pj);
+            results.Add(new BOPieceJointeDto
+            {
+                NomFichierOriginal = pj.NomFichierOriginal,
+                ExtensionFichier = pj.ExtensionFichier,
+                TailleFichierOctets = pj.TailleFichierOctets,
+                TypePiece = pj.TypePiece.ToString(),
+                Ordre = pj.Ordre
+            });
+        }
+        await _db.SaveChangesAsync();
+        return Ok(results);
     }
 }
 
@@ -1543,4 +1595,105 @@ public class NotificationsController : ControllerBase
         => Ok(await _service.GetByCitoyenAsync(citoyenId, seulementNonLues));
 
 
+}
+
+// ════════════════════════════════════════════════════════════════
+//  CATÉGORIES COURRIER BO
+// ════════════════════════════════════════════════════════════════
+
+[ApiController]
+[Route("api/bo-categories")]
+[Authorize]
+public class BOCategorieCourriersController : ControllerBase
+{
+    private readonly ApplicationDbContext _db;
+    public BOCategorieCourriersController(ApplicationDbContext db) => _db = db;
+
+    [HttpGet]
+    public async Task<IActionResult> GetAll()
+    {
+        var cats = await _db.Set<BOCategorieCourrier>()
+            .Where(c => c.IsActive)
+            .OrderBy(c => c.Libelle)
+            .Select(c => new BOCategorieCourrierDto
+            {
+                Id = c.Id, Code = c.Code, Libelle = c.Libelle,
+                Description = c.Description, CouleurHex = c.CouleurHex,
+                EstConfidentiel = c.EstConfidentiel, IsActive = c.IsActive
+            })
+            .ToListAsync();
+        return Ok(cats);
+    }
+}
+
+// ════════════════════════════════════════════════════════════════
+//  DOSSIERS BO
+// ════════════════════════════════════════════════════════════════
+
+[ApiController]
+[Route("api/bo-dossiers")]
+[Authorize]
+public class BODossiersController : ControllerBase
+{
+    private readonly ApplicationDbContext _db;
+    private readonly IBODossierService _service;
+    public BODossiersController(ApplicationDbContext db, IBODossierService service)
+    {
+        _db = db;
+        _service = service;
+    }
+
+    private string UserId => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+
+    [HttpGet]
+    public async Task<IActionResult> GetPaged([FromQuery] int page = 1, [FromQuery] int size = 20)
+        => Ok(await _service.GetPagedAsync(page, size));
+
+    [HttpGet("search")]
+    public async Task<IActionResult> Search([FromQuery] string? term)
+    {
+        var q = _db.Set<BODossier>().Where(d => d.IsActive);
+        if (!string.IsNullOrWhiteSpace(term))
+        {
+            var t = term.ToLower();
+            q = q.Where(d => d.Intitule.ToLower().Contains(t) || d.NumeroDossier.ToLower().Contains(t));
+        }
+        var items = await q.OrderBy(d => d.Intitule).Take(30)
+            .Select(d => new BODossierDto
+            {
+                Id = d.Id, NumeroDossier = d.NumeroDossier, Intitule = d.Intitule,
+                Description = d.Description, ServiceResponsableId = d.ServiceResponsableId,
+                DateOuverture = d.DateOuverture, DateCloture = d.DateCloture,
+                StatutDossier = d.StatutDossier.ToString()
+            })
+            .ToListAsync();
+        return Ok(items);
+    }
+
+    [HttpGet("{id:int}")]
+    public async Task<IActionResult> GetById(int id)
+    {
+        try { return Ok(await _service.GetByIdAsync(id)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+    }
+
+    [HttpPost]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager,BureauOrdre")]
+    public async Task<IActionResult> Create([FromBody] CreateBODossierDto dto)
+    {
+        try
+        {
+            var result = await _service.CreateAsync(dto, UserId);
+            return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
+        }
+        catch (Exception ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    [HttpPatch("{id:int}/clore")]
+    [Authorize(Roles = "SuperAdmin,Admin,Manager")]
+    public async Task<IActionResult> Clore(int id)
+    {
+        try { await _service.CloreAsync(id, UserId); return NoContent(); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+    }
 }

@@ -89,7 +89,7 @@ public class BOContactService : IBOContactService
         var c = new BOContact
         {
             TypeContact = Enum.Parse<TypeContact>(dto.TypeContact),
-            Nom = dto.Nom, Prenom = dto.Prenom, RaisonSociale = dto.RaisonSociale,
+            Nom = dto.Nom, Prenom = dto.Prenom, CIN = dto.CIN, RaisonSociale = dto.RaisonSociale,
             Fonction = dto.Fonction, Adresse = dto.Adresse, Ville = dto.Ville,
             Wilaya = dto.Wilaya, Telephone = dto.Telephone, Email = dto.Email,
             IsActive = true
@@ -103,7 +103,7 @@ public class BOContactService : IBOContactService
         var c = await _repo.GetByIdAsync(id)
             ?? throw new KeyNotFoundException($"Contact #{id} introuvable.");
         c.TypeContact = Enum.Parse<TypeContact>(dto.TypeContact);
-        c.Nom = dto.Nom; c.Prenom = dto.Prenom; c.RaisonSociale = dto.RaisonSociale;
+        c.Nom = dto.Nom; c.Prenom = dto.Prenom; c.CIN = dto.CIN; c.RaisonSociale = dto.RaisonSociale;
         c.Fonction = dto.Fonction; c.Adresse = dto.Adresse;
         c.Ville = dto.Ville; c.Wilaya = dto.Wilaya;
         c.Telephone = dto.Telephone; c.Email = dto.Email;
@@ -122,7 +122,7 @@ public class BOContactService : IBOContactService
     private static BOContactDto MapToDto(BOContact c) => new()
     {
         Id = c.Id, TypeContact = c.TypeContact.ToString(), Nom = c.Nom, Prenom = c.Prenom,
-        RaisonSociale = c.RaisonSociale, Fonction = c.Fonction, Adresse = c.Adresse,
+        CIN = c.CIN, RaisonSociale = c.RaisonSociale, Fonction = c.Fonction, Adresse = c.Adresse,
         Ville = c.Ville, Wilaya = c.Wilaya, Telephone = c.Telephone, Email = c.Email,
         NomComplet = c.NomComplet, IsActive = c.IsActive
     };

@@ -244,11 +244,10 @@ public class BODossierRepository : GenericRepository<BODossier>, IBODossierRepos
 
     private static BODossierDto MapToDto(BODossier d) => new()
     {
-        //Id = d.Id, NumeroDossier = d.NumeroDossier, Intitule = d.Intitule,
-        //Description = d.Description, ServiceResponsableId = d.ServiceResponsableId,
-        //ServiceResponsableNom = d.ServiceResponsable?.Nom, DateOuverture = d.DateOuverture,
-        //DateCloture = d.DateCloture, StatutDossier = d.StatutDossier.ToString(),
-        //NombreCourriersEntrants = d.CourriersEntrants?.Count ?? 0
+        Id = d.Id, NumeroDossier = d.NumeroDossier, Intitule = d.Intitule,
+        Description = d.Description, ServiceResponsableId = d.ServiceResponsableId,
+        DateOuverture = d.DateOuverture, DateCloture = d.DateCloture,
+        StatutDossier = d.StatutDossier.ToString()
     };
 }
 
@@ -602,20 +601,22 @@ public class BOArchiveRepository : GenericRepository<BOArchive>, IBOArchiveRepos
 
     private static BOArchiveDto MapToDto(BOArchive a) => new()
     {
-        //Id = a.Id,
-        //NumeroArchive = a.NumeroArchive,
-        //CodeBarre = a.CodeBarre,
-        //SalleArchive = a.SalleArchive,
-        //Rayon = a.Rayon,
-        //Boite = a.Boite,
-        //Classification = a.Classification.ToString(),
-        //DureeConservationAns = a.DureeConservationAns,
-        //DateDebutConservation = a.DateDebutConservation,
-        //DateFinConservation = a.DateFinConservation,
-        //CheminArchiveNumerique = a.CheminArchiveNumerique,
-        //EstDetruit = a.EstDetruit,
-        //Observation = a.Observation,
-        //DateArchivage = a.DateArchivage
+        Id = a.Id,
+        CourrierEntrantId = a.CourrierEntrantId,
+        CourrierSortantId = a.CourrierSortantId,
+        NumeroArchive = a.NumeroArchive,
+        CodeBarre = a.CodeBarre,
+        SalleArchive = a.SalleArchive,
+        Rayon = a.Rayon,
+        Boite = a.Boite,
+        Classification = a.Classification.ToString(),
+        DureeConservationAns = a.DureeConservationAns,
+        DateDebutConservation = a.DateDebutConservation,
+        DateFinConservation = a.DateFinConservation,
+        CheminArchiveNumerique = a.CheminArchiveNumerique,
+        ArchiveParId = a.ArchiveParId,
+        Observation = a.Observation,
+        CreatedAt = a.DateArchivage
     };
 }
 

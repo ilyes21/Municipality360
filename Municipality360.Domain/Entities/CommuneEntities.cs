@@ -166,6 +166,7 @@ public class BOContact : BaseEntity
     public TypeContact TypeContact { get; set; }
     public string? Nom { get; set; }
     public string? Prenom { get; set; }
+    public string? CIN { get; set; }
     public string? RaisonSociale { get; set; }
     public string? Fonction { get; set; }
     public string? Adresse { get; set; }

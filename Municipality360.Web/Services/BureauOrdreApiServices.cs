@@ -270,12 +270,14 @@ public interface ICourrierSortantApiService
     Task<bool> AccuserReceptionAsync(int id, DateTime dateAccuse);
     Task<BOArchiveDto?> ArchiverAsync(int id, ArchiversCourrierDto dto);
     Task<bool> AnnulerAsync(int id, string motif);
+    Task<bool> UploadPiecesJointesAsync(int id, List<IBrowserFile> fichiers, string typePiece = "Annexe");
 }
 
 public class CourrierSortantApiService : ICourrierSortantApiService
 {
     private readonly ApiService _api;
-    public CourrierSortantApiService(ApiService api) => _api = api;
+    private readonly HttpClient _http;
+    public CourrierSortantApiService(ApiService api, HttpClient http) { _api = api; _http = http; }
 
     public async Task<PagedResult<CourrierSortantDto>?> GetPagedAsync(CourrierSortantFilterDto f)
     {
@@ -342,13 +344,34 @@ public class CourrierSortantApiService : ICourrierSortantApiService
         var result = await _api.PatchAsync<AnnulerCourrierDto, object>($"api/courriers-sortants/{id}/annuler", dto);
         return result != null;
     }
+
+    public async Task<bool> UploadPiecesJointesAsync(int id, List<IBrowserFile> fichiers, string typePiece = "Annexe")
+    {
+        try
+        {
+            using var content = new MultipartFormDataContent();
+            content.Add(new StringContent(typePiece), "typePiece");
+            foreach (var file in fichiers)
+            {
+                var stream = file.OpenReadStream(maxAllowedSize: 10_485_760);
+                var sc = new StreamContent(stream);
+                sc.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
+                    file.Name.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) ? "application/pdf" : "image/jpeg");
+                content.Add(sc, "fichiers", file.Name);
+            }
+            var response = await _http.PostAsync($"api/courriers-sortants/{id}/pieces-jointes", content);
+            return response.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
 }
 
 // ── Dossiers ──────────────────────────────────────────────────────
 
 public interface IBODossierApiService
 {
-    Task<PagedResult<BODossierDto>?> GetPagedAsync(int page = 1, int size = 10);
+    Task<PagedResult<BODossierDto>?> GetPagedAsync(int page = 1, int size = 20);
+    Task<List<BODossierDto>?> SearchAsync(string? term = null);
     Task<BODossierDto?> GetByIdAsync(int id);
     Task<BODossierDto?> CreateAsync(CreateBODossierDto dto);
     Task<bool> CloreAsync(int id);
@@ -359,20 +382,43 @@ public class BODossierApiService : IBODossierApiService
     private readonly ApiService _api;
     public BODossierApiService(ApiService api) => _api = api;
 
-    public async Task<PagedResult<BODossierDto>?> GetPagedAsync(int page = 1, int size = 10) =>
-        await _api.GetAsync<PagedResult<BODossierDto>>($"api/bo/dossiers?page={page}&size={size}");
+    public async Task<PagedResult<BODossierDto>?> GetPagedAsync(int page = 1, int size = 20) =>
+        await _api.GetAsync<PagedResult<BODossierDto>>($"api/bo-dossiers?page={page}&size={size}");
+
+    public async Task<List<BODossierDto>?> SearchAsync(string? term = null)
+    {
+        var q = "api/bo-dossiers/search";
+        if (!string.IsNullOrEmpty(term)) q += $"?term={Uri.EscapeDataString(term)}";
+        return await _api.GetAsync<List<BODossierDto>>(q);
+    }
 
     public async Task<BODossierDto?> GetByIdAsync(int id) =>
-        await _api.GetAsync<BODossierDto>($"api/bo/dossiers/{id}");
+        await _api.GetAsync<BODossierDto>($"api/bo-dossiers/{id}");
 
     public async Task<BODossierDto?> CreateAsync(CreateBODossierDto dto) =>
-        await _api.PostAsync<CreateBODossierDto, BODossierDto>("api/bo/dossiers", dto);
+        await _api.PostAsync<CreateBODossierDto, BODossierDto>("api/bo-dossiers", dto);
 
     public async Task<bool> CloreAsync(int id)
     {
-        var result = await _api.PatchAsync<object, object>($"api/bo/dossiers/{id}/clore", new { });
+        var result = await _api.PatchAsync<object, object>($"api/bo-dossiers/{id}/clore", new { });
         return result != null;
     }
+}
+
+// ── Catégories Courrier ───────────────────────────────────────────
+
+public interface IBOCategorieCourrierApiService
+{
+    Task<List<BOCategorieCourrierDto>?> GetAllAsync();
+}
+
+public class BOCategorieCourrierApiService : IBOCategorieCourrierApiService
+{
+    private readonly ApiService _api;
+    public BOCategorieCourrierApiService(ApiService api) => _api = api;
+
+    public async Task<List<BOCategorieCourrierDto>?> GetAllAsync() =>
+        await _api.GetAsync<List<BOCategorieCourrierDto>>("api/bo-categories");
 }
 
 // ── Contacts ──────────────────────────────────────────────────────
@@ -393,19 +439,19 @@ public class BOContactApiService : IBOContactApiService
 
     public async Task<List<BOContactDto>?> SearchAsync(string? term = null)
     {
-        var q = "api/bo/contacts";
+        var q = "api/bo-contacts";
         if (!string.IsNullOrEmpty(term)) q += $"?term={Uri.EscapeDataString(term)}";
         return await _api.GetAsync<List<BOContactDto>>(q);
     }
 
     public async Task<BOContactDto?> GetByIdAsync(int id) =>
-        await _api.GetAsync<BOContactDto>($"api/bo/contacts/{id}");
+        await _api.GetAsync<BOContactDto>($"api/bo-contacts/{id}");
 
     public async Task<BOContactDto?> CreateAsync(CreateBOContactDto dto) =>
-        await _api.PostAsync<CreateBOContactDto, BOContactDto>("api/bo/contacts", dto);
+        await _api.PostAsync<CreateBOContactDto, BOContactDto>("api/bo-contacts", dto);
 
     public async Task<BOContactDto?> UpdateAsync(int id, CreateBOContactDto dto) =>
-        await _api.PutAsync<CreateBOContactDto, BOContactDto>($"api/bo/contacts/{id}", dto);
+        await _api.PutAsync<CreateBOContactDto, BOContactDto>($"api/bo-contacts/{id}", dto);
 
-    public async Task<bool> DeleteAsync(int id) => await _api.DeleteAsync($"api/bo/contacts/{id}");
+    public async Task<bool> DeleteAsync(int id) => await _api.DeleteAsync($"api/bo-contacts/{id}");
 }

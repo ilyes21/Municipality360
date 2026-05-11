@@ -573,6 +573,7 @@ public class BOContactDto
     public string TypeContact { get; set; } = string.Empty;
     public string? Nom { get; set; }
     public string? Prenom { get; set; }
+    public string? CIN { get; set; }
     public string? RaisonSociale { get; set; }
     public string? Fonction { get; set; }
     public string? Adresse { get; set; }
@@ -594,6 +595,9 @@ public class CreateBOContactDto
 
     [MaxLength(100)]
     public string? Prenom { get; set; }
+
+    [MaxLength(20)]
+    public string? CIN { get; set; }
 
     [MaxLength(200)]
     public string? RaisonSociale { get; set; }
@@ -676,3 +680,18 @@ public class AnnulerCourrierDto
     public string Motif { get; set; } = string.Empty;
 }
 public record ServiceItemDto(int Id, string Nom);
+
+// ══════════════════════════════════════════════════════════════
+//  CATÉGORIE COURRIER
+// ══════════════════════════════════════════════════════════════
+
+public class BOCategorieCourrierDto
+{
+    public int Id { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public string Libelle { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public string? CouleurHex { get; set; }
+    public bool EstConfidentiel { get; set; }
+    public bool IsActive { get; set; }
+}

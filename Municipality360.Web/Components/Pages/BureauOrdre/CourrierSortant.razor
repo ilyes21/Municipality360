@@ -2,9 +2,15 @@
 @page "/bureau/outgoing/{Id:int}"
 @page "/bureau/outgoing/new"
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.JSInterop
+@using Municipality360.Application.DTOs.BureauOrdre
 @attribute [Authorize(Roles = "SuperAdmin,Admin,Manager,BureauOrdre")]
 @layout Municipality360.Web.Components.Layout.MainLayout
 @inject ICourrierSortantApiService Api
+@inject IBOContactApiService ContactApi
+@inject IBODossierApiService DossierApi
+@inject IBOCategorieCourrierApiService CategorieApi
+@inject IJSRuntime JS
 @inject NavigationManager Nav
 
 <PageTitle>البريد الصادر — مكتب الضبط</PageTitle>
@@ -97,6 +103,28 @@
     .tab-row { display:flex; gap:.5rem; margin-bottom:1rem; }
     .tab-btn { padding:.4rem 1rem; border-radius:8px; border:1.5px solid #e2e8f0; background:#fff; font-family:'Tajawal',sans-serif; font-size:.85rem; cursor:pointer; }
     .tab-btn.active { background:#7c3aed; color:#fff; border-color:#7c3aed; }
+
+    /* Contact/Dossier search */
+    .contact-search-wrap { position:relative; }
+    .contact-results { position:absolute; top:calc(100% + 4px); right:0; left:0; background:#fff; border:1.5px solid #e2e8f0; border-radius:9px; box-shadow:0 8px 25px rgba(0,0,0,.12); z-index:100; max-height:200px; overflow-y:auto; }
+    .contact-result-item { padding:.6rem .85rem; cursor:pointer; font-size:.85rem; display:flex; align-items:center; gap:.5rem; border-bottom:1px solid #f8fafc; }
+    .contact-result-item:hover { background:#faf5ff; }
+    .contact-result-item:last-child { border-bottom:none; }
+    .contact-tag { display:flex; align-items:center; gap:.5rem; background:#ede9fe; border:1px solid #c4b5fd; border-radius:8px; padding:.35rem .75rem; font-size:.84rem; }
+    .contact-tag button { background:none; border:none; cursor:pointer; color:#64748b; font-size:.9rem; }
+    .contact-tag button:hover { color:#dc2626; }
+
+    /* File upload */
+    .dropzone { border:2px dashed #cbd5e1; border-radius:12px; padding:1.25rem; text-align:center; color:#64748b; cursor:pointer; transition:all .2s; background:#f8fafc; }
+    .dropzone:hover { border-color:#7c3aed; background:#faf5ff; }
+    .file-list { display:flex; flex-direction:column; gap:.4rem; margin-top:.65rem; }
+    .file-item { display:flex; align-items:center; gap:.5rem; background:#faf5ff; border-radius:8px; padding:.4rem .75rem; font-size:.83rem; }
+    .file-item .remove { background:none; border:none; color:#94a3b8; cursor:pointer; margin-right:auto; }
+    .file-item .remove:hover { color:#dc2626; }
+
+    /* Section cards in form */
+    .form-section { background:#fff; border-radius:12px; box-shadow:0 1px 6px rgba(0,0,0,.06); border:1px solid #f1f5f9; padding:1.2rem 1.4rem; margin-bottom:.85rem; }
+    .form-section h4 { font-size:.9rem; font-weight:700; color:#7c3aed; margin:0 0 .9rem; display:flex; align-items:center; gap:.4rem; border-bottom:1px solid #ede9fe; padding-bottom:.6rem; }
 </style>
 
 @if (_showForm)
@@ -112,7 +140,9 @@
     @if (!string.IsNullOrEmpty(_formError))   { <div class="alert-err"><i class="bi bi-exclamation-triangle"></i> @_formError</div> }
     @if (!string.IsNullOrEmpty(_formSuccess)) { <div class="alert-ok"><i class="bi bi-check-circle"></i> @_formSuccess</div> }
 
-    <div class="form-card">
+    @* ── القسم 1: معلومات الوثيقة ── *@
+    <div class="form-section">
+        <h4><i class="bi bi-file-text"></i> معلومات الوثيقة</h4>
         <div class="form-grid">
             <div class="form-group full">
                 <label class="form-label">موضوع البريد <span class="req">*</span></label>
@@ -120,56 +150,186 @@
                        placeholder="موضوع البريد الصادر…" @bind="_dto.ObjetCourrier" />
             </div>
             <div class="form-group">
-                <label class="form-label">نوع الوثيقة</label>
-                <select class="form-control" @bind="_dto.TypeDocument">
-                    <option>Lettre</option><option>Décision</option><option>Note</option>
-                    <option>Rapport</option><option>Circulaire</option><option>Autre</option>
+                <label class="form-label">نوع الوثيقة <span class="req">*</span></label>
+                <select class="form-control @(_v && string.IsNullOrEmpty(_dto.TypeDocument) ? "invalid" : "")" @bind="_dto.TypeDocument">
+                    <option value="Lettre">رسالة</option>
+                    <option value="Note">مذكرة</option>
+                    <option value="Circulaire">منشور</option>
+                    <option value="Rapport">تقرير</option>
+                    <option value="Decision">قرار</option>
+                    <option value="Arrete">مقرر</option>
+                    <option value="Instruction">تعليمة</option>
+                    <option value="Autre">أخرى</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">الصنف (التصنيف)</label>
+                <select class="form-control" @bind="_dto.CategorieId">
+                    <option value="">— بدون تصنيف —</option>
+                    @foreach (var cat in _categories)
+                    { <option value="@cat.Id">@cat.Libelle</option> }
                 </select>
             </div>
             <div class="form-group">
                 <label class="form-label">طريقة الإرسال</label>
                 <select class="form-control" @bind="_dto.ModeEnvoi">
-                    <option>Guichet</option><option>Courrier</option><option>Email</option>
-                    <option>Recommandé</option><option>Fax</option><option>Main propre</option>
+                    <option value="Guichet">على الواجهة</option>
+                    <option value="Messagerie">مراسلة</option>
+                    <option value="Email">بريد إلكتروني</option>
+                    <option value="Recommande">مضمون</option>
+                    <option value="Fax">فاكس</option>
+                    <option value="Coursier">ساعي</option>
                 </select>
             </div>
             <div class="form-group">
-                <label class="form-label">اسم المرسل إليه</label>
-                <input type="text" class="form-control" placeholder="اسم المرسل إليه" @bind="_dto.DestinataireLibreNom" />
+                <label class="form-label">الأولوية</label>
+                <select class="form-control" @bind="_dto.Priorite">
+                    <option value="Normal">عادي</option>
+                    <option value="Urgent">عاجل</option>
+                    <option value="TresUrgent">عاجل جداً</option>
+                </select>
             </div>
             <div class="form-group">
                 <label class="form-label">وظيفة الموقِّع</label>
                 <input type="text" class="form-control" placeholder="رئيس البلدية، الأمين العام…" @bind="_dto.FonctionSignataire" />
             </div>
             <div class="form-group">
-                <label class="form-label">الأولوية</label>
-                <select class="form-control" @bind="_dto.Priorite">
-                    <option>Normal</option><option>Urgent</option><option>TresUrgent</option>
-                </select>
-            </div>
-            <div class="form-group">
                 <label class="form-label">الرقم المضمون</label>
                 <input type="text" class="form-control" placeholder="رقم الإرسال المضمون" @bind="_dto.NumeroRecommande" />
             </div>
-            <div class="form-group">
-                <label class="form-label">عدد الصفحات</label>
-                <input type="number" class="form-control" min="1" @bind="_dto.NombrePages" />
+            <div class="form-group" style="display:flex;align-items:center;padding-top:1.2rem">
+                <label class="form-check"><input type="checkbox" @bind="_dto.EstConfidentiel"/> <i class="bi bi-shield-lock" style="color:#9333ea"></i> سري</label>
             </div>
             <div class="form-group full">
                 <label class="form-label">ملاحظات</label>
                 <textarea class="form-control" placeholder="ملاحظات…" @bind="_dto.Observation"></textarea>
             </div>
-            <div class="form-group">
-                <label class="form-check"><input type="checkbox" @bind="_dto.EstConfidentiel"/> سري</label>
+        </div>
+    </div>
+
+    @* ── القسم 2: المرسل إليه ── *@
+    <div class="form-section">
+        <h4><i class="bi bi-person-lines-fill"></i> المرسل إليه</h4>
+        @if (_destContact != null)
+        {
+            <div class="contact-tag">
+                <i class="bi bi-person-check-fill" style="color:#7c3aed"></i>
+                <span style="font-weight:600">@_destContact.NomComplet</span>
+                @if (!string.IsNullOrEmpty(_destContact.Telephone))
+                { <span style="color:#64748b;font-size:.78rem">— @_destContact.Telephone</span> }
+                <button type="button" @onclick="ClearDestContact"><i class="bi bi-x-circle-fill"></i></button>
             </div>
+        }
+        else
+        {
+            <div class="contact-search-wrap">
+                <div style="position:relative">
+                    <i class="bi bi-search" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:.9rem;pointer-events:none"></i>
+                    <input type="text" class="form-control" style="padding-right:2.5rem"
+                           placeholder="ابحث في جهات الاتصال بالاسم أو الجهة…"
+                           value="@_destSearch" @oninput="OnDestSearch" />
+                </div>
+                @if (_destResults.Count > 0)
+                {
+                    <div class="contact-results">
+                        @foreach (var c in _destResults)
+                        {
+                            <div class="contact-result-item" @onclick="() => SelectDestContact(c)">
+                                <i class="bi @(c.TypeContact == "Personne" ? "bi-person" : "bi-building")" style="color:#7c3aed"></i>
+                                <div>
+                                    <div style="font-weight:600">@c.NomComplet</div>
+                                    @if (!string.IsNullOrEmpty(c.Telephone))
+                                    { <div style="font-size:.75rem;color:#64748b">@c.Telephone — @(c.Ville ?? "")</div> }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+            <div style="margin-top:.5rem">
+                <label class="form-label" style="font-weight:400;color:#94a3b8">أو أدخل اسم المرسل إليه يدوياً</label>
+                <input type="text" class="form-control" placeholder="اسم الشخص أو الجهة…"
+                       @bind="_dto.DestinataireLibreNom" />
+            </div>
+        }
+    </div>
+
+    @* ── القسم 3: ربط بملف ── *@
+    <div class="form-section">
+        <h4><i class="bi bi-folder2-open"></i> ربط بملف (دوسيه)</h4>
+        @if (_selDossier != null)
+        {
+            <div class="contact-tag">
+                <i class="bi bi-folder2-open" style="color:#7c3aed"></i>
+                <span style="font-weight:600">@_selDossier.NumeroDossier</span>
+                <span style="color:#64748b;font-size:.78rem">— @_selDossier.Intitule</span>
+                <button type="button" @onclick="ClearSelDossier"><i class="bi bi-x-circle-fill"></i></button>
+            </div>
+        }
+        else
+        {
+            <div class="contact-search-wrap">
+                <div style="position:relative">
+                    <i class="bi bi-search" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:.9rem;pointer-events:none"></i>
+                    <input type="text" class="form-control" style="padding-right:2.5rem"
+                           placeholder="ابحث في الملفات بالرقم أو العنوان…"
+                           value="@_dossierSearch" @oninput="OnDossierSearch" />
+                </div>
+                @if (_dossierResults.Count > 0)
+                {
+                    <div class="contact-results">
+                        @foreach (var d in _dossierResults)
+                        {
+                            <div class="contact-result-item" @onclick="() => SelectDossier(d)">
+                                <i class="bi bi-folder2" style="color:#7c3aed"></i>
+                                <div>
+                                    <div style="font-weight:600">@d.NumeroDossier</div>
+                                    <div style="font-size:.75rem;color:#64748b">@d.Intitule</div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    @* ── القسم 4: المرفقات (إضافة جديد فقط) ── *@
+    @if (!_editId.HasValue)
+    {
+        <div class="form-section">
+            <h4><i class="bi bi-paperclip"></i> الملفات المرفقة</h4>
+            <div class="dropzone" @onclick="TriggerFilePicker">
+                <i class="bi bi-cloud-arrow-up" style="font-size:1.8rem;display:block;margin-bottom:.35rem"></i>
+                <strong>اسحب الملفات أو انقر للاختيار</strong>
+                <div style="font-size:.78rem;margin-top:.25rem;color:#94a3b8">PDF · PNG · JPG · TIFF — بحد أقصى 10 MB</div>
+            </div>
+            <InputFile id="sortantFileInput" style="display:none" multiple
+                       accept=".pdf,.png,.jpg,.jpeg,.tiff"
+                       OnChange="OnFilesSelected" />
+            @if (_selectedFiles.Count > 0)
+            {
+                <div class="file-list">
+                    @foreach (var (f, i) in _selectedFiles.Select((f, i) => (f, i)))
+                    {
+                        <div class="file-item">
+                            <i class="bi bi-file-earmark" style="color:#7c3aed"></i>
+                            <span style="flex:1">@f.Name</span>
+                            <span style="color:#94a3b8;font-size:.75rem">@FormatSize(f.Size)</span>
+                            <button class="remove" type="button" @onclick="() => RemoveFile(i)"><i class="bi bi-x-circle"></i></button>
+                        </div>
+                    }
+                </div>
+            }
         </div>
-        <div class="form-footer">
-            <button class="btn btn-secondary" @onclick="BackToList">إلغاء</button>
-            <button class="btn btn-primary" @onclick="SaveAsync" disabled="@_saving">
-                @if(_saving){ <text><i class="bi bi-hourglass-split"></i> جارٍ الحفظ…</text> }
-                else { <text><i class="bi bi-floppy"></i> حفظ كمسودة</text> }
-            </button>
-        </div>
+    }
+
+    <div style="display:flex;gap:.75rem;justify-content:flex-end;padding-top:.5rem">
+        <button class="btn btn-secondary" @onclick="BackToList">إلغاء</button>
+        <button class="btn btn-primary" @onclick="SaveAsync" disabled="@_saving">
+            @if(_saving){ <text><i class="bi bi-hourglass-split"></i> جارٍ الحفظ…</text> }
+            else { <text><i class="bi bi-floppy"></i> حفظ كمسودة</text> }
+        </button>
     </div>
 }
 else
@@ -307,6 +467,9 @@ else
                     {
                         <button class="btn btn-success" @onclick="()=>AccuserAsync(_detail.Id)"><i class="bi bi-check-all"></i> وصول الاستلام</button>
                     }
+                    <button class="btn btn-blue" @onclick="()=>{_showUploadPJ=true;_showSigner=false;_showAnnuler=false;_showArchiver=false;}">
+                        <i class="bi bi-paperclip"></i> إضافة مرفقات
+                    </button>
                     @if(_detail.Statut != "Archive" && _detail.Statut != "Annule")
                     {
                         <button class="btn btn-secondary" @onclick="()=>OpenArchiver(_detail.Id)"><i class="bi bi-archive"></i> أرشفة</button>
@@ -345,6 +508,48 @@ else
                     </div>
                 }
 
+                @* Pièces jointes *@
+                @if(_detail.PiecesJointes?.Count > 0)
+                {
+                    <hr class="divider"/>
+                    <div class="section-sub"><i class="bi bi-paperclip"></i> المرفقات (@_detail.PiecesJointes.Count)</div>
+                    <div style="display:flex;flex-direction:column;gap:.4rem">
+                        @foreach(var pj in _detail.PiecesJointes)
+                        {
+                            <div style="display:flex;align-items:center;gap:.6rem;background:#f8fafc;border-radius:8px;padding:.5rem .8rem">
+                                <i class="bi bi-file-earmark" style="color:#7c3aed"></i>
+                                <span style="flex:1;font-size:.84rem">@pj.NomFichierOriginal</span>
+                                <span style="font-size:.73rem;color:#94a3b8">@pj.TypePiece</span>
+                            </div>
+                        }
+                    </div>
+                }
+
+                @* Upload PJ *@
+                @if(_showUploadPJ)
+                {
+                    <div style="background:#faf5ff;border:1.5px solid #c4b5fd;border-radius:10px;padding:1rem;margin-top:.5rem">
+                        <div class="section-sub"><i class="bi bi-paperclip"></i> إضافة مرفقات</div>
+                        <div class="dropzone" @onclick="TriggerPJPicker">
+                            <i class="bi bi-cloud-arrow-up" style="font-size:1.5rem;display:block;margin-bottom:.25rem"></i>
+                            انقر أو اسحب الملفات
+                        </div>
+                        <InputFile id="sortantPJInput" style="display:none" multiple accept=".pdf,.png,.jpg,.jpeg,.tiff" OnChange="OnPJFilesSelected"/>
+                        @if(_pjFiles.Count > 0)
+                        {
+                            <div class="file-list">
+                                @foreach(var(f,i) in _pjFiles.Select((f,i)=>(f,i)))
+                                { <div class="file-item"><i class="bi bi-file-earmark" style="color:#7c3aed"></i><span style="flex:1">@f.Name</span><button class="remove" type="button" @onclick="()=>_pjFiles.RemoveAt(i)"><i class="bi bi-x-circle"></i></button></div> }
+                            </div>
+                        }
+                        @if(!string.IsNullOrEmpty(_pjError)){ <div style="color:#dc2626;font-size:.82rem;margin-top:.5rem">@_pjError</div> }
+                        <div style="display:flex;gap:.5rem;justify-content:flex-end;margin-top:.75rem">
+                            <button class="btn btn-secondary" @onclick="()=>{_showUploadPJ=false;_pjFiles.Clear();}">إلغاء</button>
+                            <button class="btn btn-primary" @onclick="ConfirmUploadPJ" disabled="@_saving">@(_saving?"جارٍ…":"رفع المرفقات")</button>
+                        </div>
+                    </div>
+                }
+
                 @* Archiver *@
                 @if(_showArchiver)
                 {
@@ -375,11 +580,36 @@ else
     private CreateCourrierSortantDto          _dto    = new();
     private ArchiversCourrierDto              _archiverDto = new() { DureeConservationAns=10, Classification="Courant" };
     private bool _loading, _saving, _showForm, _v;
-    private bool _showSigner, _showAnnuler, _showArchiver;
+    private bool _showSigner, _showAnnuler, _showArchiver, _showUploadPJ;
     private int? _editId;
     private int  _targetId;
     private string? _formError, _formSuccess, _signerFonction, _annulerMotif;
     private string _tab = "all";
+
+    // Categories
+    private List<BOCategorieCourrierDto> _categories = new();
+
+    // Destinataire contact search
+    private BOContactDto?            _destContact;
+    private string                   _destSearch   = "";
+    private List<BOContactDto>       _destResults  = new();
+    private CancellationTokenSource? _destCts;
+
+    // Dossier search
+    private BODossierDto?            _selDossier;
+    private string                   _dossierSearch  = "";
+    private List<BODossierDto>       _dossierResults = new();
+    private CancellationTokenSource? _dossierCts;
+
+    // PJ upload
+    private List<IBrowserFile> _selectedFiles = new();
+    private List<IBrowserFile> _pjFiles       = new();
+    private string?            _pjError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _categories = await CategorieApi.GetAllAsync() ?? new(); } catch { }
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -397,8 +627,12 @@ else
 
     private void OpenNew()
     {
-        _dto = new CreateCourrierSortantDto(); _editId = null; _showForm = true;
+        _dto = new CreateCourrierSortantDto { TypeDocument = "Lettre", ModeEnvoi = "Messagerie", Priorite = "Normal" };
+        _editId = null; _showForm = true;
         _formError = _formSuccess = null; _v = false; _detail = null;
+        _destContact = null; _destSearch = ""; _destResults.Clear();
+        _selDossier = null; _dossierSearch = ""; _dossierResults.Clear();
+        _selectedFiles.Clear();
     }
 
     private async Task OpenEdit(int id)
@@ -407,20 +641,35 @@ else
         if (d == null) return;
         _dto = new CreateCourrierSortantDto
         {
-            ObjetCourrier        = d.ObjetCourrier,
-            TypeDocument         = d.TypeDocument,
-            ModeEnvoi            = d.ModeEnvoi,
-            DestinataireLibreNom = d.DestinataireNom,
-            FonctionSignataire   = d.FonctionSignataire,
-            Priorite             = d.Priorite,
-            EstConfidentiel      = d.EstConfidentiel,
-            Observation          = d.Observation,
-            NombrePages          = (short)(d.NombrePiecesJointes > 0 ? d.NombrePiecesJointes : 1)
+            ObjetCourrier          = d.ObjetCourrier,
+            TypeDocument           = d.TypeDocument,
+            ModeEnvoi              = d.ModeEnvoi,
+            DestinataireLibreNom   = d.DestinataireNom,
+            DestinataireContactId  = d.DestinataireContactId,
+            FonctionSignataire     = d.FonctionSignataire,
+            Priorite               = d.Priorite,
+            EstConfidentiel        = d.EstConfidentiel,
+            Observation            = d.Observation,
+            CategorieId            = d.CategorieId,
+            DossierId              = d.DossierId
         };
+        if (d.DestinataireContactId.HasValue)
+            _destContact = new BOContactDto { Id = d.DestinataireContactId.Value, NomComplet = d.DestinataireNom ?? "" };
+        else _destContact = null;
+
+        if (d.DossierId.HasValue)
+            _selDossier = new BODossierDto { Id = d.DossierId.Value, NumeroDossier = "", Intitule = "" };
+        else _selDossier = null;
+
         _editId = id; _showForm = true; _v = false; _formError = _formSuccess = null; _detail = null;
+        _selectedFiles.Clear();
     }
 
-    private void BackToList() { _showForm = false; _editId = null; }
+    private void BackToList()
+    {
+        _showForm = false; _editId = null;
+        _destContact = null; _selDossier = null; _selectedFiles.Clear();
+    }
 
     private async Task OpenDetail(int id)
     {
@@ -434,15 +683,130 @@ else
     {
         _v = true;
         if (string.IsNullOrEmpty(_dto.ObjetCourrier)) { _formError = "موضوع البريد مطلوب."; return; }
+        // Set contact/dossier ids from selection
+        if (_destContact != null) { _dto.DestinataireContactId = _destContact.Id; _dto.DestinataireLibreNom = null; }
+        if (_selDossier  != null)   _dto.DossierId = _selDossier.Id;
+
         _saving = true; _formError = null;
         try
         {
-            object? res = _editId.HasValue ? await Api.ModifierAsync(_editId.Value, _dto) : await Api.CreerBrouillonAsync(_dto);
-            if (res != null) { _formSuccess = "تم الحفظ بنجاح."; _showForm = false; await LoadAsync(); }
+            CourrierSortantDetailDto? res;
+            if (_editId.HasValue)
+                res = await Api.ModifierAsync(_editId.Value, _dto);
+            else
+                res = await Api.CreerBrouillonAsync(_dto);
+
+            if (res != null)
+            {
+                // Upload PJ if any
+                if (_selectedFiles.Count > 0)
+                    await Api.UploadPiecesJointesAsync(res.Id, _selectedFiles);
+
+                _formSuccess = "تم الحفظ بنجاح."; _showForm = false;
+                _selectedFiles.Clear(); _destContact = null; _selDossier = null;
+                await LoadAsync();
+            }
             else _formError = "حدث خطأ أثناء الحفظ.";
         }
         finally { _saving = false; }
     }
+
+    // ── Destinataire contact search ─────────────────────────────────
+    private async Task OnDestSearch(ChangeEventArgs e)
+    {
+        _destSearch = e.Value?.ToString() ?? "";
+        _destCts?.Cancel(); _destCts = new();
+        try
+        {
+            await Task.Delay(350, _destCts.Token);
+            if (_destSearch.Length >= 2)
+                _destResults = await ContactApi.SearchAsync(_destSearch) ?? new();
+            else _destResults.Clear();
+            StateHasChanged();
+        }
+        catch (OperationCanceledException) { }
+        catch { _destResults.Clear(); }
+    }
+
+    private void SelectDestContact(BOContactDto c)
+    {
+        _destContact = c; _dto.DestinataireContactId = c.Id;
+        _destResults.Clear(); _destSearch = "";
+    }
+
+    private void ClearDestContact() { _destContact = null; _dto.DestinataireContactId = null; }
+
+    // ── Dossier search ──────────────────────────────────────────────
+    private async Task OnDossierSearch(ChangeEventArgs e)
+    {
+        _dossierSearch = e.Value?.ToString() ?? "";
+        _dossierCts?.Cancel(); _dossierCts = new();
+        try
+        {
+            await Task.Delay(350, _dossierCts.Token);
+            if (_dossierSearch.Length >= 2)
+                _dossierResults = await DossierApi.SearchAsync(_dossierSearch) ?? new();
+            else _dossierResults.Clear();
+            StateHasChanged();
+        }
+        catch (OperationCanceledException) { }
+        catch { _dossierResults.Clear(); }
+    }
+
+    private void SelectDossier(BODossierDto d)
+    {
+        _selDossier = d; _dto.DossierId = d.Id;
+        _dossierResults.Clear(); _dossierSearch = "";
+    }
+
+    private void ClearSelDossier() { _selDossier = null; _dto.DossierId = null; }
+
+    // ── PJ Upload ───────────────────────────────────────────────────
+    private void OnFilesSelected(InputFileChangeEventArgs e)
+    {
+        foreach (var f in e.GetMultipleFiles(10))
+        {
+            var ext = Path.GetExtension(f.Name).ToLowerInvariant();
+            if (ext is ".pdf" or ".png" or ".jpg" or ".jpeg" or ".tiff")
+                _selectedFiles.Add(f);
+        }
+    }
+
+    private void RemoveFile(int i) => _selectedFiles.RemoveAt(i);
+
+    private async Task TriggerFilePicker() =>
+        await JS.InvokeVoidAsync("eval", "document.getElementById('sortantFileInput').click()");
+
+    private void OnPJFilesSelected(InputFileChangeEventArgs e)
+    {
+        foreach (var f in e.GetMultipleFiles(10))
+        {
+            var ext = Path.GetExtension(f.Name).ToLowerInvariant();
+            if (ext is ".pdf" or ".png" or ".jpg" or ".jpeg" or ".tiff")
+                _pjFiles.Add(f);
+        }
+    }
+
+    private async Task TriggerPJPicker() =>
+        await JS.InvokeVoidAsync("eval", "document.getElementById('sortantPJInput').click()");
+
+    private async Task ConfirmUploadPJ()
+    {
+        if (_pjFiles.Count == 0 || _detail == null) return;
+        _saving = true; _pjError = null;
+        try
+        {
+            var ok = await Api.UploadPiecesJointesAsync(_detail.Id, _pjFiles);
+            if (ok) { _showUploadPJ = false; _pjFiles.Clear(); await OpenDetail(_detail.Id); }
+            else _pjError = "حدث خطأ أثناء رفع الملفات.";
+        }
+        catch { _pjError = "خطأ في الرفع."; }
+        finally { _saving = false; }
+    }
+
+    private static string FormatSize(long bytes) => bytes < 1024 ? $"{bytes} B"
+        : bytes < 1_048_576 ? $"{bytes / 1024.0:F1} KB"
+        : $"{bytes / 1_048_576.0:F1} MB";
 
     private async Task SoumettreAsync(int id)
     {
