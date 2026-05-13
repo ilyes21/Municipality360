@@ -1079,7 +1079,7 @@
         @* ══════════════════════════════════════════════════
            الإدارة اليومية
         ══════════════════════════════════════════════════ *@
-        @if (CanAccess("SuperAdmin", "Admin", "Manager", "BureauOrdre"))
+        @if (CanAccess("SuperAdmin", "Admin", "Manager", "BureauOrdre", "Reclamations"))
         {
             <div class="sb-label">الإدارة اليومية</div>
 
@@ -1314,7 +1314,7 @@
             <div class="sb-label">الموارد البشرية</div>
 
             @* ── التنظيم الهيكلي ── *@
-            @if (CanAccess("SuperAdmin", "Admin", "Manager", "RessourcesHumaines"))
+            @if (CanAccess("SuperAdmin", "Admin", "Manager", "Employee", "RessourcesHumaines"))
             {
                 <button class="sb-group-btn @(OpenGroup == "org" ? "open" : "")" @onclick='() => ToggleGroup("org")'>
                     <i class="bi bi-diagram-3-fill sb-group-icon"></i>
