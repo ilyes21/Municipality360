@@ -1,7 +1,9 @@
 @page "/employes"
 @using Microsoft.AspNetCore.Authorization
+@using System.Security.Claims
 @attribute [Authorize]
 @layout Municipality360.Web.Components.Layout.MainLayout
+@inject AuthenticationStateProvider AuthSP
 
 <PageTitle>الموظفون - Municipality360</PageTitle>
 
@@ -101,7 +103,10 @@
         <h1 class="page-title"><i class="bi bi-people me-2" style="color:#22c55e;"></i>الموظفون</h1>
         <div class="page-sub">إدارة موظفي البلدية</div>
     </div>
-    <button class="btn-add" @onclick="OpenAdd"><i class="bi bi-person-plus"></i> إضافة موظف</button>
+    @if (_canEdit)
+    {
+        <button class="btn-add" @onclick="OpenAdd"><i class="bi bi-person-plus"></i> إضافة موظف</button>
+    }
 </div>
 
 @if (!string.IsNullOrEmpty(SuccessMsg)) { <div class="alert-ok"><i class="bi bi-check-circle-fill"></i>@SuccessMsg</div> }
@@ -117,7 +122,7 @@
 <div class="filter-row">
     <div class="search-wrap">
         <input class="search-input" placeholder="بحث بالاسم أو رقم التعريف أو CIN..."
-               @bind="SearchTerm" @bind:event="oninput" /> @* @oninput="OnSearch" *@
+               value="@SearchTerm" @oninput="OnSearch" />
         <i class="bi bi-search search-icon"></i>
     </div>
     <select class="filter-select" @bind="FilterDeptId" @bind:after="ApplyFilter">
@@ -165,14 +170,17 @@
                                 <div style="font-size:.75rem;color:#94a3b8;margin-top:.2rem;">@item.ServiceNom</div>
                             </td>
                             <td>@if(item.Genre == "Masculin") { <span class="genre-badge-m">ذكر</span> } else { <span class="genre-badge-f">أنثى</span> }</td>
-                            <td style="font-weight:600;color:#0f172a;">@item.Salaire.ToString("N0") <span style="font-size:.7rem;color:#94a3b8;">د.ج</span></td>
+                            <td style="font-weight:600;color:#0f172a;">@item.Salaire.ToString("N0") <span style="font-size:.7rem;color:#94a3b8;">د.ت</span></td>
                             <td>@GetStatutBadge(item.Statut)</td>
                             <td style="color:#64748b;font-size:.8rem;">@item.DateEmbauche.ToString("dd/MM/yyyy")</td>
                             <td>
                                 <div style="display:flex;gap:.35rem;">
                                     <button class="btn-icon btn-view" title="عرض" @onclick="() => OpenDetails(item)"><i class="bi bi-eye"></i></button>
-                                    <button class="btn-icon btn-edit" title="تعديل" @onclick="() => OpenEdit(item)"><i class="bi bi-pencil"></i></button>
-                                    <button class="btn-icon btn-delete" title="حذف" @onclick="() => OpenDelete(item)"><i class="bi bi-trash3"></i></button>
+                                    @if (_canEdit)
+                                    {
+                                        <button class="btn-icon btn-edit" title="تعديل" @onclick="() => OpenEdit(item)"><i class="bi bi-pencil"></i></button>
+                                        <button class="btn-icon btn-delete" title="حذف" @onclick="() => OpenDelete(item)"><i class="bi bi-trash3"></i></button>
+                                    }
                                 </div>
                             </td>
                         </tr>
@@ -222,7 +230,7 @@
             <div class="detail-divider"></div>
             <div class="detail-group"><div class="detail-label">تاريخ الميلاد</div><div class="detail-val">@DetailItem.DateNaissance.ToString("dd/MM/yyyy")</div></div>
             <div class="detail-group"><div class="detail-label">تاريخ التوظيف</div><div class="detail-val">@DetailItem.DateEmbauche.ToString("dd/MM/yyyy")</div></div>
-            <div class="detail-group"><div class="detail-label">الراتب</div><div class="detail-val" style="font-size:1.1rem;font-weight:700;color:#0f172a;">@DetailItem.Salaire.ToString("N0") د.ج</div></div>
+            <div class="detail-group"><div class="detail-label">الراتب</div><div class="detail-val" style="font-size:1.1rem;font-weight:700;color:#0f172a;">@DetailItem.Salaire.ToString("N0") د.ت</div></div>
             <div class="detail-group"><div class="detail-label">العنوان</div><div class="detail-val">@(DetailItem.Adresse ?? "—")</div></div>
         </div>
     </div>
@@ -289,7 +297,7 @@
                             @if (Postes != null) { @foreach (var p in Postes) { <option value="@p.Id">@p.Titre</option> } }
                         </select>
                     </div>
-                    <div class="form-group"><label class="form-label">الراتب (د.ج) *</label><input class="form-control" type="number" @bind="F.Salaire" placeholder="0" /></div>
+                    <div class="form-group"><label class="form-label">الراتب (د.ت) *</label><input class="form-control" type="number" @bind="F.Salaire" placeholder="0" /></div>
                 </div>
                 <div class="form-grid" style="margin-top:.75rem;">
                     <div class="form-group"><label class="form-label">تاريخ التوظيف *</label><input class="form-control" type="date" @bind="F.DateEmbauche" /></div>
@@ -340,6 +348,8 @@
     [Inject] IServiceApiService ServiceSvc { get; set; } = null!;
     [Inject] IPosteApiService PosteSvc { get; set; } = null!;
 
+    private bool _canEdit;
+
     private IEnumerable<EmployeDto>? Items;
     private IEnumerable<DepartementDto>? Departements;
     private IEnumerable<ServiceDto>? AllServices, FilteredServices;
@@ -371,6 +381,10 @@
 
     protected override async Task OnInitializedAsync()
     {
+        var state = await AuthSP.GetAuthenticationStateAsync();
+        var roles = state.User.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
+        _canEdit = roles.Any(r => r is "SuperAdmin" or "Admin" or "Manager" or "RessourcesHumaines");
+
         var dr = await DeptSvc.GetAllAsync();
         Departements = dr?.Data ?? Enumerable.Empty<DepartementDto>();
         var sr = await ServiceSvc.GetAllAsync();
@@ -393,7 +407,7 @@
     private async Task OnSearch(ChangeEventArgs e)
     {
         SearchTerm = e.Value?.ToString() ?? "";
-        Filter.SearchTerm = SearchTerm;
+        Filter.SearchTerm = string.IsNullOrWhiteSpace(SearchTerm) ? null : SearchTerm.Trim();
         Filter.PageNumber = 1;
         await Load();
     }
@@ -481,8 +495,17 @@
         IsSaving = true;
         var ok = await Svc.DeleteAsync(SelectedItem.Id);
         IsSaving = false; ShowDelete = false;
-        if (ok) { SuccessMsg = "تم حذف الموظف."; await Load(); await Task.Delay(3000); SuccessMsg = ""; StateHasChanged(); }
-        else ErrorMsg = "فشل الحذف.";
+        if (ok)
+        {
+            SuccessMsg = "تم حذف الموظف بنجاح.";
+            await Load();
+            await Task.Delay(3000); SuccessMsg = ""; StateHasChanged();
+        }
+        else
+        {
+            ErrorMsg = "فشل الحذف. تأكد من عدم ارتباط الموظف ببيانات أخرى.";
+            await Task.Delay(4000); ErrorMsg = ""; StateHasChanged();
+        }
     }
 
     private async Task PrevPage() { if (Filter.PageNumber > 1) { Filter.PageNumber--; await Load(); } }
