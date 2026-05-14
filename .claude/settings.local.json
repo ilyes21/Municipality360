@@ -2,7 +2,13 @@
   "permissions": {
     "allow": [
       "Bash(git add *)",
-      "Bash(dotnet build *)"
+      "Bash(dotnet build *)",
+      "Bash(gh pr *)",
+      "PowerShell(Get-Command gh -ErrorAction SilentlyContinue)",
+      "Bash(xargs grep -l \"class.*Reclamation\\\\|class.*Citoyen\\\\|class.*Suivi\")",
+      "Bash(dir \"C:\\\\Users\\\\ilyes\\\\source\\\\repos\\\\Municipality360\\\\.claude\\\\worktrees\\\\trusting-greider-7e9a69\\\\Municipality360.Domain\")",
+      "Bash(dir \"C:\\\\Users\\\\ilyes\\\\source\\\\repos\\\\Municipality360\\\\.claude\\\\worktrees\\\\trusting-greider-7e9a69\\\\Municipality360.Domain\\\\Entities\")",
+      "Bash(Select-String \"error CS\")"
     ]
   }
 }

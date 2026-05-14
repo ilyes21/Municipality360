@@ -1,0 +1,1209 @@
+@page "/complaints/status"
+@using Microsoft.AspNetCore.Authorization
+@using Municipality360.Application.DTOs.Reclamations
+@using Municipality360.Application.DTOs.Structure
+@using Municipality360.Web.Services
+@attribute [Authorize(Roles = "SuperAdmin,Admin,Manager,Reclamations")]
+@layout Municipality360.Web.Components.Layout.MainLayout
+@inject IReclamationApiService ReclamApi
+@inject IServiceApiService ServiceApi
+
+<PageTitle>تغيير حالة الشكاوى — Municipality360</PageTitle>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+
+<style>
+    @@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap');
+    *, *::before, *::after { box-sizing: border-box; }
+
+    .rs-root {
+        font-family: 'Tajawal', sans-serif;
+        display: flex;
+        gap: 0;
+        height: calc(100vh - 62px - 3rem);
+        min-height: 600px;
+        background: #f0f4f8;
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 4px 24px rgba(0,0,0,.08);
+        direction: rtl;
+    }
+
+    /* ══ LEFT PANE ══ */
+    .rs-left {
+        width: 340px;
+        flex-shrink: 0;
+        background: #fff;
+        border-left: 1px solid #e2e8f0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .rs-left-header {
+        padding: 1rem 1.1rem .75rem;
+        border-bottom: 1px solid #f1f5f9;
+        flex-shrink: 0;
+    }
+
+    .rs-left-title {
+        font-size: 1rem;
+        font-weight: 800;
+        color: #0f172a;
+    }
+
+    .rs-left-sub {
+        font-size: .73rem;
+        color: #94a3b8;
+        margin-top: .12rem;
+    }
+
+    .rs-filters {
+        padding: .7rem 1rem;
+        border-bottom: 1px solid #f1f5f9;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        gap: .5rem;
+    }
+
+    .rs-search {
+        position: relative;
+    }
+
+    .rs-search-input {
+        width: 100%;
+        height: 36px;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 9px;
+        padding: 0 2.2rem 0 .75rem;
+        font-family: 'Tajawal', sans-serif;
+        font-size: .82rem;
+        outline: none;
+        background: #f8fafc;
+        color: #0f172a;
+    }
+
+    .rs-search-input:focus { border-color: #7c3aed; background: #fff; }
+
+    .rs-search-ico {
+        position: absolute;
+        right: .7rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #94a3b8;
+        font-size: .8rem;
+        pointer-events: none;
+    }
+
+    .rs-filter-row {
+        display: flex;
+        gap: .4rem;
+    }
+
+    .rs-filter-sel {
+        flex: 1;
+        height: 34px;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 0 .6rem;
+        font-family: 'Tajawal', sans-serif;
+        font-size: .78rem;
+        outline: none;
+        background: #f8fafc;
+        color: #374151;
+        cursor: pointer;
+    }
+
+    .rs-filter-sel:focus { border-color: #7c3aed; }
+
+    /* ══ LIST ══ */
+    .rs-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: .4rem 0;
+    }
+
+    .rs-item {
+        display: flex;
+        align-items: flex-start;
+        gap: .65rem;
+        padding: .75rem 1rem;
+        cursor: pointer;
+        border-bottom: 1px solid #f8fafc;
+        transition: background .12s;
+        position: relative;
+    }
+
+    .rs-item:hover { background: #fafbff; }
+    .rs-item.selected { background: #f5f3ff; border-right: 3px solid #7c3aed; }
+    .rs-item.unread { background: #fefce8; }
+    .rs-item.unread.selected { background: #f5f3ff; }
+
+    .rs-item-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: .9rem;
+        flex-shrink: 0;
+    }
+
+    .ic-nouvelle  { background: #fff7ed; color: #c2410c; }
+    .ic-encours   { background: #eff6ff; color: #1d4ed8; }
+    .ic-traitee   { background: #f0fdf4; color: #15803d; }
+    .ic-rejetee   { background: #fef2f2; color: #b91c1c; }
+    .ic-fermee    { background: #f8fafc; color: #64748b; }
+    .ic-critique  { background: #fef2f2; color: #dc2626; }
+
+    .rs-item-body { flex: 1; min-width: 0; }
+
+    .rs-item-num {
+        font-size: .68rem;
+        font-weight: 700;
+        color: #7c3aed;
+        margin-bottom: .1rem;
+    }
+
+    .rs-item-objet {
+        font-size: .83rem;
+        font-weight: 700;
+        color: #0f172a;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        line-height: 1.3;
+    }
+
+    .rs-item-meta {
+        display: flex;
+        align-items: center;
+        gap: .4rem;
+        margin-top: .22rem;
+        flex-wrap: wrap;
+    }
+
+    .rs-item-citoyen {
+        font-size: .71rem;
+        color: #64748b;
+    }
+
+    .rs-item-date {
+        font-size: .68rem;
+        color: #94a3b8;
+    }
+
+    /* ══ RIGHT PANE ══ */
+    .rs-right {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        background: #f8fafc;
+    }
+
+    .rs-empty {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: #94a3b8;
+        gap: .75rem;
+    }
+
+    .rs-empty i { font-size: 3.5rem; color: #dde1e7; }
+    .rs-empty-t  { font-size: 1rem; font-weight: 700; color: #64748b; }
+    .rs-empty-s  { font-size: .8rem; color: #94a3b8; }
+
+    /* Detail header */
+    .rs-detail-header {
+        padding: 1.1rem 1.4rem .9rem;
+        background: #fff;
+        border-bottom: 1px solid #e2e8f0;
+        flex-shrink: 0;
+        display: flex;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .rs-dh-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+        flex-shrink: 0;
+    }
+
+    .rs-dh-title {
+        font-size: 1.05rem;
+        font-weight: 800;
+        color: #0f172a;
+        line-height: 1.3;
+    }
+
+    .rs-dh-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .4rem;
+        margin-top: .35rem;
+        align-items: center;
+    }
+
+    .rs-dh-meta span {
+        font-size: .72rem;
+        color: #64748b;
+        display: flex;
+        align-items: center;
+        gap: .2rem;
+    }
+
+    /* Status pills */
+    .sp {
+        display: inline-flex;
+        align-items: center;
+        gap: .2rem;
+        border-radius: 99px;
+        padding: .15rem .6rem;
+        font-size: .69rem;
+        font-weight: 700;
+    }
+
+    .sp-nouvelle  { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+    .sp-encours   { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+    .sp-traitee   { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+    .sp-rejetee   { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+    .sp-fermee    { background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; }
+
+    .pp { border-radius: 99px; padding: .12rem .5rem; font-size: .67rem; font-weight: 700; }
+    .pp-basse    { background: #f0fdf4; color: #15803d; }
+    .pp-moyenne  { background: #fff7ed; color: #c2410c; }
+    .pp-haute    { background: #fef3c7; color: #92400e; }
+    .pp-critique { background: #fef2f2; color: #b91c1c; }
+
+    /* Detail body */
+    .rs-detail-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1.1rem 1.4rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    /* Info cards */
+    .info-section {
+        background: #fff;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        overflow: hidden;
+    }
+
+    .info-section-title {
+        padding: .65rem 1rem;
+        font-size: .72rem;
+        font-weight: 700;
+        color: #64748b;
+        letter-spacing: .07em;
+        text-transform: uppercase;
+        border-bottom: 1px solid #f1f5f9;
+        background: #f8fafc;
+        display: flex;
+        align-items: center;
+        gap: .4rem;
+    }
+
+    .info-rows { padding: .4rem 0; }
+
+    .info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: .42rem 1rem;
+        border-bottom: 1px solid #f8fafc;
+        gap: 1rem;
+    }
+
+    .info-row:last-child { border-bottom: none; }
+    .info-row-lbl { font-size: .76rem; color: #94a3b8; flex-shrink: 0; }
+    .info-row-val { font-size: .8rem; color: #0f172a; font-weight: 500; text-align: left; }
+
+    /* Description */
+    .desc-box {
+        padding: .8rem 1rem;
+        font-size: .82rem;
+        color: #374151;
+        line-height: 1.65;
+    }
+
+    /* Timeline */
+    .timeline { padding: .6rem 1rem 1rem; }
+    .tl-item { display: flex; gap: .75rem; margin-bottom: .8rem; }
+    .tl-dot {
+        width: 28px; height: 28px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: .7rem; flex-shrink: 0; margin-top: .1rem;
+    }
+    .tl-body { flex: 1; min-width: 0; }
+    .tl-action { font-size: .79rem; font-weight: 700; color: #0f172a; }
+    .tl-comment { font-size: .75rem; color: #64748b; margin-top: .15rem; line-height: 1.45; }
+    .tl-time { font-size: .68rem; color: #94a3b8; margin-top: .18rem; }
+
+    /* Action panels */
+    .action-panel {
+        background: #fff;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        overflow: hidden;
+    }
+
+    .action-tabs {
+        display: flex;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .action-tab {
+        flex: 1;
+        padding: .75rem .5rem;
+        border: none;
+        background: none;
+        font-family: 'Tajawal', sans-serif;
+        font-size: .82rem;
+        font-weight: 700;
+        color: #94a3b8;
+        cursor: pointer;
+        transition: all .15s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: .35rem;
+        border-bottom: 3px solid transparent;
+    }
+
+    .action-tab:hover { color: #374151; background: #f8fafc; }
+
+    .action-tab.active {
+        color: #7c3aed;
+        border-bottom-color: #7c3aed;
+        background: #faf5ff;
+    }
+
+    .action-tab.active-blue { color: #0369a1; border-bottom-color: #0369a1; background: #f0f9ff; }
+
+    .action-body { padding: 1rem; }
+
+    .form-group { margin-bottom: .85rem; }
+    .form-label {
+        display: block;
+        font-size: .76rem;
+        font-weight: 700;
+        color: #374151;
+        margin-bottom: .3rem;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: .55rem .8rem;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 9px;
+        font-family: 'Tajawal', sans-serif;
+        font-size: .84rem;
+        outline: none;
+        color: #0f172a;
+        background: #fff;
+        transition: border-color .15s;
+    }
+
+    .form-control:focus { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,.08); }
+
+    select.form-control { height: 40px; cursor: pointer; }
+    textarea.form-control { resize: vertical; min-height: 80px; }
+
+    .toggle-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: .5rem .75rem;
+        background: #f8fafc;
+        border-radius: 8px;
+        margin-bottom: .85rem;
+    }
+
+    .toggle-label {
+        font-size: .78rem;
+        font-weight: 600;
+        color: #374151;
+        display: flex;
+        align-items: center;
+        gap: .35rem;
+    }
+
+    .toggle-switch {
+        position: relative;
+        width: 40px;
+        height: 22px;
+        flex-shrink: 0;
+    }
+
+    .toggle-switch input { display: none; }
+
+    .toggle-track {
+        position: absolute;
+        inset: 0;
+        border-radius: 99px;
+        background: #e2e8f0;
+        cursor: pointer;
+        transition: background .2s;
+    }
+
+    .toggle-track::after {
+        content: '';
+        position: absolute;
+        top: 3px; right: 3px;
+        width: 16px; height: 16px;
+        border-radius: 50%;
+        background: #fff;
+        transition: transform .2s;
+        box-shadow: 0 1px 3px rgba(0,0,0,.2);
+    }
+
+    .toggle-switch input:checked + .toggle-track { background: #7c3aed; }
+    .toggle-switch input:checked + .toggle-track::after { transform: translateX(-18px); }
+
+    .btn-submit {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: .4rem;
+        width: 100%;
+        padding: .65rem;
+        border: none;
+        border-radius: 10px;
+        font-family: 'Tajawal', sans-serif;
+        font-size: .88rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all .18s;
+    }
+
+    .btn-submit:disabled { opacity: .5; cursor: not-allowed; }
+
+    .btn-purple {
+        background: linear-gradient(135deg, #7c3aed, #a855f7);
+        color: #fff;
+        box-shadow: 0 3px 12px rgba(124,58,237,.3);
+    }
+
+    .btn-purple:hover:not(:disabled) {
+        box-shadow: 0 5px 18px rgba(124,58,237,.4);
+        transform: translateY(-1px);
+    }
+
+    .btn-blue {
+        background: linear-gradient(135deg, #0369a1, #0ea5e9);
+        color: #fff;
+        box-shadow: 0 3px 12px rgba(14,165,233,.3);
+    }
+
+    .btn-blue:hover:not(:disabled) {
+        box-shadow: 0 5px 18px rgba(14,165,233,.4);
+        transform: translateY(-1px);
+    }
+
+    /* Toast */
+    .toast-wrap {
+        position: fixed;
+        bottom: 1.5rem;
+        left: 1.5rem;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: .5rem;
+        pointer-events: none;
+    }
+
+    .toast {
+        display: flex;
+        align-items: center;
+        gap: .75rem;
+        padding: .75rem 1rem;
+        border-radius: 12px;
+        font-family: 'Tajawal', sans-serif;
+        font-size: .82rem;
+        font-weight: 600;
+        box-shadow: 0 8px 24px rgba(0,0,0,.15);
+        animation: toast-in .25s cubic-bezier(.34,1.56,.64,1);
+        pointer-events: all;
+        min-width: 240px;
+    }
+
+    @@keyframes toast-in {
+        from { opacity: 0; transform: translateY(12px) scale(.95); }
+        to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .toast-ok  { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+    .toast-err { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+
+    .loading-center {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: .65rem;
+        color: #94a3b8;
+        font-size: .88rem;
+    }
+
+    .spinner {
+        display: inline-block;
+        width: .9rem; height: .9rem;
+        border: 2px solid currentColor;
+        border-top-color: transparent;
+        border-radius: 50%;
+        animation: spin .6s linear infinite;
+    }
+
+    @@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
+@* ══ TOAST ══ *@
+@if (_toast != null)
+{
+    <div class="toast-wrap">
+        <div class="toast @(_toastOk ? "toast-ok" : "toast-err")">
+            <i class="bi @(_toastOk ? "bi-check-circle-fill" : "bi-exclamation-circle-fill")"></i>
+            @_toast
+        </div>
+    </div>
+}
+
+<div class="rs-root">
+
+    <!-- ══ LEFT: القائمة ══ -->
+    <div class="rs-left">
+        <div class="rs-left-header">
+            <div class="rs-left-title"><i class="bi bi-arrow-repeat me-1" style="color:#7c3aed;"></i>تغيير الحالة والتوجيه</div>
+            <div class="rs-left-sub">@_totalCount شكوى — @_filteredCount مُعروض</div>
+        </div>
+
+        <div class="rs-filters">
+            <div class="rs-search">
+                <input class="rs-search-input" placeholder="بحث بالرقم أو الموضوع أو المواطن…"
+                       value="@_searchTerm" @oninput="OnSearch" />
+                <i class="bi bi-search rs-search-ico"></i>
+            </div>
+            <div class="rs-filter-row">
+                <select class="rs-filter-sel" @bind="_filterStatut" @bind:after="ReloadList">
+                    <option value="">كل الحالات</option>
+                    <option value="Nouvelle">جديدة</option>
+                    <option value="EnCours">قيد المعالجة</option>
+                    <option value="Traitee">معالجة</option>
+                    <option value="Rejetee">مرفوضة</option>
+                    <option value="Fermee">مغلقة</option>
+                </select>
+                <select class="rs-filter-sel" @bind="_filterPriorite" @bind:after="ReloadList">
+                    <option value="">كل الأولويات</option>
+                    <option value="Basse">منخفضة</option>
+                    <option value="Moyenne">متوسطة</option>
+                    <option value="Haute">عالية</option>
+                    <option value="Critique">حرجة</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="rs-list">
+            @if (_loadingList)
+            {
+                <div class="loading-center" style="padding:2rem;">
+                    <div class="spinner"></div> جاري التحميل…
+                </div>
+            }
+            else if (!_items.Any())
+            {
+                <div style="text-align:center;padding:2.5rem 1rem;color:#94a3b8;font-size:.82rem;">
+                    <i class="bi bi-inbox" style="font-size:1.8rem;display:block;margin-bottom:.5rem;color:#dde1e7;"></i>
+                    لا توجد شكاوى مطابقة
+                </div>
+            }
+            else
+            {
+                @foreach (var r in _items)
+                {
+                    var isSel = _selected?.Id == r.Id;
+                    <div class="rs-item @(isSel ? "selected" : "") @(r.Statut == "Nouvelle" ? "unread" : "")"
+                         @onclick="() => SelectItem(r)">
+                        <div class="rs-item-icon @GetIconClass(r)">
+                            <i class="bi @GetIcon(r)"></i>
+                        </div>
+                        <div class="rs-item-body">
+                            <div class="rs-item-num">@r.NumeroReclamation</div>
+                            <div class="rs-item-objet">@r.Objet</div>
+                            <div class="rs-item-meta">
+                                <span class="rs-item-citoyen">@r.CitoyenNomComplet</span>
+                                <span class="rs-item-date">@r.DateDepot.ToString("dd/MM/yyyy")</span>
+                                @GetStatutPill(r.Statut)
+                                @GetPrioritePill(r.Priorite)
+                            </div>
+                        </div>
+                    </div>
+                }
+                @if (_hasMore)
+                {
+                    <div style="text-align:center;padding:.75rem;">
+                        <button style="background:none;border:none;color:#7c3aed;font-family:'Tajawal',sans-serif;font-size:.8rem;font-weight:700;cursor:pointer;"
+                                @onclick="LoadMore">
+                            <i class="bi bi-chevron-down me-1"></i>تحميل المزيد
+                        </button>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+
+    <!-- ══ RIGHT: التفاصيل + الإجراءات ══ -->
+    <div class="rs-right">
+        @if (_selected == null)
+        {
+            <div class="rs-empty">
+                <i class="bi bi-arrow-repeat"></i>
+                <div class="rs-empty-t">اختر شكوى لتغيير حالتها</div>
+                <div class="rs-empty-s">انقر على شكوى من القائمة لعرض التفاصيل وتغيير الحالة أو توجيهها</div>
+            </div>
+        }
+        else if (_loadingDetail)
+        {
+            <div class="loading-center">
+                <div class="spinner"></div> جاري تحميل التفاصيل…
+            </div>
+        }
+        else if (_detail != null)
+        {
+            <!-- Header -->
+            <div class="rs-detail-header">
+                <div class="rs-dh-icon @GetIconClass(_detail)" style="font-size:1.1rem;">
+                    <i class="bi @GetIcon(_detail)"></i>
+                </div>
+                <div style="flex:1;min-width:0;">
+                    <div class="rs-dh-title">@_detail.Objet</div>
+                    <div class="rs-dh-meta">
+                        <span><i class="bi bi-hash"></i>@_detail.NumeroReclamation</span>
+                        <span><i class="bi bi-person"></i>@_detail.CitoyenNomComplet</span>
+                        <span><i class="bi bi-calendar3"></i>@_detail.DateDepot.ToString("dd/MM/yyyy")</span>
+                        @GetStatutPill(_detail.Statut)
+                        @GetPrioritePill(_detail.Priorite)
+                        @if (!string.IsNullOrEmpty(_detail.ServiceConcerneNom))
+                        {
+                            <span><i class="bi bi-building"></i>@_detail.ServiceConcerneNom</span>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="rs-detail-body">
+
+                <!-- معلومات الشكوى -->
+                <div class="info-section">
+                    <div class="info-section-title"><i class="bi bi-info-circle"></i>معلومات الشكوى</div>
+                    <div class="info-rows">
+                        <div class="info-row"><span class="info-row-lbl">النوع</span><span class="info-row-val">@_detail.TypeReclamationLibelle</span></div>
+                        <div class="info-row"><span class="info-row-lbl">الصنف</span><span class="info-row-val">@_detail.CategorieLibelle</span></div>
+                        <div class="info-row"><span class="info-row-lbl">قناة الإيداع</span><span class="info-row-val">@GetCanalLabel(_detail.Canal)</span></div>
+                        <div class="info-row"><span class="info-row-lbl">المواطن</span><span class="info-row-val">@_detail.CitoyenNomComplet · @_detail.CitoyenTelephone</span></div>
+                        @if (!string.IsNullOrEmpty(_detail.Localisation))
+                        {
+                            <div class="info-row"><span class="info-row-lbl">الموقع</span><span class="info-row-val">@_detail.Localisation</span></div>
+                        }
+                        @if (!string.IsNullOrEmpty(_detail.ServiceConcerneNom))
+                        {
+                            <div class="info-row"><span class="info-row-lbl">المصلحة المعنية</span><span class="info-row-val">@_detail.ServiceConcerneNom</span></div>
+                        }
+                    </div>
+                    @if (!string.IsNullOrEmpty(_detail.Description))
+                    {
+                        <div class="desc-box">@_detail.Description</div>
+                    }
+                </div>
+
+                <!-- سجل المعالجة -->
+                @if (_detail.Suivis.Any())
+                {
+                    <div class="info-section">
+                        <div class="info-section-title"><i class="bi bi-clock-history"></i>سجل المعالجة</div>
+                        <div class="timeline">
+                            @foreach (var s in _detail.Suivis.OrderByDescending(x => x.DateChangement))
+                            {
+                                <div class="tl-item">
+                                    <div class="tl-dot" style="background:@GetStatutColor(s.NouveauStatut);color:#fff;">
+                                        <i class="bi bi-circle-fill" style="font-size:.4rem;"></i>
+                                    </div>
+                                    <div class="tl-body">
+                                        <div class="tl-action">
+                                            @s.UtilisateurNom
+                                            @if (!string.IsNullOrEmpty(s.NouveauStatut))
+                                            { <text> → </text> @GetStatutLabel(s.NouveauStatut) }
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(s.Commentaire))
+                                        { <div class="tl-comment">@s.Commentaire</div> }
+                                        @if (!string.IsNullOrEmpty(s.ActionEffectuee))
+                                        { <div class="tl-comment" style="color:#0369a1;">الإجراء: @s.ActionEffectuee</div> }
+                                        <div class="tl-time">@s.DateChangement.ToString("dd/MM/yyyy HH:mm")</div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+
+                <!-- لوحة الإجراءات -->
+                @if (_detail.Statut is not "Fermee")
+                {
+                    <div class="action-panel">
+                        <div class="action-tabs">
+                            <button class="action-tab @(_activeTab == "statut" ? "active" : "")"
+                                    @onclick='() => _activeTab = "statut"'>
+                                <i class="bi bi-arrow-repeat"></i> تغيير الحالة
+                            </button>
+                            <button class="action-tab @(_activeTab == "service" ? "active-blue" : "")"
+                                    @onclick='() => _activeTab = "service"'>
+                                <i class="bi bi-building-up"></i> التوجيه إلى مصلحة
+                            </button>
+                        </div>
+
+                        <div class="action-body">
+
+                            @* ── تغيير الحالة ── *@
+                            @if (_activeTab == "statut")
+                            {
+                                <div class="form-group">
+                                    <label class="form-label">الحالة الجديدة <span style="color:#ef4444;">*</span></label>
+                                    <select class="form-control" @bind="_statutDto.NouveauStatut">
+                                        <option value="">— اختر الحالة —</option>
+                                        @foreach (var (val, lbl) in GetAvailableStatuts(_detail.Statut))
+                                        {
+                                            <option value="@val">@lbl</option>
+                                        }
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">الإجراء المتخذ</label>
+                                    <input class="form-control" @bind="_statutDto.ActionEffectuee"
+                                           placeholder="وصف الإجراء الذي قام به المسؤول…" />
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">ملاحظة / تعليق</label>
+                                    <textarea class="form-control" rows="3" @bind="_statutDto.Commentaire"
+                                              placeholder="أضف ملاحظة للسجل الداخلي…"></textarea>
+                                </div>
+
+                                @if (_statutDto.NouveauStatut is "Traitee")
+                                {
+                                    <div class="form-group">
+                                        <label class="form-label">الحل المقدَّم <span style="color:#ef4444;">*</span></label>
+                                        <textarea class="form-control" rows="3" @bind="_statutDto.SolutionApportee"
+                                                  placeholder="اشرح الحل أو الإجراء النهائي الذي تمت معالجة الشكوى به…"></textarea>
+                                    </div>
+                                }
+
+                                @if (_statutDto.NouveauStatut is "Rejetee")
+                                {
+                                    <div class="form-group">
+                                        <label class="form-label">سبب الرفض <span style="color:#ef4444;">*</span></label>
+                                        <textarea class="form-control" rows="3" @bind="_statutDto.Commentaire"
+                                                  placeholder="اذكر سبب رفض هذه الشكوى…"></textarea>
+                                    </div>
+                                }
+
+                                <div class="toggle-row">
+                                    <span class="toggle-label">
+                                        <i class="bi bi-eye"></i>
+                                        مرئي للمواطن
+                                        <span style="font-size:.68rem;color:#94a3b8;font-weight:400;">(يظهر في تتبع الشكوى)</span>
+                                    </span>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" @bind="_statutDto.VisibleCitoyen" />
+                                        <div class="toggle-track"></div>
+                                    </label>
+                                </div>
+
+                                <button class="btn-submit btn-purple" @onclick="SubmitChangerStatut"
+                                        disabled="@(_saving || string.IsNullOrEmpty(_statutDto.NouveauStatut))">
+                                    @if (_saving)
+                                    { <span class="spinner"></span> }
+                                    else
+                                    { <i class="bi bi-check2-circle"></i> }
+                                    تأكيد تغيير الحالة
+                                </button>
+                            }
+
+                            @* ── التوجيه إلى مصلحة ── *@
+                            @if (_activeTab == "service")
+                            {
+                                <div class="form-group">
+                                    <label class="form-label">المصلحة المعنية <span style="color:#ef4444;">*</span></label>
+                                    <select class="form-control" @bind="_assignerDto.ServiceConcerneId">
+                                        <option value="">— اختر المصلحة —</option>
+                                        @foreach (var s in _services)
+                                        {
+                                            <option value="@s.Id">@s.Nom</option>
+                                        }
+                                    </select>
+                                    @if (!string.IsNullOrEmpty(_detail.ServiceConcerneNom))
+                                    {
+                                        <div style="font-size:.7rem;color:#94a3b8;margin-top:.25rem;">
+                                            <i class="bi bi-info-circle"></i>
+                                            المصلحة الحالية: <strong>@_detail.ServiceConcerneNom</strong>
+                                        </div>
+                                    }
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">سبب التوجيه / ملاحظة</label>
+                                    <textarea class="form-control" rows="4" @bind="_assignerDto.Commentaire"
+                                              placeholder="اشرح سبب توجيه الشكوى إلى هذه المصلحة، أو أضف توجيهات للمعالجة…"></textarea>
+                                </div>
+
+                                @if (!string.IsNullOrEmpty(_detail.ServiceConcerneNom) &&
+                                     _assignerDto.ServiceConcerneId.HasValue &&
+                                     _assignerDto.ServiceConcerneId.Value == _detail.ServiceConcerneId)
+                                {
+                                    <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:.55rem .8rem;font-size:.75rem;color:#92400e;margin-bottom:.85rem;">
+                                        <i class="bi bi-exclamation-triangle-fill"></i>
+                                        المصلحة المختارة هي نفس المصلحة الحالية — اختر مصلحة مختلفة للتوجيه.
+                                    </div>
+                                }
+
+                                <button class="btn-submit btn-blue" @onclick="SubmitAssigner"
+                                        disabled="@(_saving || !_assignerDto.ServiceConcerneId.HasValue)">
+                                    @if (_saving)
+                                    { <span class="spinner"></span> }
+                                    else
+                                    { <i class="bi bi-building-up"></i> }
+                                    توجيه إلى المصلحة
+                                </button>
+                            }
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:1rem;text-align:center;color:#94a3b8;font-size:.82rem;">
+                        <i class="bi bi-lock-fill" style="font-size:1.2rem;display:block;margin-bottom:.4rem;color:#cbd5e1;"></i>
+                        هذه الشكوى مغلقة — لا يمكن إجراء أي تعديل عليها
+                    </div>
+                }
+
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    // ── List state ────────────────────────────────────────────
+    private List<ReclamationDto> _items = new();
+    private bool _loadingList = true;
+    private int _totalCount, _filteredCount;
+    private int _page = 1;
+    private bool _hasMore;
+
+    // ── Filters ───────────────────────────────────────────────
+    private string _searchTerm = "";
+    private string _filterStatut = "";
+    private string _filterPriorite = "";
+    private System.Threading.CancellationTokenSource? _searchCts;
+
+    // ── Detail ────────────────────────────────────────────────
+    private ReclamationDto? _selected;
+    private ReclamationDetailDto? _detail;
+    private bool _loadingDetail;
+
+    // ── Services dropdown ─────────────────────────────────────
+    private List<ServiceDto> _services = new();
+
+    // ── Active action tab ─────────────────────────────────────
+    private string _activeTab = "statut";
+
+    // ── DTOs for actions ──────────────────────────────────────
+    private ChangerStatutReclamationDto _statutDto = new() { VisibleCitoyen = false };
+    private AssignerReclamationDto _assignerDto = new();
+    private bool _saving;
+
+    // ── Toast ─────────────────────────────────────────────────
+    private string? _toast;
+    private bool _toastOk;
+
+    // ─────────────────────────────────────────────────────────
+    protected override async Task OnInitializedAsync()
+    {
+        var svcResult = await ServiceApi.GetAllAsync();
+        _services = svcResult?.Data?.ToList() ?? new();
+        await ReloadList();
+    }
+
+    private async Task ReloadList()
+    {
+        _loadingList = true;
+        _page = 1;
+        _items = new();
+        StateHasChanged();
+        await FetchPage();
+        _loadingList = false;
+    }
+
+    private async Task FetchPage()
+    {
+        var filter = new ReclamationFilterDto
+        {
+            Statut     = string.IsNullOrEmpty(_filterStatut)   ? null : _filterStatut,
+            Priorite   = string.IsNullOrEmpty(_filterPriorite) ? null : _filterPriorite,
+            SearchTerm = string.IsNullOrWhiteSpace(_searchTerm) ? null : _searchTerm.Trim(),
+            PageNumber = _page,
+            PageSize   = 20
+        };
+        var result = await ReclamApi.GetPagedAsync(filter);
+        if (result != null)
+        {
+            _totalCount    = result.TotalCount;
+            _filteredCount = result.TotalCount;
+            _items.AddRange(result.Items ?? Enumerable.Empty<ReclamationDto>());
+            _hasMore = _items.Count < result.TotalCount;
+        }
+    }
+
+    private async Task LoadMore()
+    {
+        _page++;
+        await FetchPage();
+    }
+
+    private async Task OnSearch(ChangeEventArgs e)
+    {
+        _searchTerm = e.Value?.ToString() ?? "";
+        _searchCts?.Cancel();
+        _searchCts = new System.Threading.CancellationTokenSource();
+        var cts = _searchCts;
+        try
+        {
+            await Task.Delay(280, cts.Token);
+            if (!cts.IsCancellationRequested) await ReloadList();
+        }
+        catch (TaskCanceledException) { }
+    }
+
+    private async Task SelectItem(ReclamationDto r)
+    {
+        _selected    = r;
+        _detail      = null;
+        _activeTab   = "statut";
+        _statutDto   = new() { VisibleCitoyen = false };
+        _assignerDto = new();
+        _loadingDetail = true;
+        StateHasChanged();
+
+        _detail = await ReclamApi.GetByIdAsync(r.Id);
+        // Pre-fill current service in assigner
+        if (_detail?.ServiceConcerneId.HasValue == true)
+            _assignerDto.ServiceConcerneId = _detail.ServiceConcerneId;
+
+        _loadingDetail = false;
+    }
+
+    // ── Submit: تغيير الحالة ───────────────────────────────────
+    private async Task SubmitChangerStatut()
+    {
+        if (_detail == null || string.IsNullOrEmpty(_statutDto.NouveauStatut)) return;
+
+        if (_statutDto.NouveauStatut == "Traitee" &&
+            string.IsNullOrWhiteSpace(_statutDto.SolutionApportee))
+        {
+            ShowToast("يجب إدخال الحل المقدَّم عند اختيار 'تمت المعالجة'", false);
+            return;
+        }
+
+        if (_statutDto.NouveauStatut == "Rejetee" &&
+            string.IsNullOrWhiteSpace(_statutDto.Commentaire))
+        {
+            ShowToast("يجب إدخال سبب الرفض", false);
+            return;
+        }
+
+        _saving = true;
+        var ok = await ReclamApi.ChangerStatutAsync(_detail.Id, _statutDto);
+        _saving = false;
+
+        if (ok)
+        {
+            ShowToast($"تم تغيير حالة الشكوى إلى: {GetStatutLabel(_statutDto.NouveauStatut)}", true);
+            _statutDto = new() { VisibleCitoyen = false };
+            // Reload detail and list
+            await Task.WhenAll(
+                Task.Run(async () => { _detail = await ReclamApi.GetByIdAsync(_detail!.Id); }),
+                ReloadListSilent()
+            );
+            // Sync the selected item statut display
+            var updated = _items.FirstOrDefault(x => x.Id == _detail!.Id);
+            if (updated != null) _selected = updated;
+        }
+        else
+        {
+            ShowToast("فشل تغيير الحالة — تحقق من الصلاحيات أو حاول مجدداً", false);
+        }
+    }
+
+    // ── Submit: توجيه إلى مصلحة ───────────────────────────────
+    private async Task SubmitAssigner()
+    {
+        if (_detail == null || !_assignerDto.ServiceConcerneId.HasValue) return;
+
+        if (_assignerDto.ServiceConcerneId == _detail.ServiceConcerneId)
+        {
+            ShowToast("اختر مصلحة مختلفة عن المصلحة الحالية للتوجيه", false);
+            return;
+        }
+
+        _saving = true;
+        var ok = await ReclamApi.AssignerAsync(_detail.Id, _assignerDto);
+        _saving = false;
+
+        if (ok)
+        {
+            var nomService = _services.FirstOrDefault(s => s.Id == _assignerDto.ServiceConcerneId)?.Nom ?? "";
+            ShowToast($"تم توجيه الشكوى إلى: {nomService}", true);
+            _assignerDto = new();
+            _detail = await ReclamApi.GetByIdAsync(_detail!.Id);
+            if (_detail != null) _assignerDto.ServiceConcerneId = _detail.ServiceConcerneId;
+            await ReloadListSilent();
+            var updated = _items.FirstOrDefault(x => x.Id == _detail?.Id);
+            if (updated != null) _selected = updated;
+        }
+        else
+        {
+            ShowToast("فشل التوجيه — تحقق من الصلاحيات أو حاول مجدداً", false);
+        }
+    }
+
+    // Reload list without showing loading spinner (background refresh)
+    private async Task ReloadListSilent()
+    {
+        var filter = new ReclamationFilterDto
+        {
+            Statut     = string.IsNullOrEmpty(_filterStatut)   ? null : _filterStatut,
+            Priorite   = string.IsNullOrEmpty(_filterPriorite) ? null : _filterPriorite,
+            SearchTerm = string.IsNullOrWhiteSpace(_searchTerm) ? null : _searchTerm.Trim(),
+            PageNumber = 1,
+            PageSize   = _page * 20
+        };
+        var result = await ReclamApi.GetPagedAsync(filter);
+        if (result != null)
+        {
+            _items = result.Items?.ToList() ?? new();
+            _totalCount = _filteredCount = result.TotalCount;
+            _hasMore = _items.Count < result.TotalCount;
+        }
+    }
+
+    // ── Toast helper ──────────────────────────────────────────
+    private async void ShowToast(string msg, bool ok)
+    {
+        _toast   = msg;
+        _toastOk = ok;
+        StateHasChanged();
+        await Task.Delay(3500);
+        _toast = null;
+        StateHasChanged();
+    }
+
+    // ── Available status transitions ──────────────────────────
+    private IEnumerable<(string Val, string Lbl)> GetAvailableStatuts(string current) => current switch
+    {
+        "Nouvelle" => new[] { ("EnCours", "🔄 قيد المعالجة"), ("Rejetee", "❌ مرفوضة") },
+        "EnCours"  => new[] { ("Traitee", "✅ تمت المعالجة"), ("Rejetee", "❌ مرفوضة"), ("Fermee", "🔒 مغلقة") },
+        "Traitee"  => new[] { ("Fermee", "🔒 مغلقة") },
+        "Rejetee"  => new[] { ("EnCours", "🔄 إعادة فتح"), ("Fermee", "🔒 مغلقة") },
+        _          => Array.Empty<(string, string)>()
+    };
+
+    // ── Display helpers ───────────────────────────────────────
+    private string GetStatutLabel(string? s) => s switch
+    {
+        "Nouvelle" => "جديدة",
+        "EnCours"  => "قيد المعالجة",
+        "Traitee"  => "تمت المعالجة",
+        "Rejetee"  => "مرفوضة",
+        "Fermee"   => "مغلقة",
+        _ => s ?? ""
+    };
+
+    private string GetStatutColor(string? s) => s switch
+    {
+        "Nouvelle" => "#f97316",
+        "EnCours"  => "#3b82f6",
+        "Traitee"  => "#22c55e",
+        "Rejetee"  => "#ef4444",
+        "Fermee"   => "#94a3b8",
+        _ => "#94a3b8"
+    };
+
+    private string GetIconClass(ReclamationDto r)
+    {
+        if (r.Priorite == "Critique") return "ic-critique";
+        return r.Statut switch
+        {
+            "Nouvelle" => "ic-nouvelle",
+            "EnCours"  => "ic-encours",
+            "Traitee"  => "ic-traitee",
+            "Rejetee"  => "ic-rejetee",
+            "Fermee"   => "ic-fermee",
+            _ => "ic-encours"
+        };
+    }
+
+    private string GetIcon(ReclamationDto r)
+    {
+        if (r.Priorite == "Critique") return "bi-exclamation-triangle-fill";
+        return r.Statut switch
+        {
+            "Nouvelle" => "bi-chat-square-text-fill",
+            "EnCours"  => "bi-arrow-repeat",
+            "Traitee"  => "bi-check-circle-fill",
+            "Rejetee"  => "bi-x-circle-fill",
+            "Fermee"   => "bi-lock-fill",
+            _ => "bi-chat-square-text"
+        };
+    }
+
+    private RenderFragment GetStatutPill(string s) => s switch
+    {
+        "Nouvelle" => @<span class="sp sp-nouvelle">@GetStatutLabel(s)</span>,
+        "EnCours"  => @<span class="sp sp-encours">@GetStatutLabel(s)</span>,
+        "Traitee"  => @<span class="sp sp-traitee">@GetStatutLabel(s)</span>,
+        "Rejetee"  => @<span class="sp sp-rejetee">@GetStatutLabel(s)</span>,
+        "Fermee"   => @<span class="sp sp-fermee">@GetStatutLabel(s)</span>,
+        _          => @<span class="sp sp-fermee">@s</span>
+    };
+
+    private RenderFragment GetPrioritePill(string p) => p switch
+    {
+        "Basse"    => @<span class="pp pp-basse">منخفضة</span>,
+        "Moyenne"  => @<span class="pp pp-moyenne">متوسطة</span>,
+        "Haute"    => @<span class="pp pp-haute">عالية</span>,
+        "Critique" => @<span class="pp pp-critique">حرجة ⚠</span>,
+        _          => @<span class="pp pp-moyenne">@p</span>
+    };
+
+    private string GetCanalLabel(string c) => c switch
+    {
+        "Guichet"  => "الشباك",
+        "Telephone" => "هاتف",
+        "Email"    => "بريد إلكتروني",
+        "Web"      => "الموقع الإلكتروني",
+        "Mobile"   => "تطبيق الهاتف",
+        _ => c
+    };
+}

@@ -786,14 +786,11 @@
                 <div class="detail-actions">
                     @if (mail.Statut != "Traite" && mail.Statut != "Archive")
                     {
-                        <button class="btn-action primary" @onclick='() => ShowMailAction("reply")'>
+                        <button class="btn-action primary" @onclick="ShowReplyAction">
                             <i class="bi bi-reply-fill"></i> رد
                         </button>
-                        <button class="btn-action success" @onclick="() => MarkMailTraite(mail.Id)">
+                        <button class="btn-action success" @onclick="ShowTreatAction">
                             <i class="bi bi-check-circle-fill"></i> معالجة
-                        </button>
-                        <button class="btn-action warning" @onclick='() => ShowMailAction("forward")'>
-                            <i class="bi bi-forward-fill"></i> إحالة
                         </button>
                     }
                 </div>
@@ -889,35 +886,59 @@
             </div>
 
             <!-- Action drawer -->
-            @if (ActiveMailAction != null)
+            @if (ActiveMailAction == "reply")
             {
                 <div class="action-drawer">
                     <div class="action-drawer-title">
-                        <i class="bi @(ActiveMailAction == "reply" ? "bi-reply-fill" : "bi-forward-fill")"></i>
-                        @(ActiveMailAction == "reply" ? "رد على البريد" : "إحالة البريد")
+                        <i class="bi bi-reply-fill" style="color:#0ea5e9;"></i> رد على البريد — تسجيل الإجراءات
                     </div>
                     <div class="form-row">
-                        <div class="form-group">
-                            <label class="form-label">الإجراء المتخذ</label>
-                            <input class="form-input" @bind="ActionComment"
-                                   placeholder="وصف الإجراء..." />
+                        <div class="form-group" style="grid-column:1/-1">
+                            <label class="form-label">الإجراءات المتخذة <span style="color:#ef4444">*</span></label>
+                            <textarea class="form-textarea" @bind="ActionComment" rows="3"
+                                      placeholder="اكتب جميع الإجراءات التي قمت بها…"></textarea>
                         </div>
                         <div class="form-group">
                             <label class="form-label">الحالة الجديدة</label>
                             <select class="form-select" @bind="NewMailStatus">
-                                <option value="">-- اختر --</option>
                                 <option value="EnCours">قيد المعالجة</option>
                                 <option value="Traite">تمت المعالجة</option>
-                                <option value="Rejete">مرفوض</option>
                             </select>
                         </div>
-                        <div style="display:flex;gap:.4rem;">
-                            <button class="btn-action primary" @onclick="SubmitMailAction" disabled="@IsSaving">
+                        <div style="display:flex;gap:.4rem;align-items:flex-end;">
+                            <button class="btn-action primary" @onclick="SubmitMailAction"
+                                    disabled="@(IsSaving || string.IsNullOrWhiteSpace(ActionComment))">
                                 @if (IsSaving) { <i class="bi bi-arrow-clockwise spinner"></i> }
                                 else { <i class="bi bi-check2"></i> }
-                                تأكيد
+                                تسجيل
                             </button>
-                            <button class="btn-action" @onclick='() => ActiveMailAction = null'>
+                            <button class="btn-action" @onclick="() => ActiveMailAction = null">
+                                <i class="bi bi-x"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+            else if (ActiveMailAction == "treat")
+            {
+                <div class="action-drawer">
+                    <div class="action-drawer-title">
+                        <i class="bi bi-check-circle-fill" style="color:#22c55e;"></i> تسجيل ملاحظة المعالجة
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group" style="grid-column:1/-1">
+                            <label class="form-label">الملاحظة <span style="color:#ef4444">*</span></label>
+                            <textarea class="form-textarea" @bind="ActionComment" rows="3"
+                                      placeholder="اكتب ملاحظتك أو وصف المعالجة…"></textarea>
+                        </div>
+                        <div style="display:flex;gap:.4rem;align-items:flex-end;">
+                            <button class="btn-action success" @onclick="SubmitTreatAction"
+                                    disabled="@(IsSaving || string.IsNullOrWhiteSpace(ActionComment))">
+                                @if (IsSaving) { <i class="bi bi-arrow-clockwise spinner"></i> }
+                                else { <i class="bi bi-check-circle-fill"></i> }
+                                تأكيد المعالجة
+                            </button>
+                            <button class="btn-action" @onclick="() => ActiveMailAction = null">
                                 <i class="bi bi-x"></i>
                             </button>
                         </div>
@@ -1354,44 +1375,91 @@
         ActiveMailAction = action;
         ActiveReclAction = null;
         ActionComment    = "";
-        NewMailStatus    = "";
+        NewMailStatus    = "EnCours";
     }
 
-    private async Task MarkMailTraite(int id)
-    {
-        IsSaving = true;
-        try
-        {
-            var dto = new ChangerStatutEntrantDto { NouveauStatut = "Traite", Commentaire = "تمت المعالجة" };
-            await CourrierApi.ChangerStatutAsync(id, dto);
-            await ReloadMail(id);
-            ShowToast("تم تحديد البريد كمعالج ✓", "success");
-        }
-        catch { ShowToast("حدث خطأ أثناء التحديث", "error"); }
-        finally { IsSaving = false; }
-    }
+    private void ShowReplyAction() => ShowMailAction("reply");
+    private void ShowTreatAction() => ShowMailAction("treat");
 
+    // ── Helper: find active circuit step for the selected mail ──
+    private BOCircuitTraitementDto? GetActiveCircuitStep(CourrierEntrantDetailDto mail) =>
+        mail.Circuit?
+            .Where(s => s.StatutEtape is "EnAttente" or "EnCours")
+            .OrderByDescending(s => s.NumeroEtape)
+            .FirstOrDefault();
+
+    // ── رد: تسجيل الإجراءات في CommentaireTraitement ──────────
     private async Task SubmitMailAction()
     {
         if (SelectedItem is not CourrierEntrantDetailDto mail) return;
-        if (string.IsNullOrEmpty(NewMailStatus)) return;
+        if (string.IsNullOrWhiteSpace(ActionComment)) return;
 
         IsSaving = true;
         try
         {
-            var dto = new ChangerStatutEntrantDto
+            var etapeActive = GetActiveCircuitStep(mail);
+            if (etapeActive != null)
             {
-                NouveauStatut = NewMailStatus,
-                Commentaire   = ActionComment
-            };
-            await CourrierApi.ChangerStatutAsync(mail.Id, dto);
+                // Save to BOCircuitTraitement.CommentaireTraitement
+                await CourrierApi.TraiterEtapeCircuitAsync(etapeActive.Id, new TraiterEtapeCircuitDto
+                {
+                    StatutEtape           = NewMailStatus,
+                    CommentaireTraitement = ActionComment
+                });
+            }
+            else
+            {
+                // No circuit step yet — fall back to status change
+                await CourrierApi.ChangerStatutAsync(mail.Id, new ChangerStatutEntrantDto
+                {
+                    NouveauStatut = NewMailStatus,
+                    Commentaire   = ActionComment
+                });
+            }
+
             await ReloadMail(mail.Id);
             ActiveMailAction = null;
             ActionComment    = "";
-            NewMailStatus    = "";
-            ShowToast("تم تحديث حالة البريد ✓", "success");
+            NewMailStatus    = "EnCours";
+            ShowToast("تم تسجيل الإجراءات في مسار المعالجة ✓", "success");
         }
-        catch { ShowToast("حدث خطأ أثناء التحديث", "error"); }
+        catch { ShowToast("حدث خطأ أثناء التسجيل", "error"); }
+        finally { IsSaving = false; }
+    }
+
+    // ── معالجة: تسجيل ملاحظة في CommentaireTraitement ─────────
+    private async Task SubmitTreatAction()
+    {
+        if (SelectedItem is not CourrierEntrantDetailDto mail) return;
+        if (string.IsNullOrWhiteSpace(ActionComment)) return;
+
+        IsSaving = true;
+        try
+        {
+            var etapeActive = GetActiveCircuitStep(mail);
+            if (etapeActive != null)
+            {
+                await CourrierApi.TraiterEtapeCircuitAsync(etapeActive.Id, new TraiterEtapeCircuitDto
+                {
+                    StatutEtape           = "Traite",
+                    CommentaireTraitement = ActionComment
+                });
+            }
+            else
+            {
+                await CourrierApi.ChangerStatutAsync(mail.Id, new ChangerStatutEntrantDto
+                {
+                    NouveauStatut = "Traite",
+                    Commentaire   = ActionComment
+                });
+            }
+
+            await ReloadMail(mail.Id);
+            ActiveMailAction = null;
+            ActionComment    = "";
+            ShowToast("تمت معالجة البريد وتسجيل الملاحظة ✓", "success");
+        }
+        catch { ShowToast("حدث خطأ أثناء المعالجة", "error"); }
         finally { IsSaving = false; }
     }
 
