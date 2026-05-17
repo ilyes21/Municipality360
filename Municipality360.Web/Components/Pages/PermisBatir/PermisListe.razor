@@ -3,6 +3,7 @@
 @using Municipality360.Application.Common
 @using Municipality360.Web.Services
 @inject IPermisBatirApiService PermisApi
+@inject IPermisReferentielsApiService RefsApi
 @inject ISignalRNotificationService SignalRNotif
 @inject NavigationManager Nav
 @implements IDisposable
@@ -116,6 +117,16 @@
                 <option value="Approuvee">موافق عليها</option>
                 <option value="Rejetee">مرفوضة</option>
                 <option value="Suspendue">معلقة</option>
+            </select>
+        </div>
+        <div class="filter-group" style="max-width:160px;">
+            <span class="filter-label">نوع الطلب</span>
+            <select class="filter-select" @bind="Filter.TypeDemandeId">
+                <option value="">الكل</option>
+                @foreach (var t in _typesDemande)
+                {
+                    <option value="@t.Id">@t.Libelle</option>
+                }
             </select>
         </div>
         <div class="filter-group" style="max-width:150px;">
@@ -268,6 +279,7 @@
     private DemandePermisFilterDto Filter = new() { PageSize = 15, PageNumber = 1 };
     private PagedResult<DemandePermisDto>? Paged;
     private bool IsLoading = true;
+    private List<TypeDemandePermisDto> _typesDemande = new();
 
     protected override void OnInitialized()
     {
@@ -278,7 +290,17 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
-        await LoadData();
+        var typesTask = RefsApi.GetTypesDemandeAsync();
+        var dataTask  = PermisApi.GetPagedAsync(Filter);
+        IsLoading = true;
+        try
+        {
+            await Task.WhenAll(typesTask, dataTask);
+            _typesDemande = await typesTask ?? new();
+            Paged = await dataTask;
+        }
+        catch { }
+        finally { IsLoading = false; }
         StateHasChanged();
     }
 

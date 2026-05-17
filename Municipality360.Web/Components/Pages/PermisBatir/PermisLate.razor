@@ -1,0 +1,290 @@
+@page "/permits/late"
+@using Municipality360.Application.DTOs.PermisBatir
+@using Municipality360.Web.Services
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "SuperAdmin,Admin,Manager,Urbanisme")]
+@inject IPermisBatirApiService PermisApi
+@inject ISignalRNotificationService SignalRNotif
+@inject NavigationManager Nav
+@implements IDisposable
+
+<PageTitle>الطلبات المتأخرة</PageTitle>
+
+<style>
+    @@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap');
+    .late-root { font-family: 'Tajawal', sans-serif; }
+
+    .page-header {
+        display: flex; align-items: center; gap: .75rem; margin-bottom: 1.2rem;
+    }
+    .page-header-icon {
+        width: 44px; height: 44px; border-radius: 12px;
+        background: linear-gradient(135deg, #ef4444, #b91c1c);
+        display: flex; align-items: center; justify-content: center;
+        color: #fff; font-size: 1.2rem;
+        box-shadow: 0 4px 12px rgba(239,68,68,.35);
+    }
+    .page-title { font-size: 1.1rem; font-weight: 800; color: #0f172a; margin: 0; }
+    .page-sub   { font-size: .75rem; color: #94a3b8; margin-top: .1rem; }
+
+    .alert-banner {
+        background: #fef2f2; border: 1px solid #fecaca; border-radius: 12px;
+        padding: .85rem 1rem; margin-bottom: 1.2rem;
+        display: flex; align-items: center; gap: .6rem;
+        font-size: .82rem; color: #b91c1c; font-weight: 600;
+    }
+
+    .table-card {
+        background: #fff; border-radius: 16px;
+        border: 1px solid #e2e8f0; overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,.04);
+    }
+    .tbl { width: 100%; border-collapse: collapse; }
+    .tbl th {
+        padding: .7rem 1rem; font-size: .68rem; font-weight: 700;
+        color: #94a3b8; letter-spacing: .07em; text-transform: uppercase;
+        background: #fef2f2; border-bottom: 1px solid #fee2e2; text-align: right;
+    }
+    .tbl td {
+        padding: .85rem 1rem; font-size: .82rem; color: #374151;
+        border-bottom: 1px solid #f8fafc; vertical-align: middle;
+    }
+    .tbl tr:last-child td { border-bottom: none; }
+    .tbl tr:hover td { background: #fffbfb; cursor: pointer; }
+    .tbl-num { font-weight: 800; color: #7c3aed; }
+
+    .delay-badge {
+        display: inline-flex; align-items: center; gap: .3rem;
+        padding: .25em .65em; border-radius: 99px;
+        font-size: .72rem; font-weight: 700;
+    }
+    .delay-critical { background: #fee2e2; color: #b91c1c; }
+    .delay-warning  { background: #fef3c7; color: #b45309; }
+
+    .sp {
+        display: inline-flex; align-items: center; gap: .25rem;
+        padding: .2em .6em; border-radius: 99px; font-size: .67rem; font-weight: 700;
+    }
+    .sp-deposee  { background: #dbeafe; color: #1d4ed8; }
+    .sp-examen   { background: #fef3c7; color: #b45309; }
+    .sp-approuvee{ background: #dcfce7; color: #15803d; }
+    .sp-rejetee  { background: #fee2e2; color: #b91c1c; }
+    .sp-suspendue{ background: #f1f5f9; color: #64748b; }
+
+    .act-btn {
+        width: 30px; height: 30px; border-radius: 8px; border: 1px solid #e2e8f0;
+        background: #fff; display: inline-flex; align-items: center; justify-content: center;
+        font-size: .8rem; cursor: pointer; transition: all .15s; color: #64748b;
+    }
+    .act-btn:hover { background: #f0f9ff; border-color: #7c3aed; color: #7c3aed; }
+
+    @@keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { animation: spin .75s linear infinite; }
+    .empty-state { text-align: center; padding: 3rem; color: #94a3b8; }
+    .empty-state i { font-size: 2.5rem; color: #d1fae5; display: block; margin-bottom: .75rem; }
+</style>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+
+<div class="late-root">
+
+    <!-- Header -->
+    <div class="page-header">
+        <div class="page-header-icon"><i class="bi bi-clock-history"></i></div>
+        <div style="flex:1;">
+            <div class="page-title">الطلبات المتأخرة</div>
+            <div class="page-sub">طلبات رخص البناء التي تجاوزت آجال المعالجة المحددة</div>
+        </div>
+        <button style="padding:.45rem 1rem;border-radius:9px;border:1px solid #e2e8f0;
+                       background:#fff;font-family:'Tajawal',sans-serif;font-size:.8rem;
+                       font-weight:700;cursor:pointer;color:#374151;"
+                @onclick='()=>Nav.NavigateTo("/permits/list")'>
+            <i class="bi bi-list-ul me-1"></i> كل الطلبات
+        </button>
+    </div>
+
+    <!-- Alert banner -->
+    @if (!IsLoading && (_items?.Count ?? 0) > 0)
+    {
+        <div class="alert-banner">
+            <i class="bi bi-exclamation-triangle-fill" style="font-size:1.1rem;"></i>
+            يوجد <strong>@_items!.Count</strong> طلب متأخر يستوجب المتابعة الفورية
+        </div>
+    }
+
+    <!-- Table -->
+    <div class="table-card">
+        <table class="tbl">
+            <thead>
+                <tr>
+                    <th>رقم الطلب</th>
+                    <th>المتقدم</th>
+                    <th>عنوان المشروع</th>
+                    <th>النوع</th>
+                    <th>الحالة</th>
+                    <th>تاريخ الإيداع</th>
+                    <th>الرسوم</th>
+                    <th>الإجراءات</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (IsLoading)
+                {
+                    <tr>
+                        <td colspan="8" style="text-align:center;padding:2.5rem;color:#94a3b8;">
+                            <i class="bi bi-arrow-clockwise spinner" style="font-size:1.3rem;"></i>
+                            <div style="margin-top:.5rem;">جارٍ تحميل الطلبات المتأخرة...</div>
+                        </td>
+                    </tr>
+                }
+                else if (!(_items?.Any() ?? false))
+                {
+                    <tr>
+                        <td colspan="8">
+                            <div class="empty-state">
+                                <i class="bi bi-check-circle-fill"></i>
+                                <div style="font-size:.95rem;font-weight:700;color:#15803d;margin-bottom:.35rem;">
+                                    لا توجد طلبات متأخرة
+                                </div>
+                                <div style="font-size:.78rem;">جميع الطلبات في حدود الآجال المحددة</div>
+                            </div>
+                        </td>
+                    </tr>
+                }
+                else
+                {
+                    @foreach (var d in _items!)
+                    {
+                        var delay = (DateTime.Today - d.DateDepot).Days;
+                        <tr @onclick='()=>Nav.NavigateTo($"/permits/detail/{d.Id}")'>
+                            <td>
+                                <span class="tbl-num">@d.NumeroDemande</span>
+                            </td>
+                            <td>
+                                <div style="font-weight:600;">@d.DemandeurNomComplet</div>
+                                <div style="font-size:.72rem;color:#94a3b8;">@d.DemandeurTelephone</div>
+                            </td>
+                            <td>
+                                <div style="font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;">
+                                    @d.AdresseProjet
+                                </div>
+                                @if (!string.IsNullOrEmpty(d.NumeroParcelle))
+                                {
+                                    <div style="font-size:.7rem;color:#94a3b8;">قطعة @d.NumeroParcelle</div>
+                                }
+                            </td>
+                            <td style="font-size:.75rem;">@GetConstructionLabel(d.TypeConstruction)</td>
+                            <td>
+                                <span class="sp @GetStatutClass(d.Statut)">@GetStatutLabel(d.Statut)</span>
+                            </td>
+                            <td>
+                                <div style="font-size:.8rem;">@d.DateDepot.ToString("dd/MM/yyyy")</div>
+                                <span class="delay-badge @(delay > 60 ? "delay-critical" : "delay-warning")">
+                                    <i class="bi bi-clock"></i> @delay يوم
+                                </span>
+                            </td>
+                            <td>
+                                @if (d.TotalTaxes > 0)
+                                {
+                                    <span style="font-size:.78rem;font-weight:700;color:@(d.ToutesLTaxesPayees?"#15803d":"#b45309");">
+                                        @d.TotalTaxes.ToString("N0") د.ج
+                                        @if (!d.ToutesLTaxesPayees) { <text> ⚠</text> }
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span style="color:#94a3b8;font-size:.75rem;">—</span>
+                                }
+                            </td>
+                            <td @onclick:stopPropagation>
+                                <button class="act-btn" title="عرض التفاصيل"
+                                        @onclick='()=>Nav.NavigateTo($"/permits/detail/{d.Id}")'>
+                                    <i class="bi bi-eye-fill"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Summary footer -->
+    @if (!IsLoading && (_items?.Count ?? 0) > 0)
+    {
+        <div style="margin-top:.85rem;display:flex;gap:1rem;flex-wrap:wrap;">
+            <div style="background:#fff;border:1px solid #fecaca;border-radius:12px;padding:.65rem 1rem;
+                        font-size:.78rem;color:#b91c1c;font-weight:600;">
+                <i class="bi bi-exclamation-circle me-1"></i>
+                متأخر أكثر من 60 يوم:
+                <strong>@_items!.Count(d => (DateTime.Today - d.DateDepot).Days > 60)</strong>
+            </div>
+            <div style="background:#fff;border:1px solid #fde68a;border-radius:12px;padding:.65rem 1rem;
+                        font-size:.78rem;color:#b45309;font-weight:600;">
+                <i class="bi bi-clock me-1"></i>
+                متأخر أقل من 60 يوم:
+                <strong>@_items!.Count(d => (DateTime.Today - d.DateDepot).Days <= 60)</strong>
+            </div>
+            <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:.65rem 1rem;
+                        font-size:.78rem;color:#374151;font-weight:600;">
+                <i class="bi bi-currency-dollar me-1"></i>
+                رسوم غير مدفوعة:
+                <strong>@_items!.Count(d => d.TotalTaxes > 0 && !d.ToutesLTaxesPayees)</strong>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<DemandePermisDto>? _items;
+    private bool IsLoading = true;
+
+    protected override void OnInitialized() => SignalRNotif.OnChanged += Refresh;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        await LoadData();
+        StateHasChanged();
+    }
+
+    private async Task LoadData()
+    {
+        IsLoading = true;
+        try { _items = await PermisApi.GetEnRetardAsync(); }
+        catch { }
+        finally { IsLoading = false; }
+    }
+
+    private void Refresh() => InvokeAsync(async () => { await LoadData(); StateHasChanged(); });
+
+    private string GetStatutClass(string s) => s switch
+    {
+        "Deposee"   => "sp-deposee",
+        "EnExamen"  => "sp-examen",
+        "Approuvee" => "sp-approuvee",
+        "Rejetee"   => "sp-rejetee",
+        _           => "sp-suspendue"
+    };
+
+    private string GetStatutLabel(string s) => s switch
+    {
+        "Deposee"   => "مودعة",
+        "EnExamen"  => "قيد الفحص",
+        "Approuvee" => "موافق عليها",
+        "Rejetee"   => "مرفوضة",
+        "Suspendue" => "معلقة",
+        _ => s
+    };
+
+    private string GetConstructionLabel(string? s) => s switch
+    {
+        "Residential" => "سكني",
+        "Commercial"  => "تجاري",
+        "Industriel"  => "صناعي",
+        "Mixte"       => "مختلط",
+        "Agricole"    => "فلاحي",
+        _ => s ?? "—"
+    };
+
+    public void Dispose() => SignalRNotif.OnChanged -= Refresh;
+}

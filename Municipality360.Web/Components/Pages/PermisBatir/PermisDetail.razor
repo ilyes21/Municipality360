@@ -1,7 +1,10 @@
 @page "/permits/detail/{Id:int}"
 @using Municipality360.Application.DTOs.PermisBatir
+@using Municipality360.Application.DTOs.Structure
 @using Municipality360.Web.Services
 @inject IPermisBatirApiService PermisApi
+@inject IPermisReferentielsApiService RefsApi
+@inject IServiceApiService ServiceApi
 @inject ISignalRNotificationService SignalRNotif
 @inject NavigationManager Nav
 @implements IDisposable
@@ -10,179 +13,173 @@
 
 <style>
     @@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap');
-    .pd-root{font-family:'Tajawal',sans-serif;max-width:1100px;margin:0 auto;}
+    *, *::before, *::after { box-sizing: border-box; }
+    .pd-root { font-family: 'Tajawal', sans-serif; max-width: 1100px; margin: 0 auto; }
 
     /* ── Header ── */
-    .pd-header{
-        background:#fff;border-radius:16px;border:1px solid #e2e8f0;
-        padding:1.25rem 1.5rem;margin-bottom:1.1rem;
-        display:flex;align-items:flex-start;gap:1rem;
-        box-shadow:0 2px 8px rgba(0,0,0,.04);
+    .pd-header {
+        background: #fff; border-radius: 16px; border: 1px solid #e2e8f0;
+        padding: 1.25rem 1.5rem; margin-bottom: 1.1rem;
+        display: flex; align-items: flex-start; gap: 1rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,.04);
     }
-    .pd-header-icon{
-        width:52px;height:52px;border-radius:14px;
-        background:linear-gradient(135deg,#7c3aed,#a855f7);
-        display:flex;align-items:center;justify-content:center;
-        font-size:1.4rem;color:#fff;flex-shrink:0;
-        box-shadow:0 4px 14px rgba(124,58,237,.35);
+    .pd-header-icon {
+        width: 52px; height: 52px; border-radius: 14px;
+        background: linear-gradient(135deg, #7c3aed, #a855f7);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.4rem; color: #fff; flex-shrink: 0;
+        box-shadow: 0 4px 14px rgba(124,58,237,.35);
     }
-    .pd-num{font-size:.78rem;color:#94a3b8;margin-bottom:.18rem;}
-    .pd-title{font-size:1.05rem;font-weight:800;color:#0f172a;margin-bottom:.3rem;}
-    .pd-meta{display:flex;align-items:center;gap:.65rem;flex-wrap:wrap;}
-    .pd-actions{margin-right:auto;display:flex;gap:.5rem;flex-wrap:wrap;}
+    .pd-num   { font-size: .78rem; color: #94a3b8; margin-bottom: .18rem; }
+    .pd-title { font-size: 1.05rem; font-weight: 800; color: #0f172a; margin-bottom: .3rem; }
+    .pd-meta  { display: flex; align-items: center; gap: .65rem; flex-wrap: wrap; }
+    .pd-actions { margin-right: auto; display: flex; gap: .5rem; flex-wrap: wrap; }
 
     /* ── Buttons ── */
-    .btn{
-        padding:.45rem .9rem;border-radius:9px;border:1px solid #e2e8f0;
-        font-family:'Tajawal',sans-serif;font-size:.78rem;font-weight:700;
-        cursor:pointer;transition:all .18s;display:inline-flex;align-items:center;gap:.35rem;
+    .btn {
+        padding: .45rem .9rem; border-radius: 9px; border: 1px solid #e2e8f0;
+        font-family: 'Tajawal', sans-serif; font-size: .78rem; font-weight: 700;
+        cursor: pointer; transition: all .18s; display: inline-flex; align-items: center; gap: .35rem;
     }
-    .btn-primary{background:#7c3aed;border-color:#7c3aed;color:#fff;}
-    .btn-primary:hover{background:#6d28d9;}
-    .btn-success{background:#22c55e;border-color:#22c55e;color:#fff;}
-    .btn-success:hover{background:#16a34a;}
-    .btn-danger{background:#ef4444;border-color:#ef4444;color:#fff;}
-    .btn-danger:hover{background:#dc2626;}
-    .btn-warning{background:#f59e0b;border-color:#f59e0b;color:#fff;}
-    .btn-default{background:#fff;color:#374151;}
-    .btn-default:hover{background:#f1f5f9;}
+    .btn-primary { background: #7c3aed; border-color: #7c3aed; color: #fff; }
+    .btn-primary:hover { background: #6d28d9; }
+    .btn-success { background: #22c55e; border-color: #22c55e; color: #fff; }
+    .btn-success:hover { background: #16a34a; }
+    .btn-danger  { background: #ef4444; border-color: #ef4444; color: #fff; }
+    .btn-danger:hover  { background: #dc2626; }
+    .btn-warning { background: #f59e0b; border-color: #f59e0b; color: #fff; }
+    .btn-info    { background: #0ea5e9; border-color: #0ea5e9; color: #fff; }
+    .btn-info:hover { background: #0369a1; }
+    .btn-default { background: #fff; color: #374151; }
+    .btn-default:hover { background: #f1f5f9; }
 
     /* ── Status ── */
-    .sp{display:inline-flex;align-items:center;gap:.25rem;padding:.22em .7em;border-radius:99px;font-size:.72rem;font-weight:700;}
-    .sp-deposee  {background:#dbeafe;color:#1d4ed8;}
-    .sp-examen   {background:#fef3c7;color:#b45309;}
-    .sp-approuvee{background:#dcfce7;color:#15803d;}
-    .sp-rejetee  {background:#fee2e2;color:#b91c1c;}
-    .sp-suspendue{background:#f1f5f9;color:#64748b;}
+    .sp { display: inline-flex; align-items: center; gap: .25rem; padding: .22em .7em; border-radius: 99px; font-size: .72rem; font-weight: 700; }
+    .sp-deposee   { background: #dbeafe; color: #1d4ed8; }
+    .sp-examen    { background: #fef3c7; color: #b45309; }
+    .sp-approuvee { background: #dcfce7; color: #15803d; }
+    .sp-rejetee   { background: #fee2e2; color: #b91c1c; }
+    .sp-suspendue { background: #f1f5f9; color: #64748b; }
 
     /* ── Cards ── */
-    .card{
-        background:#fff;border-radius:14px;border:1px solid #e2e8f0;
-        box-shadow:0 1px 6px rgba(0,0,0,.04);overflow:hidden;
+    .card { background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; box-shadow: 0 1px 6px rgba(0,0,0,.04); overflow: hidden; }
+    .card-header {
+        padding: .75rem 1.1rem; border-bottom: 1px solid #f1f5f9;
+        font-size: .78rem; font-weight: 800; color: #374151;
+        display: flex; align-items: center; gap: .4rem;
     }
-    .card-header{
-        padding:.75rem 1.1rem;border-bottom:1px solid #f1f5f9;
-        font-size:.78rem;font-weight:800;color:#374151;
-        display:flex;align-items:center;gap:.4rem;
-    }
-    .card-body{padding:1rem 1.1rem;}
+    .card-body { padding: 1rem 1.1rem; }
 
     /* ── Info rows ── */
-    .info-row{
-        display:flex;justify-content:space-between;align-items:baseline;
-        padding:.32rem 0;border-bottom:1px solid #f8fafc;font-size:.8rem;
-    }
-    .info-row:last-child{border-bottom:none;}
-    .ir-label{color:#64748b;}
-    .ir-value{font-weight:600;color:#0f172a;text-align:left;}
+    .info-row { display: flex; justify-content: space-between; align-items: baseline; padding: .32rem 0; border-bottom: 1px solid #f8fafc; font-size: .8rem; }
+    .info-row:last-child { border-bottom: none; }
+    .ir-label { color: #64748b; }
+    .ir-value { font-weight: 600; color: #0f172a; text-align: left; }
 
-    /* ── Grid ── */
-    .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;}
-    @@media(max-width:768px){.info-grid{grid-template-columns:1fr;}}
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+    @@media(max-width:768px) { .info-grid { grid-template-columns: 1fr; } }
 
     /* ── Timeline ── */
-    .tl-item{display:flex;gap:.7rem;padding-bottom:.9rem;position:relative;}
-    .tl-item::before{content:'';position:absolute;right:15px;top:28px;bottom:0;width:1px;background:#e2e8f0;}
-    .tl-item:last-child::before{display:none;}
-    .tl-dot{
-        width:30px;height:30px;border-radius:50%;
-        display:flex;align-items:center;justify-content:center;
-        font-size:.75rem;flex-shrink:0;z-index:1;
-        background:#f1f5f9;color:#64748b;border:2px solid #e2e8f0;
+    .tl-item { display: flex; gap: .7rem; padding-bottom: .9rem; position: relative; }
+    .tl-item::before { content: ''; position: absolute; right: 15px; top: 28px; bottom: 0; width: 1px; background: #e2e8f0; }
+    .tl-item:last-child::before { display: none; }
+    .tl-dot {
+        width: 30px; height: 30px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: .75rem; flex-shrink: 0; z-index: 1;
+        background: #f1f5f9; color: #64748b; border: 2px solid #e2e8f0;
     }
-    .tl-dot.green{background:#dcfce7;color:#15803d;border-color:#86efac;}
-    .tl-dot.amber{background:#fef3c7;color:#b45309;border-color:#fcd34d;}
-    .tl-dot.red  {background:#fee2e2;color:#b91c1c;border-color:#fca5a5;}
-    .tl-dot.blue {background:#dbeafe;color:#1d4ed8;border-color:#93c5fd;}
-    .tl-action{font-size:.8rem;font-weight:700;color:#0f172a;margin-bottom:.12rem;}
-    .tl-comment{font-size:.76rem;color:#64748b;line-height:1.45;}
-    .tl-meta{font-size:.68rem;color:#94a3b8;display:flex;gap:.5rem;margin-top:.15rem;}
+    .tl-dot.green  { background: #dcfce7; color: #15803d; border-color: #86efac; }
+    .tl-dot.amber  { background: #fef3c7; color: #b45309; border-color: #fcd34d; }
+    .tl-dot.red    { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
+    .tl-dot.blue   { background: #dbeafe; color: #1d4ed8; border-color: #93c5fd; }
+    .tl-dot.violet { background: #f3e8ff; color: #7c3aed; border-color: #d8b4fe; }
+    .tl-action   { font-size: .8rem; font-weight: 700; color: #0f172a; margin-bottom: .12rem; }
+    .tl-comment  { font-size: .76rem; color: #64748b; line-height: 1.45; }
+    .tl-meta     { font-size: .68rem; color: #94a3b8; display: flex; gap: .5rem; margin-top: .15rem; }
 
     /* ── Taxe row ── */
-    .taxe-row{
-        display:flex;align-items:center;justify-content:space-between;
-        padding:.65rem 1.1rem;border-bottom:1px solid #f8fafc;font-size:.82rem;
-    }
-    .taxe-row:last-child{border-bottom:none;}
-    .taxe-statut-paid{color:#15803d;font-weight:700;}
-    .taxe-statut-wait{color:#b45309;font-weight:700;}
+    .taxe-row { display: flex; align-items: center; justify-content: space-between; padding: .65rem 1.1rem; border-bottom: 1px solid #f8fafc; font-size: .82rem; }
+    .taxe-row:last-child { border-bottom: none; }
+    .taxe-statut-paid { color: #15803d; font-weight: 700; }
+    .taxe-statut-wait { color: #b45309; font-weight: 700; }
 
     /* ── Doc row ── */
-    .doc-row{
-        display:flex;align-items:center;gap:.65rem;
-        padding:.65rem 1.1rem;border-bottom:1px solid #f8fafc;
-    }
-    .doc-row:last-child{border-bottom:none;}
-    .doc-icon{
-        width:32px;height:32px;border-radius:8px;
-        display:flex;align-items:center;justify-content:center;
-        font-size:.85rem;flex-shrink:0;
-    }
-    .di-valid{background:#dcfce7;color:#15803d;}
-    .di-depose{background:#dbeafe;color:#1d4ed8;}
-    .di-revise{background:#fee2e2;color:#b91c1c;}
+    .doc-row { display: flex; align-items: center; gap: .65rem; padding: .65rem 1.1rem; border-bottom: 1px solid #f8fafc; }
+    .doc-row:last-child { border-bottom: none; }
+    .doc-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: .85rem; flex-shrink: 0; }
+    .di-valid  { background: #dcfce7; color: #15803d; }
+    .di-depose { background: #dbeafe; color: #1d4ed8; }
+    .di-revise { background: #fee2e2; color: #b91c1c; }
 
-    /* ── Action modal backdrop ── */
-    .modal-bd{
-        position:fixed;inset:0;background:rgba(0,0,0,.45);
-        backdrop-filter:blur(4px);z-index:900;
-        display:flex;align-items:center;justify-content:center;
-        padding:1rem;
+    /* ── Modal ── */
+    .modal-bd {
+        position: fixed; inset: 0; background: rgba(0,0,0,.45);
+        backdrop-filter: blur(4px); z-index: 900;
+        display: flex; align-items: center; justify-content: center; padding: 1rem;
     }
-    .modal-card{
-        background:#fff;border-radius:18px;padding:1.75rem;
-        width:100%;max-width:480px;
-        box-shadow:0 20px 60px rgba(0,0,0,.22);
-        animation:modal-in .22s cubic-bezier(.34,1.56,.64,1);
+    .modal-card {
+        background: #fff; border-radius: 18px; padding: 1.75rem;
+        width: 100%; max-width: 480px;
+        box-shadow: 0 20px 60px rgba(0,0,0,.22);
+        animation: modal-in .22s cubic-bezier(.34,1.56,.64,1);
     }
-    @@keyframes modal-in{from{opacity:0;transform:scale(.93);}to{opacity:1;transform:scale(1);}}
-    .modal-title{font-size:1rem;font-weight:800;color:#0f172a;margin-bottom:1rem;display:flex;align-items:center;gap:.5rem;}
-    .form-group{display:flex;flex-direction:column;gap:.3rem;margin-bottom:.75rem;}
-    .form-label{font-size:.72rem;font-weight:700;color:#64748b;}
-    .form-select,.form-input,.form-textarea{
-        padding:.45rem .7rem;border:1px solid #e2e8f0;border-radius:8px;
-        font-family:'Tajawal',sans-serif;font-size:.82rem;color:#0f172a;
-        background:#f8fafc;outline:none;transition:border-color .15s;width:100%;
+    @@keyframes modal-in { from { opacity: 0; transform: scale(.93); } to { opacity: 1; transform: scale(1); } }
+    .modal-title { font-size: 1rem; font-weight: 800; color: #0f172a; margin-bottom: 1rem; display: flex; align-items: center; gap: .5rem; }
+    .form-group  { display: flex; flex-direction: column; gap: .3rem; margin-bottom: .75rem; }
+    .form-label  { font-size: .72rem; font-weight: 700; color: #64748b; }
+    .form-select, .form-input, .form-textarea {
+        padding: .45rem .7rem; border: 1px solid #e2e8f0; border-radius: 8px;
+        font-family: 'Tajawal', sans-serif; font-size: .82rem; color: #0f172a;
+        background: #f8fafc; outline: none; transition: border-color .15s; width: 100%;
     }
-    .form-select:focus,.form-input:focus,.form-textarea:focus{border-color:#7c3aed;background:#fff;}
-    .form-textarea{resize:vertical;min-height:75px;}
-    .modal-btns{display:flex;gap:.6rem;justify-content:flex-end;margin-top:1rem;}
+    .form-select:focus, .form-input:focus, .form-textarea:focus { border-color: #7c3aed; background: #fff; }
+    .form-textarea { resize: vertical; min-height: 75px; }
+    .modal-btns { display: flex; gap: .6rem; justify-content: flex-end; margin-top: 1rem; }
 
     /* ── Permis délivré ── */
-    .permis-delivered{
-        background:linear-gradient(135deg,#f0fdf4,#dcfce7);
-        border:2px solid #86efac;border-radius:16px;
-        padding:1.25rem 1.5rem;margin-bottom:1rem;
-        display:flex;align-items:center;gap:1rem;
+    .permis-delivered {
+        background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+        border: 2px solid #86efac; border-radius: 16px;
+        padding: 1.25rem 1.5rem; margin-bottom: 1rem;
+        display: flex; align-items: center; gap: 1rem;
     }
-    .permis-delivered-icon{
-        width:54px;height:54px;border-radius:16px;
-        background:linear-gradient(135deg,#16a34a,#22c55e);
-        display:flex;align-items:center;justify-content:center;
-        font-size:1.5rem;color:#fff;flex-shrink:0;
-        box-shadow:0 4px 14px rgba(34,197,94,.4);
+    .permis-delivered-icon {
+        width: 54px; height: 54px; border-radius: 16px;
+        background: linear-gradient(135deg, #16a34a, #22c55e);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.5rem; color: #fff; flex-shrink: 0;
+        box-shadow: 0 4px 14px rgba(34,197,94,.4);
     }
 
-    @@keyframes spin{to{transform:rotate(360deg);}}
-    .spinner{animation:spin .75s linear infinite;display:inline-block;}
+    /* ── Doc validation select ── */
+    .doc-statut-select {
+        border: 1px solid #e2e8f0; border-radius: 7px; padding: .2rem .5rem;
+        font-family: 'Tajawal', sans-serif; font-size: .7rem; color: #374151;
+        background: #f8fafc; outline: none; cursor: pointer;
+    }
+    .doc-statut-select:focus { border-color: #7c3aed; }
+
+    @@keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { animation: spin .75s linear infinite; display: inline-block; }
 
     /* ── Toast ── */
-    .toast{
-        position:fixed;bottom:1.5rem;left:50%;
-        transform:translateX(-50%);
-        background:#1e293b;color:#f1f5f9;
-        padding:.75rem 1.5rem;border-radius:12px;
-        font-size:.82rem;font-weight:600;
-        z-index:9999;box-shadow:0 8px 30px rgba(0,0,0,.25);
-        animation:toast-in .3s ease;
-        display:flex;align-items:center;gap:.5rem;
+    .toast {
+        position: fixed; bottom: 1.5rem; left: 50%;
+        transform: translateX(-50%);
+        background: #1e293b; color: #f1f5f9;
+        padding: .75rem 1.5rem; border-radius: 12px;
+        font-size: .82rem; font-weight: 600;
+        z-index: 9999; box-shadow: 0 8px 30px rgba(0,0,0,.25);
+        animation: toast-in .3s ease;
+        display: flex; align-items: center; gap: .5rem;
     }
-    @@keyframes toast-in{from{opacity:0;transform:translateX(-50%) translateY(12px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}
-    .toast.success{border-bottom:3px solid #22c55e;}
-    .toast.error  {border-bottom:3px solid #ef4444;}
+    @@keyframes toast-in { from { opacity: 0; transform: translateX(-50%) translateY(12px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+    .toast.success { border-bottom: 3px solid #22c55e; }
+    .toast.error   { border-bottom: 3px solid #ef4444; }
 </style>
 
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
 
 @if (IsLoading)
 {
@@ -205,7 +202,7 @@ else
         <div class="pd-header">
             <div class="pd-header-icon"><i class="bi bi-building-fill"></i></div>
             <div style="flex:1;min-width:0;">
-                <div class="pd-num">طلب رخصة بناء</div>
+                <div class="pd-num">طلب رخصة بناء · @Demande.TypeDemandeLibelle</div>
                 <div class="pd-title">@Demande.AdresseProjet</div>
                 <div class="pd-meta">
                     <span style="font-size:.78rem;color:#94a3b8;font-weight:700;">@Demande.NumeroDemande</span>
@@ -216,43 +213,48 @@ else
                             <i class="bi bi-award-fill"></i> رخصة @Demande.NumeroPermis
                         </span>
                     }
-                   
                 </div>
             </div>
             <div class="pd-actions">
                 @if (Demande.Statut == "Deposee")
                 {
-                    <button class="btn btn-primary" @onclick='()=>OpenModal("instruct")'>
-                        <i class="bi bi-person-fill-gear"></i> تعيين مفتش
+                    <button class="btn btn-info" @onclick='() => OpenModal("instruct")'>
+                        <i class="bi bi-person-fill-gear"></i> تعيين مصلحة
                     </button>
-                    <button class="btn btn-warning" @onclick='()=>OpenModal("commission")'>
+                    <button class="btn btn-warning" @onclick='() => OpenModal("commission")'>
                         <i class="bi bi-people-fill"></i> إحالة للجنة
                     </button>
                 }
                 @if (Demande.Statut is "Deposee" or "EnExamen")
                 {
-                    <button class="btn btn-success" @onclick='()=>OpenModal("approve")'>
+                    <button class="btn btn-success" @onclick='() => OpenModal("approve")'>
                         <i class="bi bi-check-circle-fill"></i> موافقة
                     </button>
-                    <button class="btn btn-danger" @onclick='()=>OpenModal("reject")'>
+                    <button class="btn btn-danger" @onclick='() => OpenModal("reject")'>
                         <i class="bi bi-x-circle-fill"></i> رفض
                     </button>
                 }
                 @if (Demande.Statut == "Approuvee" && Demande.PermisDelivre == null)
                 {
-                    <button class="btn btn-success" @onclick='()=>OpenModal("deliver")'>
+                    <button class="btn btn-success" @onclick='() => OpenModal("deliver")'>
                         <i class="bi bi-award-fill"></i> تسليم الرخصة
                     </button>
                 }
                 @if (Demande.Statut is "Approuvee" or "EnExamen")
                 {
-                    <button class="btn btn-default" @onclick='()=>OpenModal("inspect")'>
-                        <i class="bi bi-eye-fill"></i> إضافة معاينة
+                    <button class="btn btn-default" @onclick='() => OpenModal("inspect")'>
+                        <i class="bi bi-eye-fill"></i> معاينة ميدانية
                     </button>
                 }
-                <button class="btn btn-default" @onclick='()=>OpenModal("taxe")'>
+                <button class="btn btn-default" @onclick='() => OpenModal("taxe")'>
                     <i class="bi bi-cash-coin"></i> رسوم
                 </button>
+                @if (Demande.Statut is "Deposee" or "EnExamen")
+                {
+                    <button class="btn btn-default" @onclick='() => OpenModal("suspend")'>
+                        <i class="bi bi-pause-circle"></i> تعليق
+                    </button>
+                }
             </div>
         </div>
 
@@ -267,7 +269,12 @@ else
                     <div style="font-size:1.05rem;font-weight:800;color:#0f172a;">@p.NumeroPermis</div>
                     <div style="font-size:.75rem;color:#64748b;margin-top:.18rem;">
                         تاريخ التسليم: @p.DateDelivrance.ToString("dd/MM/yyyy") &nbsp;·&nbsp;
-                        صالحة حتى: <strong style="color:@(p.DateValidite < DateTime.Today?"#b91c1c":"#15803d")">@p.DateValidite.ToString("dd/MM/yyyy")</strong>
+                        صالحة حتى:
+                        <strong style="color:@(p.DateValidite < DateTime.Today?"#b91c1c":"#15803d")">
+                            @p.DateValidite.ToString("dd/MM/yyyy")
+                        </strong>
+                        @if (p.EstRevoque)
+                        { <span style="color:#b91c1c;font-weight:700;"> ⚠ مُلغاة</span> }
                     </div>
                 </div>
             </div>
@@ -297,32 +304,28 @@ else
                 <div class="card-body">
                     <div class="info-row"><span class="ir-label">عنوان المشروع</span><span class="ir-value">@Demande.AdresseProjet</span></div>
                     @if (!string.IsNullOrEmpty(Demande.NumeroParcelle))
-                    {
-                        <div class="info-row"><span class="ir-label">رقم القطعة</span><span class="ir-value">@Demande.NumeroParcelle</span></div>
-                    }
+                    { <div class="info-row"><span class="ir-label">رقم القطعة</span><span class="ir-value">@Demande.NumeroParcelle</span></div> }
                     @if (Demande.SuperficieTerrain.HasValue)
-                    {
-                        <div class="info-row"><span class="ir-label">مساحة الأرض</span><span class="ir-value">@Demande.SuperficieTerrain م²</span></div>
-                    }
+                    { <div class="info-row"><span class="ir-label">مساحة الأرض</span><span class="ir-value">@Demande.SuperficieTerrain م²</span></div> }
                     @if (Demande.SuperficieAConstruire.HasValue)
-                    {
-                        <div class="info-row"><span class="ir-label">مساحة البناء</span><span class="ir-value">@Demande.SuperficieAConstruire م²</span></div>
-                    }
+                    { <div class="info-row"><span class="ir-label">مساحة البناء</span><span class="ir-value">@Demande.SuperficieAConstruire م²</span></div> }
                     @if (Demande.NombreNiveaux.HasValue)
-                    {
-                        <div class="info-row"><span class="ir-label">عدد الطوابق</span><span class="ir-value">@Demande.NombreNiveaux</span></div>
-                    }
+                    { <div class="info-row"><span class="ir-label">عدد الطوابق</span><span class="ir-value">@Demande.NombreNiveaux</span></div> }
                     @if (!string.IsNullOrEmpty(Demande.TypeConstruction))
-                    {
-                        <div class="info-row"><span class="ir-label">نوع البناء</span><span class="ir-value">@GetConstructionLabel(Demande.TypeConstruction)</span></div>
-                    }
+                    { <div class="info-row"><span class="ir-label">نوع البناء</span><span class="ir-value">@GetConstructionLabel(Demande.TypeConstruction)</span></div> }
                     @if (Demande.CoutEstimatif.HasValue)
-                    {
-                        <div class="info-row"><span class="ir-label">التكلفة التقديرية</span><span class="ir-value">@Demande.CoutEstimatif.Value.ToString("N0") د.ج</span></div>
-                    }
+                    { <div class="info-row"><span class="ir-label">التكلفة التقديرية</span><span class="ir-value">@Demande.CoutEstimatif.Value.ToString("N0") د.ج</span></div> }
                     @if (!string.IsNullOrEmpty(Demande.ZonageLibelle))
+                    { <div class="info-row"><span class="ir-label">منطقة التعمير</span><span class="ir-value">@Demande.ZonageLibelle</span></div> }
+                    @if (Demande.Latitude.HasValue && Demande.Longitude.HasValue)
                     {
-                        <div class="info-row"><span class="ir-label">منطقة التعمير</span><span class="ir-value">@Demande.ZonageLibelle</span></div>
+                        <div class="info-row">
+                            <span class="ir-label">الموقع الجغرافي</span>
+                            <a href="https://www.openstreetmap.org/?mlat=@Demande.Latitude&mlon=@Demande.Longitude&zoom=16"
+                               target="_blank" style="color:#0369a1;font-size:.75rem;font-weight:600;">
+                                <i class="bi bi-geo-alt-fill"></i> عرض على الخريطة
+                            </a>
+                        </div>
                     }
                 </div>
             </div>
@@ -332,28 +335,27 @@ else
                 <div class="card-header"><i class="bi bi-clipboard2-fill" style="color:#7c3aed;"></i> متابعة الإجراء</div>
                 <div class="card-body">
                     @if (!string.IsNullOrEmpty(Demande.ServiceInstructeurNom))
-                    {
-                        <div class="info-row"><span class="ir-label">مصلحة الفحص</span><span class="ir-value">@Demande.ServiceInstructeurNom</span></div>
-                    }
+                    { <div class="info-row"><span class="ir-label">مصلحة الفحص</span><span class="ir-value">@Demande.ServiceInstructeurNom</span></div> }
                     @if (Demande.DateDebutInstruction.HasValue)
-                    {
-                        <div class="info-row"><span class="ir-label">بداية الفحص</span><span class="ir-value">@Demande.DateDebutInstruction.Value.ToString("dd/MM/yyyy")</span></div>
-                    }
+                    { <div class="info-row"><span class="ir-label">بداية الفحص</span><span class="ir-value">@Demande.DateDebutInstruction.Value.ToString("dd/MM/yyyy")</span></div> }
                     @if (!string.IsNullOrEmpty(Demande.CommissionLibelle))
-                    {
-                        <div class="info-row"><span class="ir-label">لجنة الفحص</span><span class="ir-value">@Demande.CommissionLibelle</span></div>
-                    }
+                    { <div class="info-row"><span class="ir-label">لجنة الفحص</span><span class="ir-value">@Demande.CommissionLibelle</span></div> }
                     @if (Demande.DateDecision.HasValue)
-                    {
-                        <div class="info-row"><span class="ir-label">تاريخ القرار</span><span class="ir-value">@Demande.DateDecision.Value.ToString("dd/MM/yyyy")</span></div>
-                    }
+                    { <div class="info-row"><span class="ir-label">تاريخ القرار</span><span class="ir-value">@Demande.DateDecision.Value.ToString("dd/MM/yyyy")</span></div> }
                     @if (!string.IsNullOrEmpty(Demande.MotifRejet))
-                    {
-                        <div class="info-row"><span class="ir-label">سبب الرفض</span><span class="ir-value" style="color:#b91c1c;">@Demande.MotifRejet</span></div>
-                    }
+                    { <div class="info-row"><span class="ir-label">سبب الرفض</span><span class="ir-value" style="color:#b91c1c;">@Demande.MotifRejet</span></div> }
                     @if (!string.IsNullOrEmpty(Demande.ConditionsSpeciales))
+                    { <div class="info-row"><span class="ir-label">شروط خاصة</span><span class="ir-value">@Demande.ConditionsSpeciales</span></div> }
+                    @if (!string.IsNullOrEmpty(Demande.Observations))
+                    { <div class="info-row"><span class="ir-label">ملاحظات</span><span class="ir-value">@Demande.Observations</span></div> }
+                    @if (Demande.ServiceInstructeurId == null && Demande.Statut == "Deposee")
                     {
-                        <div class="info-row"><span class="ir-label">شروط خاصة</span><span class="ir-value">@Demande.ConditionsSpeciales</span></div>
+                        <div style="margin-top:.5rem;">
+                            <button class="btn btn-info" style="font-size:.74rem;padding:.35rem .75rem;"
+                                    @onclick='() => OpenModal("instruct")'>
+                                <i class="bi bi-person-fill-gear"></i> تعيين مصلحة الفحص
+                            </button>
+                        </div>
                     }
                 </div>
             </div>
@@ -377,13 +379,9 @@ else
                             <div>
                                 <div style="font-size:.8rem;font-weight:600;color:#0f172a;">@t.TypeTaxeLibelle</div>
                                 @if (t.DatePaiement.HasValue)
-                                {
-                                    <div style="font-size:.7rem;color:#94a3b8;">دُفع @t.DatePaiement.Value.ToString("dd/MM/yyyy")</div>
-                                }
+                                { <div style="font-size:.7rem;color:#94a3b8;">دُفع @t.DatePaiement.Value.ToString("dd/MM/yyyy")</div> }
                                 @if (!string.IsNullOrEmpty(t.NumeroRecu))
-                                {
-                                    <div style="font-size:.7rem;color:#94a3b8;">وصل: @t.NumeroRecu</div>
-                                }
+                                { <div style="font-size:.7rem;color:#94a3b8;">وصل: @t.NumeroRecu</div> }
                             </div>
                             <div style="text-align:left;">
                                 <div style="font-size:.85rem;font-weight:800;color:#0f172a;">@t.Montant.ToString("N0") د.ج</div>
@@ -393,7 +391,7 @@ else
                                 @if (t.Statut != "Payee")
                                 {
                                     <button class="btn btn-success" style="padding:.2rem .5rem;font-size:.68rem;margin-top:.25rem;"
-                                            @onclick='()=>PayTaxe(t.Id)'>دفع</button>
+                                            @onclick='() => PayTaxe(t.Id)'>دفع</button>
                                 }
                             </div>
                         </div>
@@ -406,6 +404,12 @@ else
                 {
                     <div style="padding:1rem 1.1rem;color:#94a3b8;font-size:.8rem;">لا توجد رسوم مسجلة</div>
                 }
+                <div style="padding:.6rem 1.1rem;border-top:1px solid #f1f5f9;">
+                    <button class="btn btn-default" style="font-size:.74rem;padding:.35rem .75rem;"
+                            @onclick='() => OpenModal("taxe")'>
+                        <i class="bi bi-plus"></i> إضافة رسم
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -413,7 +417,13 @@ else
         @if (Demande.Documents?.Any() == true)
         {
             <div class="card" style="margin-bottom:1rem;">
-                <div class="card-header"><i class="bi bi-paperclip" style="color:#7c3aed;"></i> الوثائق المرفوعة (@Demande.Documents.Count)</div>
+                <div class="card-header">
+                    <i class="bi bi-paperclip" style="color:#7c3aed;"></i> الوثائق المرفوعة (@Demande.Documents.Count)
+                    <span style="margin-right:auto;font-size:.68rem;color:#94a3b8;">
+                        @Demande.Documents.Count(d => d.Statut == "Valide") صالحة ·
+                        @Demande.Documents.Count(d => d.Statut == "AReviser") تتطلب مراجعة
+                    </span>
+                </div>
                 @foreach (var doc in Demande.Documents)
                 {
                     <div class="doc-row">
@@ -421,10 +431,23 @@ else
                             <i class="bi @GetDocIcon(doc.NomFichier)"></i>
                         </div>
                         <div style="flex:1;min-width:0;">
-                            <div style="font-size:.8rem;font-weight:600;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@doc.TypeDocument</div>
-                            <div style="font-size:.72rem;color:#94a3b8;">@doc.NomFichier @(doc.TailleFichier.HasValue ? $"· {doc.TailleFichier/1024} Ko" : "")</div>
+                            <div style="font-size:.8rem;font-weight:600;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                @doc.TypeDocument
+                                @if (doc.EstObligatoire)
+                                { <span style="font-size:.62rem;color:#b91c1c;margin-right:.3rem;">إلزامي</span> }
+                            </div>
+                            <div style="font-size:.72rem;color:#94a3b8;">
+                                @doc.NomFichier
+                                @(doc.TailleFichier.HasValue ? $"· {doc.TailleFichier/1024} Ko" : "")
+                            </div>
                         </div>
-                        <span class="sp @GetDocStatutClass(doc.Statut)" style="font-size:.65rem;">@GetDocStatutLabel(doc.Statut)</span>
+                        <select class="doc-statut-select"
+                                value="@doc.Statut"
+                                @onchange='e => OnDocStatutChange(doc.Id, e.Value?.ToString() ?? "")'>
+                            <option value="Depose">مودوع</option>
+                            <option value="Valide">صالح ✓</option>
+                            <option value="AReviser">يتطلب مراجعة ⚠</option>
+                        </select>
                     </div>
                 }
             </div>
@@ -444,20 +467,17 @@ else
                             </div>
                             <div style="flex:1;">
                                 <div style="font-size:.8rem;font-weight:700;color:#0f172a;">@insp.Objet</div>
+                                <div style="font-size:.73rem;color:#94a3b8;">@insp.DateInspection.ToString("dd/MM/yyyy")</div>
                                 @if (!string.IsNullOrEmpty(insp.NomInspecteur))
-                                {
-                                    <div style="font-size:.73rem;color:#64748b;">المفتش: @insp.NomInspecteur</div>
-                                }
+                                { <div style="font-size:.73rem;color:#64748b;">المفتش: @insp.NomInspecteur</div> }
                                 @if (!string.IsNullOrEmpty(insp.Observations))
-                                {
-                                    <div style="font-size:.75rem;color:#374151;margin-top:.25rem;line-height:1.4;">@insp.Observations</div>
-                                }
+                                { <div style="font-size:.75rem;color:#374151;margin-top:.2rem;">@insp.Observations</div> }
                                 @if (!string.IsNullOrEmpty(insp.ReservesEmises))
-                                {
-                                    <div style="font-size:.75rem;color:#b45309;margin-top:.2rem;font-weight:600;">تحفظات: @insp.ReservesEmises</div>
-                                }
+                                { <div style="font-size:.75rem;color:#b45309;font-weight:600;">تحفظات: @insp.ReservesEmises</div> }
                             </div>
-                            <div style="font-size:.72rem;color:#94a3b8;flex-shrink:0;">@insp.DateInspection.ToString("dd/MM/yyyy")</div>
+                            <span style="font-size:.7rem;font-weight:700;color:@(insp.Conforme?"#15803d":"#b91c1c");">
+                                @(insp.Conforme ? "مطابق" : "غير مطابق")
+                            </span>
                         </div>
                     </div>
                 }
@@ -479,16 +499,12 @@ else
                             <div style="flex:1;">
                                 <div class="tl-action">@GetStatutLabel(s.NouveauStatut ?? "")</div>
                                 @if (!string.IsNullOrEmpty(s.Commentaire))
-                                {
-                                    <div class="tl-comment">@s.Commentaire</div>
-                                }
+                                { <div class="tl-comment">@s.Commentaire</div> }
                                 <div class="tl-meta">
                                     <span>@s.UtilisateurNom</span>
                                     <span>@s.DateChangement.ToString("dd/MM/yyyy HH:mm")</span>
                                     @if (s.VisibleCitoyen)
-                                    {
-                                        <span style="color:#7c3aed;font-weight:600;"><i class="bi bi-eye-fill"></i> مرئي للمواطن</span>
-                                    }
+                                    { <span style="color:#7c3aed;font-weight:600;"><i class="bi bi-eye-fill"></i> مرئي للمواطن</span> }
                                 </div>
                             </div>
                         </div>
@@ -517,16 +533,16 @@ else
                     </div>
                     <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem;">
                         <input type="checkbox" id="visibleCitoyen" @bind="ModalVisibleCitoyen" />
-                        <label for="visibleCitoyen" style="font-size:.78rem;color:#374151;">مرئي للمواطن</label>
+                        <label for="visibleCitoyen" style="font-size:.78rem;color:#374151;">إبلاغ المواطن</label>
                     </div>
                     <div class="modal-btns">
                         <button class="btn btn-default" @onclick="CloseModal">إلغاء</button>
                         <button class="btn btn-success" @onclick="SubmitApprove" disabled="@IsSaving">
-                            @if(IsSaving){<i class="bi bi-arrow-clockwise spinner"></i>}
-                            موافقة
+                            @if (IsSaving) { <i class="bi bi-arrow-clockwise spinner"></i> } موافقة
                         </button>
                     </div>
                 }
+
                 else if (ActiveModal == "reject")
                 {
                     <div class="modal-title"><i class="bi bi-x-circle-fill" style="color:#ef4444;"></i> رفض الطلب</div>
@@ -544,12 +560,68 @@ else
                     </div>
                     <div class="modal-btns">
                         <button class="btn btn-default" @onclick="CloseModal">إلغاء</button>
-                        <button class="btn btn-danger" @onclick="SubmitReject" disabled="@(IsSaving||string.IsNullOrEmpty(ModalMotif))">
-                            @if(IsSaving){<i class="bi bi-arrow-clockwise spinner"></i>}
-                            تأكيد الرفض
+                        <button class="btn btn-danger" @onclick="SubmitReject"
+                                disabled="@(IsSaving || string.IsNullOrEmpty(ModalMotif))">
+                            @if (IsSaving) { <i class="bi bi-arrow-clockwise spinner"></i> } تأكيد الرفض
                         </button>
                     </div>
                 }
+
+                else if (ActiveModal == "instruct")
+                {
+                    <div class="modal-title"><i class="bi bi-person-fill-gear" style="color:#0ea5e9;"></i> تعيين مصلحة الفحص</div>
+                    <div class="form-group">
+                        <label class="form-label">المصلحة المعنية بالفحص *</label>
+                        <select class="form-select" @bind="InstructServiceId">
+                            <option value="">— اختر المصلحة —</option>
+                            @foreach (var s in _services ?? new())
+                            {
+                                <option value="@s.Id">@s.Nom</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">تعليمات للمصلحة</label>
+                        <textarea class="form-textarea" @bind="ModalComment" placeholder="توجيهات للفحص..."></textarea>
+                    </div>
+                    <div class="modal-btns">
+                        <button class="btn btn-default" @onclick="CloseModal">إلغاء</button>
+                        <button class="btn btn-info" @onclick="SubmitInstruct"
+                                disabled="@(IsSaving || !InstructServiceId.HasValue)">
+                            @if (IsSaving) { <i class="bi bi-arrow-clockwise spinner"></i> } تعيين
+                        </button>
+                    </div>
+                }
+
+                else if (ActiveModal == "commission")
+                {
+                    <div class="modal-title"><i class="bi bi-people-fill" style="color:#f59e0b;"></i> إحالة للجنة الفحص</div>
+                    <div class="form-group">
+                        <label class="form-label">لجنة الفحص *</label>
+                        <select class="form-select" @bind="CommissionId">
+                            <option value="">— اختر اللجنة —</option>
+                            @foreach (var c in _commissions ?? new())
+                            {
+                                <option value="@c.Id">
+                                    @c.Libelle
+                                    @(c.DateReunion.HasValue ? $" ({c.DateReunion.Value:dd/MM/yyyy})" : "")
+                                </option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">ملاحظة</label>
+                        <textarea class="form-textarea" @bind="ModalComment" placeholder="معلومات إضافية..."></textarea>
+                    </div>
+                    <div class="modal-btns">
+                        <button class="btn btn-default" @onclick="CloseModal">إلغاء</button>
+                        <button class="btn btn-warning" @onclick="SubmitCommission"
+                                disabled="@(IsSaving || !CommissionId.HasValue)">
+                            @if (IsSaving) { <i class="bi bi-arrow-clockwise spinner"></i> } إحالة
+                        </button>
+                    </div>
+                }
+
                 else if (ActiveModal == "deliver")
                 {
                     <div class="modal-title"><i class="bi bi-award-fill" style="color:#22c55e;"></i> تسليم رخصة البناء</div>
@@ -572,18 +644,28 @@ else
                     <div class="modal-btns">
                         <button class="btn btn-default" @onclick="CloseModal">إلغاء</button>
                         <button class="btn btn-success" @onclick="SubmitDeliver"
-                                disabled="@(IsSaving||string.IsNullOrEmpty(DeliverNumero))">
-                            @if(IsSaving){<i class="bi bi-arrow-clockwise spinner"></i>}
-                            تسليم الرخصة
+                                disabled="@(IsSaving || string.IsNullOrEmpty(DeliverNumero))">
+                            @if (IsSaving) { <i class="bi bi-arrow-clockwise spinner"></i> } تسليم الرخصة
                         </button>
                     </div>
                 }
+
                 else if (ActiveModal == "taxe")
                 {
                     <div class="modal-title"><i class="bi bi-cash-coin" style="color:#7c3aed;"></i> إضافة رسم</div>
                     <div class="form-group">
                         <label class="form-label">نوع الرسم *</label>
-                        <input class="form-input" @bind="TaxeTypeId" placeholder="معرف نوع الرسم..." type="number" />
+                        <select class="form-select" @bind="TaxeTypeId">
+                            <option value="0">— اختر نوع الرسم —</option>
+                            @foreach (var tt in _typesTaxe ?? new())
+                            {
+                                <option value="@tt.Id">
+                                    @tt.Libelle
+                                    @(tt.TauxCalcul.HasValue ? $" ({tt.TauxCalcul}%)" : "")
+                                    @(tt.UniteCalcul != null ? $" / {tt.UniteCalcul}" : "")
+                                </option>
+                            }
+                        </select>
                     </div>
                     <div class="form-group">
                         <label class="form-label">المبلغ (د.ج) *</label>
@@ -591,15 +673,16 @@ else
                     </div>
                     <div class="modal-btns">
                         <button class="btn btn-default" @onclick="CloseModal">إلغاء</button>
-                        <button class="btn btn-primary" @onclick="SubmitTaxe" disabled="@(IsSaving||TaxeMontant<=0)">
-                            @if(IsSaving){<i class="bi bi-arrow-clockwise spinner"></i>}
-                            إضافة الرسم
+                        <button class="btn btn-primary" @onclick="SubmitTaxe"
+                                disabled="@(IsSaving || TaxeMontant <= 0 || TaxeTypeId <= 0)">
+                            @if (IsSaving) { <i class="bi bi-arrow-clockwise spinner"></i> } إضافة الرسم
                         </button>
                     </div>
                 }
+
                 else if (ActiveModal == "inspect")
                 {
-                    <div class="modal-title"><i class="bi bi-eye-fill" style="color:#7c3aed;"></i> تسجيل معاينة</div>
+                    <div class="modal-title"><i class="bi bi-eye-fill" style="color:#7c3aed;"></i> تسجيل معاينة ميدانية</div>
                     <div class="form-group">
                         <label class="form-label">موضوع المعاينة *</label>
                         <input class="form-input" @bind="InspObjet" placeholder="وصف المعاينة..." />
@@ -627,9 +710,29 @@ else
                     <div class="modal-btns">
                         <button class="btn btn-default" @onclick="CloseModal">إلغاء</button>
                         <button class="btn btn-primary" @onclick="SubmitInspect"
-                                disabled="@(IsSaving||string.IsNullOrEmpty(InspObjet))">
-                            @if(IsSaving){<i class="bi bi-arrow-clockwise spinner"></i>}
-                            تسجيل
+                                disabled="@(IsSaving || string.IsNullOrEmpty(InspObjet))">
+                            @if (IsSaving) { <i class="bi bi-arrow-clockwise spinner"></i> } تسجيل
+                        </button>
+                    </div>
+                }
+
+                else if (ActiveModal == "suspend")
+                {
+                    <div class="modal-title"><i class="bi bi-pause-circle" style="color:#64748b;"></i> تعليق الطلب</div>
+                    <div class="form-group">
+                        <label class="form-label">سبب التعليق *</label>
+                        <textarea class="form-textarea" @bind="ModalMotif" placeholder="أذكر سبب تعليق الطلب..."></textarea>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem;">
+                        <input type="checkbox" id="visibleCit3" @bind="ModalVisibleCitoyen" />
+                        <label for="visibleCit3" style="font-size:.78rem;color:#374151;">إبلاغ المواطن</label>
+                    </div>
+                    <div class="modal-btns">
+                        <button class="btn btn-default" @onclick="CloseModal">إلغاء</button>
+                        <button class="btn btn-default" @onclick="SubmitSuspend"
+                                style="background:#f1f5f9;border-color:#64748b;color:#64748b;"
+                                disabled="@(IsSaving || string.IsNullOrEmpty(ModalMotif))">
+                            @if (IsSaving) { <i class="bi bi-arrow-clockwise spinner"></i> } تعليق
                         </button>
                     </div>
                 }
@@ -643,7 +746,7 @@ else
 @if (!string.IsNullOrEmpty(ToastMsg))
 {
     <div class="toast @ToastCls">
-        <i class="bi @(ToastCls=="success"?"bi-check-circle-fill":"bi-exclamation-circle-fill")"></i>
+        <i class="bi @(ToastCls == "success" ? "bi-check-circle-fill" : "bi-exclamation-circle-fill")"></i>
         @ToastMsg
     </div>
 }
@@ -655,12 +758,20 @@ else
     private bool IsLoading = true;
     private bool IsSaving  = false;
 
+    // Referential data
+    private List<ServiceDto>?          _services;
+    private List<CommissionExamenDto>? _commissions;
+    private List<TypeTaxeDto>?         _typesTaxe;
+
     // Modal state
-    private string? ActiveModal       = null;
-    private string  ModalComment      = "";
-    private string  ModalMotif        = "";
-    private string  ModalConditions   = "";
-    private bool    ModalVisibleCitoyen = true;
+    private string? ActiveModal          = null;
+    private string  ModalComment         = "";
+    private string  ModalMotif           = "";
+    private string  ModalConditions      = "";
+    private bool    ModalVisibleCitoyen  = true;
+    // Instruct / Commission
+    private int?    InstructServiceId;
+    private int?    CommissionId;
     // Deliver
     private string   DeliverNumero    = "";
     private DateTime DeliverDate      = DateTime.Today;
@@ -685,7 +796,7 @@ else
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
-        await LoadData();
+        await Task.WhenAll(LoadData(), LoadRefs());
         StateHasChanged();
     }
 
@@ -697,9 +808,35 @@ else
         finally { IsLoading = false; }
     }
 
-    private void OpenModal(string modal) { ActiveModal = modal; ModalComment = ""; ModalMotif = ""; }
+    private async Task LoadRefs()
+    {
+        try
+        {
+            var svcTask  = ServiceApi.GetAllAsync();
+            var commTask = RefsApi.GetCommissionsAsync();
+            var taxTask  = RefsApi.GetTypesTaxeAsync();
+            await Task.WhenAll(svcTask, commTask, taxTask);
+            _services    = (await svcTask)?.Data?.ToList();
+            _commissions = await commTask;
+            _typesTaxe   = (await taxTask)?.Where(t => t.IsActive).ToList();
+        }
+        catch { }
+    }
+
+    private void OpenModal(string modal)
+    {
+        ActiveModal         = modal;
+        ModalComment        = "";
+        ModalMotif          = "";
+        ModalConditions     = "";
+        ModalVisibleCitoyen = true;
+        InstructServiceId   = Demande?.ServiceInstructeurId;
+        CommissionId        = Demande?.CommissionExamenId;
+    }
+
     private void CloseModal() { ActiveModal = null; }
 
+    // ── Approve ──────────────────────────────────────────────────
     private async Task SubmitApprove()
     {
         IsSaving = true;
@@ -707,10 +844,10 @@ else
         {
             await PermisApi.ChangerStatutAsync(Id, new ChangerStatutPermisDto
             {
-                NouveauStatut    = "Approuvee",
-                Commentaire      = ModalComment,
+                NouveauStatut       = "Approuvee",
+                Commentaire         = ModalComment,
                 ConditionsSpeciales = ModalConditions,
-                VisibleCitoyen   = ModalVisibleCitoyen
+                VisibleCitoyen      = ModalVisibleCitoyen
             });
             CloseModal(); await LoadData(); ShowToast("تمت الموافقة على الطلب ✓", "success");
         }
@@ -718,6 +855,7 @@ else
         finally { IsSaving = false; }
     }
 
+    // ── Reject ───────────────────────────────────────────────────
     private async Task SubmitReject()
     {
         if (string.IsNullOrEmpty(ModalMotif)) return;
@@ -737,6 +875,62 @@ else
         finally { IsSaving = false; }
     }
 
+    // ── Suspend ──────────────────────────────────────────────────
+    private async Task SubmitSuspend()
+    {
+        if (string.IsNullOrEmpty(ModalMotif)) return;
+        IsSaving = true;
+        try
+        {
+            await PermisApi.ChangerStatutAsync(Id, new ChangerStatutPermisDto
+            {
+                NouveauStatut  = "Suspendue",
+                Commentaire    = ModalMotif,
+                VisibleCitoyen = ModalVisibleCitoyen
+            });
+            CloseModal(); await LoadData(); ShowToast("تم تعليق الطلب", "success");
+        }
+        catch { ShowToast("حدث خطأ", "error"); }
+        finally { IsSaving = false; }
+    }
+
+    // ── Assign instructeur service ────────────────────────────────
+    private async Task SubmitInstruct()
+    {
+        if (!InstructServiceId.HasValue) return;
+        IsSaving = true;
+        try
+        {
+            await PermisApi.AssignerInstructeurAsync(Id, new AssignerInstructeurDto
+            {
+                ServiceInstructeurId = InstructServiceId,
+                Commentaire          = ModalComment
+            });
+            CloseModal(); await LoadData(); ShowToast("تم تعيين مصلحة الفحص ✓", "success");
+        }
+        catch { ShowToast("حدث خطأ", "error"); }
+        finally { IsSaving = false; }
+    }
+
+    // ── Assign commission ─────────────────────────────────────────
+    private async Task SubmitCommission()
+    {
+        if (!CommissionId.HasValue) return;
+        IsSaving = true;
+        try
+        {
+            await PermisApi.AssignerCommissionAsync(Id, new AssignerCommissionDto
+            {
+                CommissionExamenId = CommissionId.Value,
+                Commentaire        = ModalComment
+            });
+            CloseModal(); await LoadData(); ShowToast("تم إحالة الطلب للجنة ✓", "success");
+        }
+        catch { ShowToast("حدث خطأ", "error"); }
+        finally { IsSaving = false; }
+    }
+
+    // ── Deliver permit ────────────────────────────────────────────
     private async Task SubmitDeliver()
     {
         if (string.IsNullOrEmpty(DeliverNumero)) return;
@@ -745,7 +939,7 @@ else
         {
             await PermisApi.DelivrerPermisAsync(Id, new DelivrerPermisDto
             {
-                NumeroPermis  = DeliverNumero,
+                NumeroPermis   = DeliverNumero,
                 DateDelivrance = DeliverDate,
                 DateValidite   = DeliverValidite,
                 Conditions     = DeliverConditions
@@ -756,6 +950,7 @@ else
         finally { IsSaving = false; }
     }
 
+    // ── Add taxe ──────────────────────────────────────────────────
     private async Task SubmitTaxe()
     {
         if (TaxeMontant <= 0 || TaxeTypeId <= 0) return;
@@ -769,6 +964,7 @@ else
         finally { IsSaving = false; }
     }
 
+    // ── Pay taxe ──────────────────────────────────────────────────
     private async Task PayTaxe(int taxeId)
     {
         IsSaving = true;
@@ -781,6 +977,7 @@ else
         finally { IsSaving = false; }
     }
 
+    // ── Add inspection ────────────────────────────────────────────
     private async Task SubmitInspect()
     {
         if (string.IsNullOrEmpty(InspObjet)) return;
@@ -799,6 +996,22 @@ else
         finally { IsSaving = false; }
     }
 
+    // ── Validate document ─────────────────────────────────────────
+    private async Task OnDocStatutChange(int docId, string newStatut)
+    {
+        try
+        {
+            var ok = await PermisApi.ValiderDocumentAsync(Id, docId, newStatut);
+            if (ok)
+            {
+                await LoadData();
+                ShowToast("تم تحديث حالة الوثيقة ✓", "success");
+            }
+        }
+        catch { ShowToast("فشل تحديث الوثيقة", "error"); }
+    }
+
+    // ── Toast ─────────────────────────────────────────────────────
     private void ShowToast(string msg, string cls)
     {
         ToastMsg = msg; ToastCls = cls; StateHasChanged();
@@ -807,7 +1020,7 @@ else
 
     private void Refresh() => InvokeAsync(StateHasChanged);
 
-    // ── Labels ──────────────────────────────────────────
+    // ── Label helpers ─────────────────────────────────────────────
     private string GetStatutClass(string s) => s switch
     {
         "Deposee"   => "sp-deposee",  "EnExamen"  => "sp-examen",
@@ -818,7 +1031,7 @@ else
     {
         "Deposee"   => "مودعة",       "EnExamen"  => "قيد الفحص",
         "Approuvee" => "موافق عليها", "Rejetee"   => "مرفوضة",
-        "Suspendue" => "معلقة",        _ => s
+        "Suspendue" => "معلقة",       _ => s
     };
     private string GetConstructionLabel(string? s) => s switch
     {
@@ -828,33 +1041,24 @@ else
     };
     private string GetSuiviDotClass(string? s) => s switch
     {
-        "Approuvee" => "green","EnExamen" => "amber",
-        "Rejetee"   => "red","Deposee"   => "blue",
-        _ => ""
+        "Approuvee" => "green","EnExamen" => "violet",
+        "Rejetee"   => "red",  "Deposee" => "blue",
+        "Suspendue" => "amber", _ => ""
     };
     private string GetSuiviIcon(string? s) => s switch
     {
-        "Approuvee" => "bi-check-circle-fill","Rejetee" => "bi-x-circle-fill",
-        "EnExamen"  => "bi-search","Deposee" => "bi-inbox-fill",
-        _ => "bi-dot"
+        "Approuvee" => "bi-check-circle-fill","Rejetee"   => "bi-x-circle-fill",
+        "EnExamen"  => "bi-search",           "Deposee"   => "bi-inbox-fill",
+        "Suspendue" => "bi-pause-circle-fill", _ => "bi-dot"
     };
     private string GetDocIconClass(string s) => s switch
     {
-        "Valide"   => "di-valid","Depose"   => "di-depose","AReviser" => "di-revise",
-        _ => "di-depose"
+        "Valide"   => "di-valid","Depose"   => "di-depose","AReviser" => "di-revise", _ => "di-depose"
     };
     private string GetDocIcon(string nom) =>
-        nom.EndsWith(".pdf",StringComparison.OrdinalIgnoreCase) ? "bi-file-earmark-pdf-fill"
-        : nom.EndsWith(".jpg",StringComparison.OrdinalIgnoreCase)||nom.EndsWith(".png") ? "bi-image-fill"
+        nom.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase) ? "bi-file-earmark-pdf-fill"
+        : (nom.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || nom.EndsWith(".png", StringComparison.OrdinalIgnoreCase)) ? "bi-image-fill"
         : "bi-file-earmark-fill";
-    private string GetDocStatutClass(string s) => s switch
-    {
-        "Valide" => "sp-approuvee","AReviser" => "sp-rejetee",_ => "sp-deposee"
-    };
-    private string GetDocStatutLabel(string s) => s switch
-    {
-        "Depose"   => "مودوع","Valide" => "صالح","AReviser" => "يتطلب مراجعة",_ => s
-    };
 
     public void Dispose() => SignalRNotif.OnChanged -= Refresh;
 }

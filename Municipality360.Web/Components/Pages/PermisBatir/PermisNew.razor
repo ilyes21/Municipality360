@@ -1,126 +1,158 @@
-@* ═══════════════════════════════════════════════════════════════════
-   PermisNew.razor — /permits/new
-   إيداع طلب رخصة بناء جديد
-═══════════════════════════════════════════════════════════════════ *@
 @page "/permits/new"
 @using Municipality360.Application.DTOs.PermisBatir
 @using Municipality360.Web.Services
 @inject IPermisBatirApiService PermisApi
 @inject IDemandeurApiService DemandeurApi
 @inject IArchitecteApiService ArchitecteApi
+@inject IPermisReferentielsApiService RefsApi
 @inject NavigationManager Nav
 
 <PageTitle>طلب رخصة بناء جديد</PageTitle>
 
 <style>
     @@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap');
-    .form-root{font-family:'Tajawal',sans-serif;max-width:860px;margin:0 auto;}
+    *, *::before, *::after { box-sizing: border-box; }
+    .form-root { font-family: 'Tajawal', sans-serif; max-width: 900px; margin: 0 auto; }
 
-    .form-card{
-        background:#fff;border-radius:16px;border:1px solid #e2e8f0;
-        box-shadow:0 2px 8px rgba(0,0,0,.04);
-        margin-bottom:1.1rem;overflow:hidden;
+    .form-card {
+        background: #fff; border-radius: 16px; border: 1px solid #e2e8f0;
+        box-shadow: 0 2px 8px rgba(0,0,0,.04); margin-bottom: 1.1rem; overflow: hidden;
     }
-    .form-card-header{
-        padding:.85rem 1.25rem;border-bottom:1px solid #f1f5f9;
-        font-size:.85rem;font-weight:800;color:#374151;
-        display:flex;align-items:center;gap:.45rem;
-        background:#fafbff;
+    .form-card-header {
+        padding: .85rem 1.25rem; border-bottom: 1px solid #f1f5f9;
+        font-size: .85rem; font-weight: 800; color: #374151;
+        display: flex; align-items: center; gap: .45rem; background: #fafbff;
     }
-    .form-card-body{padding:1.1rem 1.25rem;}
+    .form-card-body { padding: 1.1rem 1.25rem; }
 
-    .field-grid{display:grid;grid-template-columns:1fr 1fr;gap:.85rem;}
-    @@media(max-width:620px){.field-grid{grid-template-columns:1fr;}}
-    .field-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.85rem;}
-    @@media(max-width:700px){.field-grid-3{grid-template-columns:1fr 1fr;}}
-    @@media(max-width:480px){.field-grid-3{grid-template-columns:1fr;}}
+    .field-grid   { display: grid; grid-template-columns: 1fr 1fr; gap: .85rem; }
+    .field-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .85rem; }
+    @@media(max-width:640px) { .field-grid,.field-grid-3 { grid-template-columns: 1fr; } }
 
-    .fgroup{display:flex;flex-direction:column;gap:.28rem;}
-    .flabel{font-size:.72rem;font-weight:700;color:#64748b;letter-spacing:.04em;}
-    .flabel.required::after{content:" *";color:#ef4444;}
-    .finput,.fselect,.ftextarea{
-        padding:.48rem .75rem;border:1px solid #e2e8f0;border-radius:9px;
-        font-family:'Tajawal',sans-serif;font-size:.82rem;color:#0f172a;
-        background:#f8fafc;outline:none;transition:border-color .15s;width:100%;
+    .fgroup { display: flex; flex-direction: column; gap: .28rem; }
+    .flabel { font-size: .72rem; font-weight: 700; color: #64748b; letter-spacing: .04em; }
+    .flabel.required::after { content: " *"; color: #ef4444; }
+    .finput, .fselect, .ftextarea {
+        padding: .48rem .75rem; border: 1px solid #e2e8f0; border-radius: 9px;
+        font-family: 'Tajawal', sans-serif; font-size: .82rem; color: #0f172a;
+        background: #f8fafc; outline: none; transition: border-color .15s; width: 100%;
     }
-    .finput:focus,.fselect:focus,.ftextarea:focus{border-color:#7c3aed;background:#fff;}
-    .ftextarea{resize:vertical;min-height:80px;}
-    .ferror{font-size:.68rem;color:#ef4444;margin-top:.18rem;}
+    .finput:focus, .fselect:focus, .ftextarea:focus { border-color: #7c3aed; background: #fff; }
+    .ftextarea { resize: vertical; min-height: 80px; }
+    .ferror { font-size: .68rem; color: #ef4444; margin-top: .18rem; }
 
-    .step-bar{
-        display:flex;align-items:center;gap:0;
-        margin-bottom:1.5rem;background:#fff;
-        border-radius:12px;border:1px solid #e2e8f0;
-        overflow:hidden;padding:.2rem;gap:.2rem;
+    .step-bar {
+        display: flex; align-items: center; gap: .2rem; margin-bottom: 1.5rem;
+        background: #fff; border-radius: 12px; border: 1px solid #e2e8f0;
+        overflow: hidden; padding: .2rem;
     }
-    .step{
-        flex:1;display:flex;align-items:center;gap:.45rem;
-        padding:.5rem .75rem;border-radius:9px;
-        font-size:.78rem;font-weight:600;color:#94a3b8;
-        transition:all .2s;cursor:default;
+    .step {
+        flex: 1; display: flex; align-items: center; gap: .45rem;
+        padding: .5rem .75rem; border-radius: 9px; font-size: .78rem;
+        font-weight: 600; color: #94a3b8; transition: all .2s; cursor: default;
     }
-    .step.active{background:#f3e8ff;color:#7c3aed;}
-    .step.done{background:#f0fdf4;color:#15803d;}
-    .step-num{
-        width:22px;height:22px;border-radius:50%;
-        display:flex;align-items:center;justify-content:center;
-        font-size:.72rem;font-weight:800;
-        background:#e2e8f0;color:#94a3b8;flex-shrink:0;
+    .step.active { background: #f3e8ff; color: #7c3aed; }
+    .step.done   { background: #f0fdf4; color: #15803d; }
+    .step-num {
+        width: 22px; height: 22px; border-radius: 50%; display: flex;
+        align-items: center; justify-content: center; font-size: .72rem;
+        font-weight: 800; background: #e2e8f0; color: #94a3b8; flex-shrink: 0;
     }
-    .step.active .step-num{background:#7c3aed;color:#fff;}
-    .step.done  .step-num{background:#22c55e;color:#fff;}
+    .step.active .step-num { background: #7c3aed; color: #fff; }
+    .step.done   .step-num { background: #22c55e; color: #fff; }
 
-    .action-row{
-        display:flex;justify-content:space-between;align-items:center;
-        padding:1rem 1.25rem;background:#fff;
-        border-radius:14px;border:1px solid #e2e8f0;
-        margin-top:.5rem;
+    .action-row {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 1rem 1.25rem; background: #fff; border-radius: 14px;
+        border: 1px solid #e2e8f0; margin-top: .5rem;
     }
-    .btn{
-        padding:.5rem 1.2rem;border-radius:10px;border:none;
-        font-family:'Tajawal',sans-serif;font-size:.82rem;font-weight:700;
-        cursor:pointer;transition:all .18s;display:inline-flex;align-items:center;gap:.4rem;
+    .btn {
+        padding: .5rem 1.2rem; border-radius: 10px; border: none;
+        font-family: 'Tajawal', sans-serif; font-size: .82rem; font-weight: 700;
+        cursor: pointer; transition: all .18s; display: inline-flex; align-items: center; gap: .4rem;
     }
-    .btn-primary{background:#7c3aed;color:#fff;}  .btn-primary:hover{background:#6d28d9;}
-    .btn-default{background:#f1f5f9;color:#374151;} .btn-default:hover{background:#e2e8f0;}
-    .btn-success{background:#22c55e;color:#fff;}  .btn-success:hover{background:#16a34a;}
-    .btn:disabled{opacity:.5;cursor:not-allowed;}
+    .btn-primary { background: #7c3aed; color: #fff; }
+    .btn-primary:hover { background: #6d28d9; }
+    .btn-default { background: #f1f5f9; color: #374151; }
+    .btn-default:hover { background: #e2e8f0; }
+    .btn-success { background: #22c55e; color: #fff; }
+    .btn-success:hover { background: #16a34a; }
+    .btn-outline-violet {
+        background: #faf5ff; border: 1.5px dashed #a78bfa; color: #7c3aed;
+        padding: .38rem .85rem; border-radius: 8px; font-family: 'Tajawal',sans-serif;
+        font-size: .78rem; font-weight: 700; cursor: pointer; transition: all .18s;
+        display: inline-flex; align-items: center; gap: .35rem;
+    }
+    .btn-outline-violet:hover { background: #f3e8ff; border-color: #7c3aed; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
 
-    .demandeur-search{position:relative;}
-    .demandeur-results{
-        position:absolute;top:100%;right:0;left:0;z-index:50;
-        background:#fff;border:1px solid #e2e8f0;border-radius:10px;
-        box-shadow:0 8px 24px rgba(0,0,0,.1);max-height:200px;overflow-y:auto;
-        margin-top:2px;
+    .demandeur-search { position: relative; }
+    .demandeur-results {
+        position: absolute; top: 100%; right: 0; left: 0; z-index: 50;
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+        box-shadow: 0 8px 24px rgba(0,0,0,.1); max-height: 200px; overflow-y: auto;
+        margin-top: 2px;
     }
-    .demandeur-option{
-        padding:.65rem .85rem;cursor:pointer;font-size:.8rem;
-        border-bottom:1px solid #f8fafc;transition:background .12s;
+    .demandeur-option {
+        padding: .65rem .85rem; cursor: pointer; font-size: .8rem;
+        border-bottom: 1px solid #f8fafc; transition: background .12s;
     }
-    .demandeur-option:hover{background:#f3e8ff;}
-    .demandeur-option:last-child{border-bottom:none;}
+    .demandeur-option:hover { background: #f3e8ff; }
+    .demandeur-option:last-child { border-bottom: none; }
 
-    @@keyframes spin{to{transform:rotate(360deg);}}
-    .spinner{animation:spin .75s linear infinite;}
-    .success-banner{
-        background:linear-gradient(135deg,#f0fdf4,#dcfce7);
-        border:2px solid #86efac;border-radius:16px;
-        padding:2rem;text-align:center;
+    .inline-form {
+        background: #faf5ff; border: 1.5px solid #d8b4fe; border-radius: 12px;
+        padding: 1rem; margin-top: .6rem;
+    }
+    .inline-form-title {
+        font-size: .78rem; font-weight: 800; color: #7c3aed;
+        display: flex; align-items: center; gap: .35rem; margin-bottom: .8rem;
+    }
+
+    .geo-box {
+        background: #f8fafc; border: 1.5px dashed #c7d2e8; border-radius: 12px;
+        padding: .9rem 1rem; margin-top: .85rem;
+    }
+    .geo-box-title {
+        font-size: .78rem; font-weight: 700; color: #374151;
+        display: flex; align-items: center; gap: .35rem; margin-bottom: .65rem;
+    }
+
+    .selected-badge {
+        background: #f3e8ff; border: 1px solid #d8b4fe; border-radius: 10px;
+        padding: .7rem .9rem; display: flex; align-items: center; gap: .6rem;
+        margin-bottom: .75rem;
+    }
+
+    @@keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { animation: spin .75s linear infinite; }
+    .success-banner {
+        background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+        border: 2px solid #86efac; border-radius: 16px; padding: 2rem; text-align: center;
+    }
+
+    .divider-or {
+        display: flex; align-items: center; gap: .65rem; margin: .85rem 0;
+        font-size: .72rem; color: #94a3b8;
+    }
+    .divider-or::before, .divider-or::after {
+        content: ''; flex: 1; height: 1px; background: #e2e8f0;
     }
 </style>
 
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
 
 <div class="form-root">
 
     <!-- Header -->
     <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1.25rem;">
-        <a href="/permits/list" style="width:36px;height:36px;border-radius:10px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;color:#374151;text-decoration:none;font-size:1rem;">
+        <a href="/permits/list"
+           style="width:36px;height:36px;border-radius:10px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;color:#374151;text-decoration:none;font-size:1rem;">
             <i class="bi bi-arrow-right"></i>
         </a>
         <div>
             <h2 style="font-size:1.05rem;font-weight:800;color:#0f172a;margin:0;">إيداع طلب رخصة بناء</h2>
-            <div style="font-size:.75rem;color:#94a3b8;">أدخل جميع المعلومات المطلوبة</div>
+            <div style="font-size:.75rem;color:#94a3b8;">أدخل جميع المعلومات المطلوبة · @(IsLoading?"جارٍ التحميل…":"جاهز")</div>
         </div>
     </div>
 
@@ -129,13 +161,15 @@
         <div class="success-banner">
             <i class="bi bi-check-circle-fill" style="font-size:3rem;color:#22c55e;display:block;margin-bottom:.75rem;"></i>
             <h3 style="font-size:1.1rem;font-weight:800;color:#0f172a;margin:0 0 .4rem;">تم إيداع الطلب بنجاح!</h3>
-            <div style="font-size:.88rem;color:#64748b;margin-bottom:1.25rem;">رقم الطلب: <strong style="color:#7c3aed;">@CreatedNumero</strong></div>
+            <div style="font-size:.88rem;color:#64748b;margin-bottom:1.25rem;">
+                رقم الطلب: <strong style="color:#7c3aed;">@CreatedNumero</strong>
+            </div>
             <div style="display:flex;gap:.75rem;justify-content:center;">
                 <button class="btn btn-primary" @onclick='()=>Nav.NavigateTo($"/permits/detail/{CreatedId}")'>
                     <i class="bi bi-eye-fill"></i> عرض التفاصيل
                 </button>
                 <button class="btn btn-default" @onclick="ResetForm">
-                    <i class="bi bi-plus-lg"></i> طلب جديد
+                    <i class="bi bi-plus-lg"></i> طلب جديد آخر
                 </button>
             </div>
         </div>
@@ -147,8 +181,8 @@
             @for (int i = 1; i <= 3; i++)
             {
                 var si = i;
-                var label = si == 1 ? "معلومات المتقدم" : si == 2 ? "تفاصيل المشروع" : "المراجعة والإيداع";
-                <div class="step @(CurrentStep==si?"active":CurrentStep>si?"done":"")">
+                var label = si == 1 ? "المتقدم والمهندس" : si == 2 ? "تفاصيل المشروع" : "المراجعة والإيداع";
+                <div class="step @(CurrentStep == si ? "active" : CurrentStep > si ? "done" : "")">
                     <div class="step-num">
                         @if (CurrentStep > si) { <i class="bi bi-check2"></i> }
                         else { @si.ToString() }
@@ -158,7 +192,7 @@
             }
         </div>
 
-        <!-- Step 1: Demandeur -->
+        <!-- ══ STEP 1: Demandeur + Architecte ══ -->
         @if (CurrentStep == 1)
         {
             <div class="form-card">
@@ -167,25 +201,23 @@
                 </div>
                 <div class="form-card-body">
 
-                    <div class="fgroup demandeur-search" style="margin-bottom:.85rem;">
-                        <label class="flabel required">البحث عن مواطن موجود</label>
+                    <!-- Search existing -->
+                    <div class="fgroup demandeur-search" style="margin-bottom:.6rem;">
+                        <label class="flabel required">البحث عن متقدم موجود</label>
                         <input class="finput" type="text"
                                placeholder="ابحث بالاسم، CIN، الهاتف..."
                                @bind="DemandeurSearch"
                                @oninput="SearchDemandeur" />
-    
                         @if (DemandeurResults?.Any() == true)
                         {
                             <div class="demandeur-results">
                                 @foreach (var d in DemandeurResults)
                                 {
-                                    <div class="demandeur-option" @onclick="()=>SelectDemandeur(d)">
+                                    <div class="demandeur-option" @onclick="() => SelectDemandeur(d)">
                                         <strong>@d.NomComplet</strong>
                                         <span style="color:#94a3b8;font-size:.72rem;margin-right:.4rem;">@d.Telephone</span>
                                         @if (!string.IsNullOrEmpty(d.CIN))
-                                        {
-                                            <span style="color:#7c3aed;font-size:.7rem;">CIN: @d.CIN</span>
-                                        }
+                                        { <span style="color:#7c3aed;font-size:.7rem;">CIN: @d.CIN</span> }
                                     </div>
                                 }
                             </div>
@@ -194,22 +226,26 @@
 
                     @if (SelectedDemandeur != null)
                     {
-                        <div style="background:#f3e8ff;border:1px solid #d8b4fe;border-radius:10px;padding:.8rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:.6rem;">
+                        <div class="selected-badge">
                             <i class="bi bi-person-check-fill" style="color:#7c3aed;font-size:1.1rem;"></i>
                             <div style="flex:1;">
                                 <div style="font-size:.82rem;font-weight:700;color:#0f172a;">@SelectedDemandeur.NomComplet</div>
-                                <div style="font-size:.72rem;color:#64748b;">@SelectedDemandeur.Telephone @(!string.IsNullOrEmpty(SelectedDemandeur.CIN)?$"· CIN: {SelectedDemandeur.CIN}":"")</div>
+                                <div style="font-size:.72rem;color:#64748b;">
+                                    @SelectedDemandeur.Telephone
+                                    @if (!string.IsNullOrEmpty(SelectedDemandeur.CIN)) { <text> · CIN: @SelectedDemandeur.CIN</text> }
+                                    @if (!string.IsNullOrEmpty(SelectedDemandeur.Adresse)) { <text> · @SelectedDemandeur.Adresse</text> }
+                                </div>
                             </div>
-                            <button style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:.85rem;" @onclick="()=>SelectedDemandeur=null">
+                            <button style="background:none;border:none;color:#94a3b8;cursor:pointer;"
+                                    @onclick="ClearDemandeur">
                                 <i class="bi bi-x-circle"></i>
                             </button>
                         </div>
                     }
                     else
                     {
-                        <div style="font-size:.78rem;color:#94a3b8;margin-bottom:.75rem;">
-                            — أو أدخل متقدماً جديداً —
-                        </div>
+                        <div class="divider-or">أو أدخل متقدماً جديداً</div>
+
                         <div class="field-grid">
                             <div class="fgroup">
                                 <label class="flabel required">اللقب</label>
@@ -232,7 +268,7 @@
                                 <input class="finput" type="email" @bind="NouveauDemandeur.Email" placeholder="..." />
                             </div>
                             <div class="fgroup">
-                                <label class="flabel required">النوع</label>
+                                <label class="flabel required">الصنف</label>
                                 <select class="fselect" @bind="NouveauDemandeur.Type">
                                     <option value="Personne">شخص طبيعي</option>
                                     <option value="SocieteConstruction">شركة بناء</option>
@@ -240,18 +276,32 @@
                             </div>
                         </div>
                         <div class="fgroup" style="margin-top:.75rem;">
-                            <label class="flabel required">العنوان</label>
+                            <label class="flabel required">العنوان الكامل</label>
                             <input class="finput" @bind="NouveauDemandeur.Adresse" placeholder="العنوان الكامل..." />
                         </div>
+                        @if (NouveauDemandeur.Type == "SocieteConstruction")
+                        {
+                            <div class="fgroup" style="margin-top:.6rem;">
+                                <label class="flabel">الرسمية / السجل التجاري</label>
+                                <input class="finput" @bind="NouveauDemandeur.RaisonSociale" placeholder="اسم الشركة أو السجل التجاري..." />
+                            </div>
+                        }
                     }
+                </div>
+            </div>
 
-                    <!-- Architecte -->
-                    <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid #f1f5f9;">
-                        <div style="font-size:.8rem;font-weight:700;color:#374151;margin-bottom:.65rem;">
-                            <i class="bi bi-pencil-ruler" style="color:#7c3aed;"></i> المهندس المعماري (اختياري)
-                        </div>
-                        <div class="fgroup">
-                            <label class="flabel">اختر مهندساً معمارياً</label>
+            <!-- Architecte -->
+            <div class="form-card">
+                <div class="form-card-header">
+                    <i class="bi bi-pencil-ruler" style="color:#7c3aed;"></i> المهندس المعماري
+                    <span style="font-size:.7rem;color:#94a3b8;font-weight:400;">(اختياري)</span>
+                </div>
+                <div class="form-card-body">
+
+                    @if (!_showNewArch)
+                    {
+                        <div class="fgroup" style="margin-bottom:.65rem;">
+                            <label class="flabel">اختر من المهندسين المسجّلين</label>
                             <select class="fselect" @bind="Dto.ArchitecteId">
                                 <option value="">— بدون مهندس —</option>
                                 @foreach (var a in Architectes ?? new())
@@ -260,12 +310,76 @@
                                 }
                             </select>
                         </div>
-                    </div>
+                        <button class="btn-outline-violet" @onclick="() => _showNewArch = true">
+                            <i class="bi bi-plus-circle"></i> إضافة مهندس جديد
+                        </button>
+                    }
+                    else
+                    {
+                        <div class="inline-form">
+                            <div class="inline-form-title">
+                                <i class="bi bi-person-plus-fill"></i> تسجيل مهندس معماري جديد
+                            </div>
+                            <div class="field-grid" style="margin-bottom:.65rem;">
+                                <div class="fgroup">
+                                    <label class="flabel required">رقم الانتساب (نقابة المهندسين)</label>
+                                    <input class="finput" @bind="_newArch.NumeroOrdre" placeholder="مثال: OA-2020-0456" />
+                                </div>
+                                <div class="fgroup">
+                                    <label class="flabel required">رقم الهوية CIN</label>
+                                    <input class="finput" @bind="_newArch.CIN" placeholder="XXXXXXXX" />
+                                </div>
+                                <div class="fgroup">
+                                    <label class="flabel required">اللقب</label>
+                                    <input class="finput" @bind="_newArch.Nom" placeholder="اللقب..." />
+                                </div>
+                                <div class="fgroup">
+                                    <label class="flabel required">الاسم</label>
+                                    <input class="finput" @bind="_newArch.Prenom" placeholder="الاسم..." />
+                                </div>
+                                <div class="fgroup">
+                                    <label class="flabel required">الهاتف</label>
+                                    <input class="finput" @bind="_newArch.Telephone" placeholder="06XXXXXXXX" />
+                                </div>
+                                <div class="fgroup">
+                                    <label class="flabel">البريد الإلكتروني</label>
+                                    <input class="finput" type="email" @bind="_newArch.Email" placeholder="..." />
+                                </div>
+                            </div>
+                            <div style="display:flex;gap:.5rem;">
+                                <button class="btn btn-primary" style="font-size:.78rem;padding:.4rem .9rem;"
+                                        @onclick="SaveNewArchitecte" disabled="@_savingArch">
+                                    @if (_savingArch) { <i class="bi bi-arrow-clockwise spinner"></i> }
+                                    else { <i class="bi bi-floppy-fill"></i> }
+                                    حفظ المهندس
+                                </button>
+                                <button class="btn btn-default" style="font-size:.78rem;padding:.4rem .9rem;"
+                                        @onclick="() => { _showNewArch = false; _newArch = new(); }">
+                                    إلغاء
+                                </button>
+                            </div>
+                            @if (!string.IsNullOrEmpty(_archError))
+                            {
+                                <div class="ferror" style="margin-top:.4rem;">@_archError</div>
+                            }
+                        </div>
+                    }
+
+                    @if (SelectedArchitecte != null)
+                    {
+                        <div class="selected-badge" style="margin-top:.65rem;">
+                            <i class="bi bi-check-circle-fill" style="color:#22c55e;"></i>
+                            <div style="flex:1;">
+                                <div style="font-size:.8rem;font-weight:700;color:#0f172a;">@SelectedArchitecte.NomComplet</div>
+                                <div style="font-size:.7rem;color:#64748b;">رقم نقابة: @SelectedArchitecte.NumeroOrdre</div>
+                            </div>
+                        </div>
+                    }
                 </div>
             </div>
         }
 
-        <!-- Step 2: Projet -->
+        <!-- ══ STEP 2: Détails du projet ══ -->
         @if (CurrentStep == 2)
         {
             <div class="form-card">
@@ -273,24 +387,17 @@
                     <i class="bi bi-building" style="color:#7c3aed;"></i> تفاصيل المشروع
                 </div>
                 <div class="form-card-body">
-                    <div class="fgroup" style="margin-bottom:.85rem;">
-                        <label class="flabel required">نوع الطلب</label>
-                        <select class="fselect" @bind="Dto.TypeDemandeId">
-                            <option value="0">— اختر نوع الطلب —</option>
-                            <option value="1">رخصة بناء جديدة</option>
-                            <option value="2">تعلية وتوسعة</option>
-                            <option value="3">إعادة بناء</option>
-                            <option value="4">تغيير استعمال</option>
-                        </select>
-                    </div>
-                    <div class="fgroup" style="margin-bottom:.85rem;">
-                        <label class="flabel required">عنوان قطعة الأرض</label>
-                        <input class="finput" @bind="Dto.AdresseProjet" placeholder="العنوان الكامل لموقع البناء..." />
-                    </div>
+
                     <div class="field-grid" style="margin-bottom:.85rem;">
                         <div class="fgroup">
-                            <label class="flabel">رقم القطعة</label>
-                            <input class="finput" @bind="Dto.NumeroParcelle" placeholder="رقم القطعة العقارية..." />
+                            <label class="flabel required">نوع الطلب</label>
+                            <select class="fselect" @bind="Dto.TypeDemandeId">
+                                <option value="0">— اختر نوع الطلب —</option>
+                                @foreach (var t in _typesDemande)
+                                {
+                                    <option value="@t.Id">@t.Libelle (@t.DelaiTraitementJours يوم)</option>
+                                }
+                            </select>
                         </div>
                         <div class="fgroup">
                             <label class="flabel">نوع البناء</label>
@@ -304,6 +411,30 @@
                             </select>
                         </div>
                     </div>
+
+                    <div class="fgroup" style="margin-bottom:.85rem;">
+                        <label class="flabel required">عنوان قطعة الأرض / موقع البناء</label>
+                        <input class="finput" @bind="Dto.AdresseProjet"
+                               placeholder="العنوان الكامل لموقع المشروع..." />
+                    </div>
+
+                    <div class="field-grid" style="margin-bottom:.85rem;">
+                        <div class="fgroup">
+                            <label class="flabel">رقم القطعة العقارية</label>
+                            <input class="finput" @bind="Dto.NumeroParcelle" placeholder="رقم القطعة..." />
+                        </div>
+                        <div class="fgroup">
+                            <label class="flabel">منطقة التعمير</label>
+                            <select class="fselect" @bind="Dto.ZonageId">
+                                <option value="">— اختر المنطقة —</option>
+                                @foreach (var z in _zonages)
+                                {
+                                    <option value="@z.Id">@z.Code — @z.Libelle</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+
                     <div class="field-grid-3" style="margin-bottom:.85rem;">
                         <div class="fgroup">
                             <label class="flabel">مساحة الأرض (م²)</label>
@@ -318,25 +449,65 @@
                             <input class="finput" type="number" @bind="Dto.NombreNiveaux" placeholder="1" min="1" />
                         </div>
                     </div>
+
                     <div class="field-grid" style="margin-bottom:.85rem;">
                         <div class="fgroup">
                             <label class="flabel">التكلفة التقديرية (د.ج)</label>
                             <input class="finput" type="number" @bind="Dto.CoutEstimatif" placeholder="0.00" />
                         </div>
-                        <div class="fgroup">
-                            <label class="flabel">منطقة التعمير</label>
-                            <input class="finput" type="number" @bind="Dto.ZonageId" placeholder="معرف منطقة التعمير..." />
-                        </div>
                     </div>
-                    <div class="fgroup">
+
+                    <!-- Geographic Location -->
+                    <div class="geo-box">
+                        <div class="geo-box-title">
+                            <i class="bi bi-geo-alt-fill" style="color:#7c3aed;"></i>
+                            الموقع الجغرافي
+                            <span style="font-size:.68rem;color:#94a3b8;font-weight:400;">(اختياري — يُستخدم في خرائط البلدية)</span>
+                        </div>
+                        <div class="field-grid" style="margin-bottom:.5rem;">
+                            <div class="fgroup">
+                                <label class="flabel">خط العرض (Latitude)</label>
+                                <input class="finput" type="number" step="0.000001"
+                                       @bind="Dto.Latitude" placeholder="مثال: 36.736900" />
+                            </div>
+                            <div class="fgroup">
+                                <label class="flabel">خط الطول (Longitude)</label>
+                                <input class="finput" type="number" step="0.000001"
+                                       @bind="Dto.Longitude" placeholder="مثال: 3.086900" />
+                            </div>
+                        </div>
+                        @if (Dto.Latitude.HasValue && Dto.Longitude.HasValue)
+                        {
+                            <div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-top:.3rem;">
+                                <a href="https://www.openstreetmap.org/?mlat=@Dto.Latitude&mlon=@Dto.Longitude&zoom=16"
+                                   target="_blank"
+                                   style="display:inline-flex;align-items:center;gap:.3rem;font-size:.74rem;color:#0369a1;text-decoration:none;font-weight:600;">
+                                    <i class="bi bi-map-fill"></i> عرض على الخريطة
+                                </a>
+                            </div>
+                        }
+                        else
+                        {
+                            <div style="font-size:.7rem;color:#94a3b8;display:flex;align-items:center;gap:.3rem;margin-top:.25rem;">
+                                <i class="bi bi-info-circle"></i>
+                                للحصول على الإحداثيات: افتح
+                                <a href="https://maps.google.com" target="_blank"
+                                   style="color:#0369a1;text-decoration:none;font-weight:600;">خرائط جوجل</a>،
+                                انقر بزر الفأرة الأيمن على الموقع، ثم انسخ الإحداثيات.
+                            </div>
+                        }
+                    </div>
+
+                    <div class="fgroup" style="margin-top:.85rem;">
                         <label class="flabel">ملاحظات إضافية</label>
-                        <textarea class="ftextarea" @bind="Dto.Observations" placeholder="معلومات إضافية عن المشروع..."></textarea>
+                        <textarea class="ftextarea" @bind="Dto.Observations"
+                                  placeholder="معلومات إضافية عن المشروع، الاشتراطات الخاصة..."></textarea>
                     </div>
                 </div>
             </div>
         }
 
-        <!-- Step 3: Recap -->
+        <!-- ══ STEP 3: Review ══ -->
         @if (CurrentStep == 3)
         {
             <div class="form-card">
@@ -344,31 +515,59 @@
                     <i class="bi bi-clipboard2-check-fill" style="color:#7c3aed;"></i> مراجعة الطلب قبل الإيداع
                 </div>
                 <div class="form-card-body">
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
                         <div>
-                            <div style="font-size:.72rem;font-weight:700;color:#94a3b8;letter-spacing:.07em;text-transform:uppercase;margin-bottom:.65rem;">المتقدم</div>
-                            <div style="font-size:.85rem;font-weight:700;color:#0f172a;">@(SelectedDemandeur?.NomComplet ?? NouveauDemandeur.Nom + " " + NouveauDemandeur.Prenom)</div>
-                            <div style="font-size:.78rem;color:#64748b;margin-top:.15rem;">@(SelectedDemandeur?.Telephone ?? NouveauDemandeur.Telephone)</div>
-                        </div>
-                        <div>
-                            <div style="font-size:.72rem;font-weight:700;color:#94a3b8;letter-spacing:.07em;text-transform:uppercase;margin-bottom:.65rem;">المشروع</div>
-                            <div style="font-size:.85rem;font-weight:700;color:#0f172a;">@Dto.AdresseProjet</div>
-                            <div style="font-size:.78rem;color:#64748b;margin-top:.15rem;">
-                                @if (Dto.SuperficieTerrain.HasValue) { <text>@Dto.SuperficieTerrain م² · </text> }
-                                @if (Dto.NombreNiveaux.HasValue)     { <text>@Dto.NombreNiveaux طابق · </text> }
-                                @if (!string.IsNullOrEmpty(Dto.TypeConstruction)) { <text>@GetConstructionLabel(Dto.TypeConstruction)</text> }
+                            <div style="font-size:.7rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem;">المتقدم</div>
+                            <div style="font-size:.85rem;font-weight:700;color:#0f172a;">
+                                @(SelectedDemandeur?.NomComplet ?? (NouveauDemandeur.Nom + " " + NouveauDemandeur.Prenom).Trim())
+                            </div>
+                            <div style="font-size:.77rem;color:#64748b;margin-top:.12rem;">
+                                @(SelectedDemandeur?.Telephone ?? NouveauDemandeur.Telephone)
                             </div>
                         </div>
+                        <div>
+                            <div style="font-size:.7rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem;">نوع الطلب</div>
+                            <div style="font-size:.85rem;font-weight:700;color:#0f172a;">
+                                @(_typesDemande.FirstOrDefault(t => t.Id == Dto.TypeDemandeId)?.Libelle ?? "—")
+                            </div>
+                            <div style="font-size:.77rem;color:#64748b;margin-top:.12rem;">
+                                أجل: @(_typesDemande.FirstOrDefault(t => t.Id == Dto.TypeDemandeId)?.DelaiTraitementJours ?? 0) يوم
+                            </div>
+                        </div>
+                        <div>
+                            <div style="font-size:.7rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem;">المشروع</div>
+                            <div style="font-size:.85rem;font-weight:700;color:#0f172a;">@Dto.AdresseProjet</div>
+                            <div style="font-size:.77rem;color:#64748b;margin-top:.12rem;">
+                                @if (Dto.SuperficieTerrain.HasValue) { <text>@Dto.SuperficieTerrain م² · </text> }
+                                @if (Dto.NombreNiveaux.HasValue) { <text>@Dto.NombreNiveaux طابق · </text> }
+                                @GetConstructionLabel(Dto.TypeConstruction)
+                            </div>
+                        </div>
+                        <div>
+                            <div style="font-size:.7rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem;">المهندس المعماري</div>
+                            @{
+                                var archName = SelectedArchitecte?.NomComplet
+                                    ?? Architectes?.FirstOrDefault(a => a.Id == Dto.ArchitecteId)?.NomComplet;
+                            }
+                            <div style="font-size:.85rem;font-weight:700;color:#0f172a;">@(archName ?? "بدون مهندس")</div>
+                        </div>
                     </div>
+                    @if (Dto.Latitude.HasValue && Dto.Longitude.HasValue)
+                    {
+                        <div style="display:flex;align-items:center;gap:.4rem;font-size:.76rem;color:#0369a1;margin-bottom:.75rem;">
+                            <i class="bi bi-geo-alt-fill"></i>
+                            الموقع الجغرافي: @Dto.Latitude, @Dto.Longitude
+                        </div>
+                    }
                     @if (!string.IsNullOrEmpty(Dto.Observations))
                     {
-                        <div style="margin-top:.85rem;padding:.75rem;background:#f8fafc;border-radius:9px;font-size:.8rem;color:#374151;">
+                        <div style="background:#f8fafc;border-radius:9px;padding:.75rem;font-size:.8rem;color:#374151;margin-bottom:.75rem;">
                             <strong>ملاحظات:</strong> @Dto.Observations
                         </div>
                     }
                     @if (!string.IsNullOrEmpty(FormError))
                     {
-                        <div style="margin-top:.75rem;padding:.7rem;background:#fef2f2;border-radius:9px;color:#b91c1c;font-size:.8rem;font-weight:600;">
+                        <div style="background:#fef2f2;border-radius:9px;padding:.7rem;color:#b91c1c;font-size:.8rem;font-weight:600;">
                             <i class="bi bi-exclamation-triangle-fill me-1"></i> @FormError
                         </div>
                     }
@@ -378,7 +577,7 @@
 
         <!-- Action row -->
         <div class="action-row">
-            <button class="btn btn-default" @onclick="PrevStep" disabled="@(CurrentStep==1||IsSaving)">
+            <button class="btn btn-default" @onclick="PrevStep" disabled="@(CurrentStep == 1 || IsSaving)">
                 <i class="bi bi-chevron-right"></i> السابق
             </button>
             @if (CurrentStep < 3)
@@ -399,28 +598,56 @@
 </div>
 
 @code {
-    private CreateDemandePermisDto   Dto              = new() { TypeDemandeId = 0 };
-    private CreateDemandeurDto       NouveauDemandeur = new() { Type = "Personne" };
-    private DemandeurDto?            SelectedDemandeur;
-    private List<DemandeurDto>?      DemandeurResults;
-    private List<ArchitecteDto>?     Architectes;
-    private string DemandeurSearch  = "";
-    private int    CurrentStep      = 1;
-    private bool   IsSaving         = false;
-    private bool   IsSuccess        = false;
-    private string FormError        = "";
-    private string CreatedNumero    = "";
-    private int    CreatedId        = 0;
+    // ── Form state ────────────────────────────────────────────────
+    private CreateDemandePermisDto Dto             = new() { TypeDemandeId = 0 };
+    private CreateDemandeurDto     NouveauDemandeur = new() { Type = "Personne" };
+    private DemandeurDto?          SelectedDemandeur;
+    private List<DemandeurDto>?    DemandeurResults;
+    private string DemandeurSearch = "";
 
+    // ── Architecte inline ─────────────────────────────────────────
+    private List<ArchitecteDto>?   Architectes;
+    private ArchitecteDto?         SelectedArchitecte;
+    private bool                   _showNewArch;
+    private CreateArchitecteDto    _newArch = new();
+    private bool                   _savingArch;
+    private string                 _archError = "";
+
+    // ── Referential data ──────────────────────────────────────────
+    private List<TypeDemandePermisDto> _typesDemande = new();
+    private List<ZonageUrbanismeDto>   _zonages       = new();
+
+    // ── Navigation ────────────────────────────────────────────────
+    private int  CurrentStep  = 1;
+    private bool IsSaving     = false;
+    private bool IsLoading    = true;
+    private bool IsSuccess    = false;
+    private string FormError  = "";
+    private string CreatedNumero = "";
+    private int    CreatedId     = 0;
+
+    // ── Load referential data ─────────────────────────────────────
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
-        try { Architectes = await ArchitecteApi.GetAllAsync(); }
+        IsLoading = true;
+        try
+        {
+            var tasksArch  = ArchitecteApi.GetAllAsync();
+            var tasksTypes = RefsApi.GetTypesDemandeAsync();
+            var tasksZon   = RefsApi.GetZonagesAsync();
+            await Task.WhenAll(tasksArch, tasksTypes, tasksZon);
+
+            Architectes   = await tasksArch ?? new();
+            _typesDemande = (await tasksTypes)?.Where(t => t.IsActive).ToList() ?? new();
+            _zonages      = (await tasksZon )?.Where(z => z.IsActive).ToList() ?? new();
+        }
         catch { }
-        StateHasChanged();
+        finally { IsLoading = false; StateHasChanged(); }
     }
 
-    private  async Task SearchDemandeur(ChangeEventArgs e)
+    // ── Demandeur search ──────────────────────────────────────────
+    private async Task SearchDemandeur(ChangeEventArgs e)
     {
         DemandeurSearch = e.Value?.ToString() ?? "";
         if (DemandeurSearch.Length < 2) { DemandeurResults = null; return; }
@@ -437,6 +664,45 @@
         DemandeurSearch    = d.NomComplet;
     }
 
+    private void ClearDemandeur()
+    {
+        SelectedDemandeur = null;
+        DemandeurSearch   = "";
+    }
+
+    // ── Architecte inline creation ────────────────────────────────
+    private async Task SaveNewArchitecte()
+    {
+        _archError = "";
+        if (string.IsNullOrEmpty(_newArch.NumeroOrdre) || string.IsNullOrEmpty(_newArch.Nom)
+            || string.IsNullOrEmpty(_newArch.CIN) || string.IsNullOrEmpty(_newArch.Telephone))
+        {
+            _archError = "رقم الانتساب، اللقب، CIN والهاتف إلزامية";
+            return;
+        }
+        _savingArch = true;
+        try
+        {
+            var created = await ArchitecteApi.CreateAsync(_newArch);
+            if (created != null)
+            {
+                Architectes ??= new();
+                Architectes.Add(created);
+                Dto.ArchitecteId = created.Id;
+                SelectedArchitecte = created;
+                _showNewArch = false;
+                _newArch = new();
+            }
+            else
+            {
+                _archError = "فشل تسجيل المهندس — تحقق من البيانات أو إذا كان مسجلاً مسبقاً";
+            }
+        }
+        catch { _archError = "حدث خطأ أثناء الحفظ"; }
+        finally { _savingArch = false; }
+    }
+
+    // ── Navigation ────────────────────────────────────────────────
     private void NextStep()
     {
         FormError = "";
@@ -462,23 +728,27 @@
 
     private void PrevStep() { if (CurrentStep > 1) CurrentStep--; }
 
+    // ── Submit ────────────────────────────────────────────────────
     private async Task SubmitForm()
     {
         FormError = "";
         IsSaving  = true;
         try
         {
-            // إنشاء متقدم جديد إذا لم يكن موجوداً
             if (SelectedDemandeur == null)
             {
                 var created = await DemandeurApi.CreateAsync(NouveauDemandeur);
-                if (created == null) { FormError = "فشل إنشاء المتقدم"; IsSaving = false; return; }
+                if (created == null) { FormError = "فشل إنشاء المتقدم — تحقق من البيانات"; IsSaving = false; return; }
                 Dto.DemandeurId = created.Id;
             }
             else
             {
                 Dto.DemandeurId = SelectedDemandeur.Id;
             }
+
+            // Sync architecte selection from dropdown if not using inline form
+            if (!Dto.ArchitecteId.HasValue || Dto.ArchitecteId == 0)
+                Dto.ArchitecteId = null;
 
             var result = await PermisApi.DeposerAsync(Dto);
             if (result != null)
@@ -498,21 +768,24 @@
 
     private void ResetForm()
     {
-        Dto = new() { TypeDemandeId = 0 };
-        NouveauDemandeur = new() { Type = "Personne" };
+        Dto               = new() { TypeDemandeId = 0 };
+        NouveauDemandeur  = new() { Type = "Personne" };
         SelectedDemandeur = null;
+        SelectedArchitecte = null;
         DemandeurSearch   = "";
         CurrentStep       = 1;
         IsSuccess         = false;
         FormError         = "";
         CreatedNumero     = "";
         CreatedId         = 0;
+        _showNewArch      = false;
+        _newArch          = new();
     }
 
     private string GetConstructionLabel(string? s) => s switch
     {
-        "Residential" => "سكني","Commercial" => "تجاري",
-        "Industriel"  => "صناعي","Mixte" => "مختلط","Agricole" => "فلاحي",
+        "Residential" => "سكني", "Commercial" => "تجاري",
+        "Industriel"  => "صناعي", "Mixte" => "مختلط", "Agricole" => "فلاحي",
         _ => s ?? ""
     };
 }

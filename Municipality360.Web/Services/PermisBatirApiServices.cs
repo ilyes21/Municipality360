@@ -24,6 +24,7 @@ public interface IPermisBatirApiService
     Task<bool> AjouterTaxeAsync(int id, AjouterTaxeDto dto);
     Task<bool> PayerTaxeAsync(int id, PayerTaxeDto dto);
     Task<bool> AjouterInspectionAsync(int id, CreateInspectionDto dto);
+    Task<bool> ValiderDocumentAsync(int demandeId, int docId, string statut);
 }
 
 public class PermisBatirApiService : IPermisBatirApiService
@@ -100,6 +101,14 @@ public class PermisBatirApiService : IPermisBatirApiService
     public async Task<bool> AjouterInspectionAsync(int id, CreateInspectionDto dto)
     {
         var r = await _api.PostAsync<CreateInspectionDto, object>($"api/permis-batir/{id}/inspections", dto);
+        return r != null;
+    }
+
+    public async Task<bool> ValiderDocumentAsync(int demandeId, int docId, string statut)
+    {
+        var r = await _api.PatchAsync<object, object>(
+            $"api/permis-batir/{demandeId}/documents/{docId}/statut",
+            new { Statut = statut });
         return r != null;
     }
 }
